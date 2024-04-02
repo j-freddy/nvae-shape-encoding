@@ -1,0 +1,15 @@
+[MASTER]
+
+disable=
+    consider-using-enumerate,
+    missing-class-docstring,
+    missing-function-docstring,
+    missing-module-docstring,
+    redefined-outer-name,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+
+[FORMAT]
+
+max-line-length = 80
