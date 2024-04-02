@@ -1,1 +1,2 @@
+DATA_PATH = "data"
 SEED = 1969
