@@ -1,8 +1,10 @@
 import lightning as L
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import TensorBoardLogger
 
-from const import SEED
+from const import LOGS_PATH, SEED
 from data_modules.cifar10 import CIFAR10DataModule
-from nvae import NVAE
+from nvae.nvae import NVAE
 from utils import setup_device
 
 if __name__ == "__main__":
@@ -19,6 +21,15 @@ if __name__ == "__main__":
     # Train
     model = NVAE()
     
-    # TODO Configure trainer parameters
-    trainer = L.Trainer()
+    trainer = L.Trainer(
+        accelerator="auto",
+        devices="auto",
+        max_epochs=100,
+        logger=TensorBoardLogger(save_dir=LOGS_PATH, name="nvae_cifar10"),
+        callbacks=[
+            ModelCheckpoint(monitor="val_loss", mode="min"),
+            LearningRateMonitor("epoch"),
+        ]
+    )
+    
     trainer.fit(model, data_module)
