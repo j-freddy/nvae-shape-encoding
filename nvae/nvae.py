@@ -27,7 +27,9 @@ class NVAE(L.LightningModule):
     def configure_optimizers(self):
         NotImplemented
     
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(self, feats: torch.Tensor) -> torch.Tensor:
+        self.encoder(feats)
+        
         NotImplemented
         
     def training_step(
@@ -40,8 +42,7 @@ class NVAE(L.LightningModule):
         print(feats.shape)
         print(labels.shape)
         
-        import sys
-        sys.exit()
+        self(feats)
         
         NotImplemented
     
