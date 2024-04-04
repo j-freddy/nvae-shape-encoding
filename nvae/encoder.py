@@ -15,10 +15,10 @@ class EncoderResidualCell(nn.Module):
         self.net = nn.Sequential(
             nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
-            nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1),
+            nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
-            nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1),
+            nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
             ops.SqueezeExcitation(
                 num_channels,
                 # Following the official NVAE implementation from class SE in
@@ -28,8 +28,7 @@ class EncoderResidualCell(nn.Module):
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # TODO hparams
-        return x + 0.1 * self.net(x)
+        return x + self.net(x)
 
 class EncoderCombinerCell(nn.Module):
     """
@@ -48,21 +47,43 @@ class EncoderCombinerCell(nn.Module):
         return x1 + self.net(x2)
 
 class Encoder(nn.Module):
-    def __init__(self):
+    """
+    NVAE Encoder.
+    
+    Implementation as described by the diagram: -
+    https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    
+    For alignment, the 2nd InvertedResidual (i.e. EncoderResidualCell) in
+    preprocess shown in the diagram is lifted to the start of the tower.
+    """
+    
+    def __init__(self, num_channels: int=64):
         super().__init__()
         
-        self.preprocess = nn.Sequential(
-            # TODO num_channels
-            EncoderResidualCell(3),
-            EncoderResidualCell(3),
-        )
+        self.preprocess = EncoderResidualCell(3)
+        
+        self.tower = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(
+                    3 if i == 0 else num_channels // (2 ** (3 - i)),
+                    num_channels // (2 ** (2 - i)),
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                ),
+                EncoderResidualCell(num_channels // (2 ** (2 - i))),
+            )
+            for i in range(3)
+        ])
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.preprocess(x)
         
-        print(x.shape)
+        xs = []
         
-        import sys
-        sys.exit()
+        for layer in self.tower:
+            x = layer(x)
+            xs.append(x)
         
-        return NotImplemented
+        return xs

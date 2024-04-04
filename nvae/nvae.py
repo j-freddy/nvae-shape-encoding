@@ -28,9 +28,12 @@ class NVAE(L.LightningModule):
         NotImplemented
     
     def forward(self, feats: torch.Tensor) -> torch.Tensor:
-        self.encoder(feats)
+        embeddings = self.encoder(feats)
         
-        NotImplemented
+        print([embedding.shape for embedding in embeddings])
+        
+        import sys
+        sys.exit()
         
     def training_step(
         self,
