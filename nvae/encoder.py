@@ -6,19 +6,25 @@ class EncoderResidualCell(nn.Module):
     """
     Encoder residual cell.
     
-    Implementation as described by Fig. 3b in the NVAE paper.
+    Implementation as described by Fig. 3b in the NVAE paper. BatchNorm momentum
+    is set to 0.05 in official NVAE implementation.
     """
     
     def __init__(self, num_channels: int):
         super().__init__()
         
         self.net = nn.Sequential(
+            # BN + Swish
             nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
+            # Conv 3x3
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
+            # BN + Swish
             nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
+            # Conv 3x3
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
+            # SE
             ops.SqueezeExcitation(
                 num_channels,
                 # Following the official NVAE implementation from class SE in
@@ -57,23 +63,27 @@ class Encoder(nn.Module):
     preprocess shown in the diagram is lifted to the start of the tower.
     """
     
-    def __init__(self, num_channels: int=64):
+    def __init__(self, num_channels: int=20):
         super().__init__()
         
         self.preprocess = EncoderResidualCell(3)
         
+        # NVAE paper: Table 6
         self.tower = nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(
-                    3 if i == 0 else num_channels // (2 ** (3 - i)),
-                    num_channels // (2 ** (2 - i)),
+                    3 if i == 0 else num_channels,
+                    num_channels,
                     kernel_size=3,
                     stride=2,
                     padding=1,
                     bias=False,
                 ),
-                EncoderResidualCell(num_channels // (2 ** (2 - i))),
+                EncoderResidualCell(num_channels),
+                EncoderResidualCell(num_channels),
             )
+            # TODO I am using only 1 group per scale. The official paper uses
+            # more (see # groups in each scale) in Table 6.
             for i in range(3)
         ])
     

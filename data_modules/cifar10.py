@@ -9,7 +9,7 @@ class CIFAR10DataModule(LightningDataModule):
     def __init__(
         self,
         data_dir: str=DATA_PATH,
-        batch_size: int=64,
+        batch_size: int=32,
         preprocess: bool=True,
     ):
         super().__init__()
