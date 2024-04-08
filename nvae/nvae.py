@@ -26,7 +26,9 @@ class NVAE(L.LightningModule):
         self.stem = nn.Conv2d(3, initial_channels, kernel_size=3, padding=1, bias=True)
         
         self.encoder = Encoder(initial_channels=initial_channels)
-        self.decoder = Decoder()
+        # TODO In encoder.py I use num_latent_scales = 3
+        # In general, initial_channels = initial_channels * (2 ** (num_latent_scales - 1))
+        self.decoder = Decoder(initial_channels=initial_channels * 4)
     
     def configure_optimizers(self):
         NotImplemented

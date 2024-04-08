@@ -58,6 +58,8 @@ class Encoder(nn.Module):
     
     Implementation as described by the diagram: -
     https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    
+    Also see init_encoder_tower() in official NVAE code.
     """
     
     def __init__(self, initial_channels: int=64):

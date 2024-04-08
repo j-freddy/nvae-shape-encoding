@@ -53,4 +53,59 @@ class DecoderResidualCell(nn.Module):
         return x + self.net(x)
 
 class Decoder(nn.Module):
-    NotImplemented
+    """
+    NVAE Decoder.
+    
+    Implementation as described by the diagram: -
+    https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    
+    Also see init_decoder_tower() in official NVAE code.
+    """
+    
+    def __init__(self, initial_channels: int=256):
+        super().__init__()
+        
+        self.tower = nn.ModuleList()
+        
+        # TODO This must match Encoder, but num_groups_per_scale must be
+        # reversed
+        num_latent_scales = 3
+        num_groups_per_scale = [4, 2, 1]
+        num_groups_per_scale = num_groups_per_scale[::-1]
+        
+        num_channels = initial_channels
+        
+        for s in range(num_latent_scales):
+            for g in range(num_groups_per_scale[s]):
+                if not (s == 0 and g == 0):
+                    # Residual cells
+                    self.tower.append(DecoderResidualCell(num_channels))
+                    self.tower.append(DecoderResidualCell(num_channels))
+                    
+                # TODO DecoderCombinerCell
+                
+                # TODO Add samplers
+                # These are just Conv2D with output features = 20 * 2
+                # where 20 is #channels in z (see Table 6) and 20 * 2 allows to
+                # encode mean and logvar
+            
+            if s < num_latent_scales - 1:
+                # Upsample
+                self.tower.append(
+                    nn.Conv2d(
+                        num_channels,
+                        num_channels // 2,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        bias=False,
+                    ),
+                )
+                
+                num_channels //= 2
+
+    def forward(
+        self,
+        x: torch.Tensor,
+    ) -> torch.Tensor:
+        NotImplemented
