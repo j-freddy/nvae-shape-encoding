@@ -58,42 +58,71 @@ class Encoder(nn.Module):
     
     Implementation as described by the diagram: -
     https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
-    
-    For alignment, the 2nd InvertedResidual (i.e. EncoderResidualCell) in
-    preprocess shown in the diagram is lifted to the start of the tower.
     """
     
-    def __init__(self, num_channels: int=20):
+    def __init__(self, initial_channels: int=64):
         super().__init__()
         
-        self.preprocess = EncoderResidualCell(3)
+        self.preprocess = nn.Sequential(
+            EncoderResidualCell(initial_channels),
+            EncoderResidualCell(initial_channels),
+        )
         
         # NVAE paper: Table 6
-        self.tower = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(
-                    3 if i == 0 else num_channels,
-                    num_channels,
-                    kernel_size=3,
-                    stride=2,
-                    padding=1,
-                    bias=False,
-                ),
-                EncoderResidualCell(num_channels),
-                EncoderResidualCell(num_channels),
-            )
-            # TODO I am using only 1 group per scale. The official paper uses
-            # more (see # groups in each scale) in Table 6.
-            for i in range(3)
-        ])
+        num_latent_scales = 3
+        # num_groups_per_scale = [20, 10, 5]
+        num_groups_per_scale = [4, 2, 1]
+        
+        self.tower = nn.ModuleList()
+        
+        num_channels = initial_channels
+        
+        for s in range(num_latent_scales):
+            for g in range(num_groups_per_scale[s]):
+                # Inverted residual cells
+                self.tower.append(EncoderResidualCell(num_channels))
+                self.tower.append(EncoderResidualCell(num_channels))
+                
+                # Add enc combiner if not last group in last scale
+                # TODO Note that 2nd arg is num_channels_dec * multiplier but it
+                # is always equal to num_channels_enc
+                if not (s == num_latent_scales - 1 and g == num_groups_per_scale[s] - 1):
+                    self.tower.append(EncoderCombinerCell(num_channels, num_channels))
+        
+            if s < num_latent_scales - 1:
+                # Downsample
+                self.tower.append(
+                    nn.Conv2d(
+                        num_channels,
+                        num_channels * 2,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        bias=False,
+                    ),
+                )
+                
+                num_channels *= 2
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+    ) -> tuple[torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
         x = self.preprocess(x)
         
         xs = []
+        combiner_cells = []
         
-        for layer in self.tower:
-            x = layer(x)
-            xs.append(x)
+        # Go through the tower and checkpoint combiner cells as it requires
+        # sampled variables in the decoder pass
+        for cell in self.tower:
+            if isinstance(cell, EncoderCombinerCell):
+                xs.append(x)
+                combiner_cells.append(cell)
+            else:
+                x = cell(x)
         
-        return xs
+        # Final x is not added as last group in last scale does not have a
+        # combiner cell
+
+        return x, xs, combiner_cells

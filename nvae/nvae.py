@@ -1,5 +1,6 @@
 import lightning as L
 import torch
+import torch.nn as nn
 
 from nvae.decoder import Decoder
 from nvae.encoder import Encoder
@@ -18,19 +19,33 @@ class NVAE(L.LightningModule):
     arch_cells['ar_nn'] = ['']
     """
     
-    def __init__(self):
+    def __init__(self, initial_channels: int=64):
         super().__init__()
         
-        self.encoder = Encoder()
+        # Table 6: # initial channels in enc. (NVAE paper)
+        self.stem = nn.Conv2d(3, initial_channels, kernel_size=3, padding=1, bias=True)
+        
+        self.encoder = Encoder(initial_channels=initial_channels)
         self.decoder = Decoder()
     
     def configure_optimizers(self):
         NotImplemented
     
     def forward(self, feats: torch.Tensor) -> torch.Tensor:
-        embeddings = self.encoder(feats)
+        # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
+        x = self.stem(feats)
         
-        print([embedding.shape for embedding in embeddings])
+        # Pass through encoder
+        x, xs, enc_combiner_cells = self.encoder(x)
+        
+        # Reverse buffers for decoder
+        xs = xs[::-1]
+        enc_combiner_cells = enc_combiner_cells[::-1]
+        
+        print(x.shape)
+        
+        for x in xs:
+            print(x.shape)
         
         import sys
         sys.exit()
@@ -41,10 +56,6 @@ class NVAE(L.LightningModule):
         batch_idx: int,
     ) -> torch.Tensor:
         feats, labels = batch
-
-        print(feats.shape)
-        print(labels.shape)
-        
         self(feats)
         
         NotImplemented
