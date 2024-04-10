@@ -6,4 +6,5 @@ LOGS_PATH = "logs"
 SCRIPTS_PATH = "scripts"
 SEED = 1969
 
-ACDC_DATA_PATH = os.path.join(DATA_PATH, "ACDC", "database", "training")
+ACDC_DATA_TRAIN_PATH = os.path.join(DATA_PATH, "ACDC", "database", "training")
+ACDC_DATA_TEST_PATH = os.path.join(DATA_PATH, "ACDC", "database", "testing")
