@@ -106,7 +106,7 @@ def preprocess(subject: tio.Subject) -> tio.Subject:
     
     return transform(subject)
 
-def get_preprocessed_dataset(test=False) -> tio.SubjectsDataset:
+def get_dataset(test=False) -> tio.SubjectsDataset:
     subjects = []
     
     # TODO noqa
@@ -120,7 +120,7 @@ def get_preprocessed_dataset(test=False) -> tio.SubjectsDataset:
         
         frame_ed, frame_es = get_frame_ids(patient_id, test)
         subject_ed, subject_es = get_image_and_mask(patient_id, frame_ed, frame_es, test)
-        
+
         subject_ed = preprocess(subject_ed)
         subject_es = preprocess(subject_es)
         
@@ -146,7 +146,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         data_train = torch.load(ACDC.TRAIN_PATH)
     else:
         print("Preprocessed training data not found. Preprocessing...")
-        data_train = get_preprocessed_dataset()
+        data_train = get_dataset()
         torch.save(data_train, ACDC.TRAIN_PATH)
     
     if os.path.exists(ACDC.TEST_PATH):
@@ -154,7 +154,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         data_test = torch.load(ACDC.TEST_PATH)
     else:
         print("Preprocessed test data not found. Preprocessing...")
-        data_test = get_preprocessed_dataset(test=True)
+        data_test = get_dataset(test=True)
         torch.save(data_test, ACDC.TEST_PATH)
     
     return data_train, data_test

@@ -31,7 +31,7 @@ pip install -r requirements.txt
 
 To check everything has been set up correctly, run the commands below.
 ```sh
-# Data viewer
+# View data samples
 python -m data_viewer --dataset acdc
 # Train
 python -m train

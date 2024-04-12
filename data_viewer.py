@@ -29,7 +29,7 @@ def view_cifar10():
 
     samples: tuple[torch.Tensor, torch.Tensor] = next(iter(loader_test))
     images, _ = samples
-    show_samples(images)
+    show_samples(images, nrow=8, figsize=(8, 4))
 
 def view_acdc():
     data_module = ACDCMaskDataModule(batch_size=40)
@@ -38,7 +38,7 @@ def view_acdc():
     loader_test = data_module.test_dataloader()
     
     samples: torch.Tensor = next(iter(loader_test))
-    show_samples(samples, nrow=10)
+    show_samples(samples, rgb=False, nrow=10, figsize=(10, 4))
 
 def main(flags):
     # Seed
