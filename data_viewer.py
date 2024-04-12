@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import torch
 
 from const import SEED
-from data_modules.acdc import ACDCDataModule
+from data_modules.acdc import ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils import setup_device, show_samples
 
@@ -28,25 +28,17 @@ def view_cifar10():
     loader_test = data_module.test_dataloader()
 
     samples: tuple[torch.Tensor, torch.Tensor] = next(iter(loader_test))
-    show_samples(*samples)
+    images, _ = samples
+    show_samples(images)
 
 def view_acdc():
-    data_module = ACDCDataModule()
+    data_module = ACDCMaskDataModule(batch_size=40)
             
     # View samples
     loader_test = data_module.test_dataloader()
     
-    samples: dict = next(iter(loader_test))
-    
-    _, _, _, _, num_slice = samples["ed_image"]["data"].shape
-    
-    # View each slice
-    for i in range(num_slice):
-        plt.figure()
-        # Take 1st image in batch
-        plt.imshow(samples["ed_image"]["data"][0][:, :, :, i].numpy().squeeze(), cmap="gray")
-        plt.imshow(samples["ed_mask"]["data"][0][:, :, :, i].numpy().squeeze(), alpha=0.5)
-        plt.show()
+    samples: torch.Tensor = next(iter(loader_test))
+    show_samples(samples, nrow=10)
 
 def main(flags):
     # Seed

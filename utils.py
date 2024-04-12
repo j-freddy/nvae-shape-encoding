@@ -27,11 +27,14 @@ def setup_device():
 
     return device
 
-def show_samples(images: torch.Tensor, labels: torch.Tensor):
-    # TODO Show images with labels
-    images = make_grid(images, nrow=8, padding=2)
+def show_samples(
+    images: torch.Tensor,
+    figsize: tuple[int, int]=(6,6),
+    nrow: int=8,
+):
+    images = make_grid(images, nrow=nrow, padding=2, normalize=True)
     
-    plt.figure(figsize = (6,6))
+    plt.figure(figsize=figsize)
     plt.axis("off")
     plt.imshow(np.transpose(images.cpu().numpy(), (1, 2, 0)))
     plt.show()

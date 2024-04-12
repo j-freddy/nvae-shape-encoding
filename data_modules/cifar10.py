@@ -6,15 +6,9 @@ from torchvision import datasets, transforms
 from const import DATA_PATH
 
 class CIFAR10DataModule(LightningDataModule):
-    def __init__(
-        self,
-        data_dir: str=DATA_PATH,
-        batch_size: int=32,
-        preprocess: bool=True,
-    ):
+    def __init__(self, batch_size: int=32, preprocess: bool=True):
         super().__init__()
-        
-        self.data_dir = data_dir
+
         self.batch_size = batch_size
         self.preprocess = preprocess
     
@@ -27,13 +21,13 @@ class CIFAR10DataModule(LightningDataModule):
         ])
 
         self.data_train = datasets.CIFAR10(
-            self.data_dir,
+            DATA_PATH,
             train=True,
             download=True,
             transform=transform if self.preprocess else transforms.ToTensor(),
         )
         self.data_test = datasets.CIFAR10(
-            self.data_dir,
+            DATA_PATH,
             train=False,
             download=True,
             transform=transform if self.preprocess else transforms.ToTensor(),
