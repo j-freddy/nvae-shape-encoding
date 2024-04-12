@@ -1,6 +1,5 @@
 import argparse
 import lightning as L
-from matplotlib import pyplot as plt
 import torch
 
 from const import SEED

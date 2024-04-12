@@ -1,5 +1,8 @@
 # Nouveau-VAE for Anatomical Shape Encoding
 
+<!-- TODO -->
+<!-- This is a template README.md. Write this again at the very end. -->
+
 ## Usage Guide
 
 ### Installation

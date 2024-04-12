@@ -2,14 +2,11 @@ import csv
 import os
 from lightning import LightningDataModule
 import subprocess
-from matplotlib import pyplot as plt
-import numpy as np
 import torch
 import torchio as tio
 from torch.utils.data import DataLoader
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
-from utils import show_samples
 
 def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     info_file = os.path.join(
