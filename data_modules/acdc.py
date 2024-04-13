@@ -185,17 +185,17 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the mask tensor values per slice (128x128x1).
     """
     
-    def __init__(self, batch_size: int=32):
+    def __init__(self, batch_size: int=32, filter_empty: bool=True):
         super().__init__()
         
         self.batch_size = batch_size
         
         data_train, data_test = download_and_preprocess_acdc()
 
-        self.data_train = self._get_masks(data_train)
-        self.data_test = self._get_masks(data_test)
+        self.data_train = self._get_masks(data_train, filter_empty)
+        self.data_test = self._get_masks(data_test, filter_empty)
         
-    def _get_masks(self, data: tio.SubjectsDataset) -> torch.Tensor:
+    def _get_masks(self, data: tio.SubjectsDataset, filter_empty: bool=True) -> torch.Tensor:
         num_channels, width, height, num_slices = data[0].ed_mask.data.shape
         
         masks = torch.empty((
@@ -208,16 +208,25 @@ class ACDCMaskDataModule(LightningDataModule):
         acc = 0 
         
         for subject in data:
-            # TODO Add a flag to filter slices with no mask (i.e. 0 everywhere)
             for slice in range(num_slices):
-                masks[acc] = subject.ed_mask.data[:, :, :, slice]
+                mask = subject.ed_mask.data[:, :, :, slice]
+                
+                if filter_empty and torch.all(mask == 0):
+                    continue
+
+                masks[acc] = mask
                 acc += 1
             
             for slice in range(num_slices):
-                masks[acc] = subject.es_mask.data[:, :, :, slice]
+                mask = subject.es_mask.data[:, :, :, slice]
+                
+                if filter_empty and torch.all(mask == 0):
+                    continue
+
+                masks[acc] = mask
                 acc += 1
         
-        return masks
+        return masks[:acc]
     
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size)
