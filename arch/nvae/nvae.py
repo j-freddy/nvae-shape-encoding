@@ -52,19 +52,11 @@ class NVAE(L.LightningModule):
         import sys
         sys.exit()
         
-    def training_step(
-        self,
-        batch: tuple[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-    ) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         feats, labels = batch
         self(feats)
         
         NotImplemented
     
-    def validation_step(
-        self,
-        batch: tuple[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-    ) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         NotImplemented
