@@ -4,6 +4,7 @@ from lightning import LightningDataModule
 import subprocess
 import torch
 import torchio as tio
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
@@ -185,7 +186,7 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the mask tensor values per slice (128x128x1).
     """
     
-    def __init__(self, batch_size: int=32, filter_empty: bool=True):
+    def __init__(self, batch_size: int=32, filter_empty: bool=True, one_hot: bool=True):
         super().__init__()
         
         self.batch_size = batch_size
@@ -194,6 +195,10 @@ class ACDCMaskDataModule(LightningDataModule):
 
         self.data_train = self._get_masks(data_train, filter_empty)
         self.data_test = self._get_masks(data_test, filter_empty)
+        
+        if one_hot:
+            self.data_train = self._one_hot(self.data_train)
+            self.data_test = self._one_hot(self.data_test)
         
     def _get_masks(self, data: tio.SubjectsDataset, filter_empty: bool=True) -> torch.Tensor:
         num_channels, width, height, num_slices = data[0].ed_mask.data.shape
@@ -227,6 +232,18 @@ class ACDCMaskDataModule(LightningDataModule):
                 acc += 1
         
         return masks[:acc]
+
+    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
+        masks = torch.squeeze(masks, dim=1)
+        masks_onehot = F.one_hot(
+            masks.long(),
+            num_classes=len(masks.unique())
+        ).permute(0, 3, 1, 2)
+        
+        # F.one_hot encodes the background as a channel, so remove it
+        masks_onehot = masks_onehot[:, 1:, :, :]
+        
+        return masks_onehot.float()
     
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size)

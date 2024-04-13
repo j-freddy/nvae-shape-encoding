@@ -31,12 +31,18 @@ def view_cifar10():
     show_samples(images, nrow=8, figsize=(8, 4))
 
 def view_acdc():
-    data_module = ACDCMaskDataModule(batch_size=40)
+    data_module = ACDCMaskDataModule(batch_size=40, one_hot=False)
             
     # View samples
     loader_test = data_module.test_dataloader()
     
     samples: torch.Tensor = next(iter(loader_test))
+    
+    # If one-hot encoded, uncomment this line to view each channel separately
+    # samples = samples[:, 0, :, :].unsqueeze(1)
+    # samples = samples[:, 1, :, :].unsqueeze(1)
+    # samples = samples[:, 2, :, :].unsqueeze(1)
+    
     show_samples(samples, rgb=False, nrow=10, figsize=(10, 4))
 
 def main(flags: argparse.Namespace):

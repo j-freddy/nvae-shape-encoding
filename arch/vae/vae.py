@@ -17,11 +17,12 @@ class VAE(L.LightningModule):
     def __init__(self, latent_dim: int = 2):
         super().__init__()
         
+        # TODO noqa
+        in_channels = 3
+        
         self.encoder = nn.Sequential(
-            # TODO If I one-hot encode instead, input channels become 4
-            
-            # 1x128x128 -> 48x64x64
-            nn.Conv2d(1, 48, kernel_size=3, stride=2, padding=1),
+            # 3x128x128 -> 48x64x64
+            nn.Conv2d(in_channels, 48, kernel_size=3, stride=2, padding=1),
             nn.ELU(),
             # 48x64x64 -> 48x64x64
             nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
@@ -71,10 +72,10 @@ class VAE(L.LightningModule):
             nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
             nn.ELU(),
             # 48x64x64 -> 1x128x128
-            nn.ConvTranspose2d(48, 1, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(48, in_channels, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.ELU(),
-            # 1x128x128 -> 1x128x128
-            nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1),
+            # 3x128x128 -> 3x128x128
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
             nn.Softmax(dim=1),
         )
 
@@ -87,26 +88,41 @@ class VAE(L.LightningModule):
         
         eps = torch.randn_like(logvar)
         return mu + torch.exp(0.5 * logvar) * eps
-        
+    
+    def loss(
+        self,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+        x: torch.Tensor,
+        x_hat: torch.Tensor,
+    ) -> torch.Tensor:
+        NotImplemented
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Print the unique values of x
-        print(torch.unique(x))
-        
         latent_repr: torch.Tensor = self.encoder(x)
         mu, logvar = torch.chunk(latent_repr, 2, dim=1)
-        
-        print(mu.shape, logvar.shape)
         
         z = self._reparametrise(mu, logvar)
         x_hat = self.decoder(z)
         
-        import sys
-        sys.exit()
+        return mu, logvar, z, x_hat
     
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        self(batch)
+        mu, logvar, z, x_hat = self(batch)
         
-        NotImplemented
+        print(mu.shape)
+        print(logvar.shape)
+        print(z.shape)
+        print(x_hat.shape)
+        
+        import sys
+        sys.exit()
+        
+        # Compute loss
+        loss = self.loss(mu, logvar, batch, x_hat)
+        self.log("train_loss", loss)
+        
+        return loss
     
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         NotImplemented
