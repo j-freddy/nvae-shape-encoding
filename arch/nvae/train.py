@@ -4,7 +4,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 
 from const import LOGS_PATH, SEED
 from data_modules.cifar10 import CIFAR10DataModule
-from nvae.nvae import NVAE
+from arch.nvae.nvae import NVAE
 from utils import setup_device
 
 if __name__ == "__main__":

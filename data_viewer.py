@@ -7,7 +7,7 @@ from data_modules.acdc import ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils import setup_device, show_samples
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     
     parser.add_argument(
@@ -39,7 +39,7 @@ def view_acdc():
     samples: torch.Tensor = next(iter(loader_test))
     show_samples(samples, rgb=False, nrow=10, figsize=(10, 4))
 
-def main(flags):
+def main(flags: argparse.Namespace):
     # Seed
     L.seed_everything(SEED)
 

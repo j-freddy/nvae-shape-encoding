@@ -2,8 +2,8 @@ import lightning as L
 import torch
 import torch.nn as nn
 
-from nvae.decoder import Decoder
-from nvae.encoder import Encoder
+from arch.nvae.decoder import Decoder
+from arch.nvae.encoder import Encoder
 
 class NVAE(L.LightningModule):
     """

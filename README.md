@@ -37,7 +37,8 @@ To check everything has been set up correctly, run the commands below.
 # View data samples
 python -m data_viewer --dataset acdc
 # Train
-python -m train
+python -m arch.vae.train
+python -m arch.nvae.train
 ```
 
 <!-- TODO -->
