@@ -48,6 +48,10 @@ def view_acdc():
     # samples = samples[:, 0, :, :].unsqueeze(1)
     # samples = samples[:, 1, :, :].unsqueeze(1)
     # samples = samples[:, 2, :, :].unsqueeze(1)
+    # samples = samples[:, 3, :, :].unsqueeze(1)
+    
+    # Or recombine the channels
+    # samples = torch.argmax(samples, dim=1).unsqueeze(1)
     
     show_samples(samples, rgb=False, nrow=10, figsize=(10, 4))
 

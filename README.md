@@ -37,8 +37,10 @@ To check everything has been set up correctly, run the commands below.
 # View data samples
 python -m data_viewer --dataset acdc
 # Train
-python -m arch.vae.train --epochs 10
+python -m arch.vae.train --epochs 50
 python -m arch.nvae.train
+# Test
+python -m arch.vae.test --model_path logs/vae_acdc/version_0/checkpoints/epoch=42-step=4687.ckpt
 ```
 
 ### TensorBoard

@@ -15,11 +15,14 @@ class VAE(L.LightningModule):
     medical imaging. 2020 Jun 17;39(11):3703-13.
     """
     
-    def __init__(self, latent_dim: int = 2):
+    def __init__(self, latent_dim: int=2):
         super().__init__()
         
+        self.save_hyperparameters()
+        
         # TODO noqa
-        in_channels = 3
+        # 3 segmentation classes + background
+        in_channels = 4
         
         self.encoder = nn.Sequential(
             # 3x128x128 -> 48x64x64
@@ -47,12 +50,12 @@ class VAE(L.LightningModule):
             nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=1),
             nn.ELU(),
             nn.Flatten(),
-            nn.Linear(384*8*8, latent_dim * 2),
+            nn.Linear(384*8*8, self.hparams.latent_dim * 2),
         )
         
         self.decoder = nn.Sequential(
             # latent_dim -> 384x8x8
-            nn.Linear(latent_dim, 384*8*8),
+            nn.Linear(self.hparams.latent_dim, 384*8*8),
             nn.Unflatten(1, (384, 8, 8)),
             # 384x8x8 -> 192x16x16
             nn.ConvTranspose2d(384, 192, kernel_size=3, stride=2, padding=1, output_padding=1),
@@ -116,11 +119,11 @@ class VAE(L.LightningModule):
         
         return mu, logvar, x_hat
     
-    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        mu, logvar, x_hat = self(batch)
+    def training_step(self, x: torch.Tensor) -> torch.Tensor:
+        mu, logvar, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(mu, logvar, batch, x_hat)
+        loss = self.loss(mu, logvar, x, x_hat)
         self.log("train_loss", loss)
         
         print(f"Train loss: {loss}")
@@ -130,11 +133,11 @@ class VAE(L.LightningModule):
 
         return loss
     
-    def validation_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        mu, logvar, x_hat = self(batch)
+    def validation_step(self, x: torch.Tensor) -> torch.Tensor:
+        mu, logvar, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(mu, logvar, batch, x_hat)
+        loss = self.loss(mu, logvar, x, x_hat)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")

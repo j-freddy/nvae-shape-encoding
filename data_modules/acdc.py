@@ -240,9 +240,6 @@ class ACDCMaskDataModule(LightningDataModule):
             num_classes=len(masks.unique())
         ).permute(0, 3, 1, 2)
         
-        # F.one_hot encodes the background as a channel, so remove it
-        masks_onehot = masks_onehot[:, 1:, :, :]
-        
         return masks_onehot.float()
     
     def train_dataloader(self):
