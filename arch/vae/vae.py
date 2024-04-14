@@ -1,6 +1,7 @@
 import lightning as L
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 
 class VAE(L.LightningModule):
@@ -96,7 +97,15 @@ class VAE(L.LightningModule):
         x: torch.Tensor,
         x_hat: torch.Tensor,
     ) -> torch.Tensor:
-        NotImplemented
+        batch_size = x.size(0)
+        recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        
+        kl_div = -0.5 * torch.sum(
+            1 + logvar - mu.pow(2) - logvar.exp(),
+            dim=1,
+        ).mean()
+        
+        return recon_loss + kl_div
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         latent_repr: torch.Tensor = self.encoder(x)
@@ -105,24 +114,27 @@ class VAE(L.LightningModule):
         z = self._reparametrise(mu, logvar)
         x_hat = self.decoder(z)
         
-        return mu, logvar, z, x_hat
+        return mu, logvar, x_hat
     
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        mu, logvar, z, x_hat = self(batch)
-        
-        print(mu.shape)
-        print(logvar.shape)
-        print(z.shape)
-        print(x_hat.shape)
-        
-        import sys
-        sys.exit()
+        mu, logvar, x_hat = self(batch)
         
         # Compute loss
         loss = self.loss(mu, logvar, batch, x_hat)
         self.log("train_loss", loss)
         
+        print(f"Train loss: {loss}")
+        
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
+
         return loss
     
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        NotImplemented
+        mu, logvar, x_hat = self(batch)
+        
+        # Compute loss
+        loss = self.loss(mu, logvar, batch, x_hat)
+        self.log("val_loss", loss)
+        
+        print(f"Val loss: {loss}")

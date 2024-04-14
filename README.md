@@ -37,8 +37,14 @@ To check everything has been set up correctly, run the commands below.
 # View data samples
 python -m data_viewer --dataset acdc
 # Train
-python -m arch.vae.train
+python -m arch.vae.train --epochs 10
 python -m arch.nvae.train
+```
+
+### TensorBoard
+
+```sh
+tensorboard --logdir logs/vae_acdc
 ```
 
 <!-- TODO -->

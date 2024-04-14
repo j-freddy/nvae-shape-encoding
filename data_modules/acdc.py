@@ -108,10 +108,10 @@ def get_dataset(test=False) -> tio.SubjectsDataset:
     subjects = []
     
     # TODO noqa
-    # seq = range(101, 151) if test else range(1, 101)
+    seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
-    seq = range(101, 106) if test else range(1, 6)
+    # seq = range(101, 106) if test else range(1, 6)
     
     for i in seq:
         patient_id = str(i).zfill(3)
@@ -248,5 +248,9 @@ class ACDCMaskDataModule(LightningDataModule):
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size)
 
+    # TODO Using the same data for validation and test
+    def val_dataloader(self):
+        return DataLoader(self.data_test, batch_size=self.batch_size)
+    
     def test_dataloader(self):
         return DataLoader(self.data_test, batch_size=self.batch_size)

@@ -22,6 +22,9 @@ def parse_args() -> argparse.Namespace:
 
 def view_cifar10():
     data_module = CIFAR10DataModule(preprocess=False)
+    
+    # Seed
+    L.seed_everything(SEED)
             
     # View samples
     loader_test = data_module.test_dataloader()
@@ -32,6 +35,9 @@ def view_cifar10():
 
 def view_acdc():
     data_module = ACDCMaskDataModule(batch_size=40, one_hot=False)
+    
+    # Seed
+    L.seed_everything(SEED)
             
     # View samples
     loader_test = data_module.test_dataloader()
@@ -46,9 +52,6 @@ def view_acdc():
     show_samples(samples, rgb=False, nrow=10, figsize=(10, 4))
 
 def main(flags: argparse.Namespace):
-    # Seed
-    L.seed_everything(SEED)
-
     # Setup device
     device = setup_device()
     print(f"Device: {device}")
