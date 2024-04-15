@@ -196,10 +196,10 @@ class ACDCDataModule(LightningDataModule):
         self.data_train, self.data_test, _, _ = download_and_preprocess_acdc()
     
     def train_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size)
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
 
     def test_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size)
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)
 
 class ACDCMaskDataModule(LightningDataModule):
     """

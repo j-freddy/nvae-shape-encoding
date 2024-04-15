@@ -40,7 +40,7 @@ python -m data_viewer --dataset acdc
 python -m arch.vae.train --epochs 50
 python -m arch.nvae.train
 # Test
-python -m arch.vae.test --model_path logs/vae_acdc/version_0/checkpoints/epoch=42-step=4687.ckpt
+python -m arch.vae.test --model_path logs/vae_acdc/version_1/checkpoints/epoch=44-step=5220.ckpt
 ```
 
 ### TensorBoard
