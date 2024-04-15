@@ -78,8 +78,9 @@ def get_image_and_mask(
     
     return subject_ed, subject_es
 
-def preprocess(subject: tio.Subject) -> tio.Subject:
+def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     mask = subject.mask.data[0, :, :, :]
+    _, _, num_slices = mask.shape
 
     # :2 to ignore slice index
     nonzero_coords = torch.nonzero(mask)[:, :2]
@@ -95,16 +96,16 @@ def preprocess(subject: tio.Subject) -> tio.Subject:
     transform = tio.transforms.Compose([
         # Crop to dimensions centred around the mask to minimise background
         tio.CropOrPad(
-            (width, width, 10),
+            (width, width, num_slices),
             mask_name="mask",
         ),
-        tio.Resize((128, 128, 10)),
+        tio.Resize((128, 128, num_slices)),
         tio.RescaleIntensity((0, 1)),
     ])
     
-    return transform(subject)
+    return transform(subject), num_slices
 
-def get_dataset(test=False) -> tio.SubjectsDataset:
+def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
     subjects = []
     
     # TODO noqa
@@ -113,14 +114,18 @@ def get_dataset(test=False) -> tio.SubjectsDataset:
     # Small subset to speed up preprocessing
     # seq = range(101, 106) if test else range(1, 6)
     
+    max_slices = 0
+    
     for i in seq:
         patient_id = str(i).zfill(3)
         
         frame_ed, frame_es = get_frame_ids(patient_id, test)
         subject_ed, subject_es = get_image_and_mask(patient_id, frame_ed, frame_es, test)
 
-        subject_ed = preprocess(subject_ed)
-        subject_es = preprocess(subject_es)
+        subject_ed, num_slices_ed = preprocess(subject_ed)
+        subject_es, num_slices_es = preprocess(subject_es)
+        
+        max_slices = max(max_slices, num_slices_ed, num_slices_es)
         
         subject = tio.Subject(
             ed_image=subject_ed.image,
@@ -131,9 +136,9 @@ def get_dataset(test=False) -> tio.SubjectsDataset:
         
         subjects.append(subject)
     
-    return tio.SubjectsDataset(subjects)
+    return tio.SubjectsDataset(subjects), max_slices
 
-def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset]:
+def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, int, int]:
     # Download dataset if not present and preprocessing required
     if not os.path.exists(ACDC.TRAIN_PATH) or not os.path.exists(ACDC.TEST_PATH):
         if not os.path.exists(os.path.join(DATA_PATH, "ACDC")):
@@ -141,36 +146,54 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
 
     if os.path.exists(ACDC.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
-        data_train = torch.load(ACDC.TRAIN_PATH)
+        
+        d = torch.load(ACDC.TRAIN_PATH)
+        data_train = d["data_train"]
+        max_slices_train = d["max_slices_train"]
     else:
         print("Preprocessed training data not found. Preprocessing...")
-        data_train = get_dataset()
-        torch.save(data_train, ACDC.TRAIN_PATH)
+        
+        data_train, max_slices_train = get_dataset()
+        torch.save({
+            "data_train": data_train,
+            "max_slices_train": max_slices_train,
+        }, ACDC.TRAIN_PATH)
     
     if os.path.exists(ACDC.TEST_PATH):
         print("Preprocessed test data found. Loading...")
-        data_test = torch.load(ACDC.TEST_PATH)
+        
+        d = torch.load(ACDC.TEST_PATH)
+        data_test = d["data_test"]
+        max_slices_test = d["max_slices_test"]
     else:
         print("Preprocessed test data not found. Preprocessing...")
-        data_test = get_dataset(test=True)
-        torch.save(data_test, ACDC.TEST_PATH)
+        
+        data_test, max_slices_test = get_dataset(test=True)
+        torch.save({
+            "data_test": data_test,
+            "max_slices_test": max_slices_test,
+        }, ACDC.TEST_PATH)
     
-    return data_train, data_test
+    return data_train, data_test, max_slices_train, max_slices_test
 
 class ACDCDataModule(LightningDataModule):
     """
     Automated Cardiac Diagnosis Challenge (ACDC) dataset.
     
     Data is preprocessed to crop to the bounding box around the heart and
-    resized to 128x128x10. Intensity values are rescaled to [0, 1]. Informataion
-    of each data point is retained, including voxel spacing and orientation.
+    resized to 128x128xs where s is the number of slices. Intensity values are
+    rescaled to [0, 1]. Informataion of each data point is retained, including
+    voxel spacing and orientation.
+    
+    The number of slices may differ per patient (e.g. 10, 8) so each data point
+    may not necessarily have the same shape.
     """
     
     def __init__(self, batch_size: int=2):
         super().__init__()
         
         self.batch_size = batch_size
-        self.data_train, self.data_test = download_and_preprocess_acdc()
+        self.data_train, self.data_test, _, _ = download_and_preprocess_acdc()
     
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size)
@@ -191,20 +214,20 @@ class ACDCMaskDataModule(LightningDataModule):
         
         self.batch_size = batch_size
         
-        data_train, data_test = download_and_preprocess_acdc()
+        data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
 
-        self.data_train = self._get_masks(data_train, filter_empty)
-        self.data_test = self._get_masks(data_test, filter_empty)
+        self.data_train = self._get_masks(data_train, max_slices_train, filter_empty)
+        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty)
         
         if one_hot:
             self.data_train = self._one_hot(self.data_train)
             self.data_test = self._one_hot(self.data_test)
         
-    def _get_masks(self, data: tio.SubjectsDataset, filter_empty: bool=True) -> torch.Tensor:
-        num_channels, width, height, num_slices = data[0].ed_mask.data.shape
+    def _get_masks(self, data: tio.SubjectsDataset, max_slices: int, filter_empty: bool=True) -> torch.Tensor:
+        num_channels, width, height, _ = data[0].ed_mask.data.shape
         
         masks = torch.empty((
-            len(data) * num_slices * 2,
+            len(data) * max_slices * 2,
             num_channels,
             width,
             height,
@@ -213,6 +236,8 @@ class ACDCMaskDataModule(LightningDataModule):
         acc = 0 
         
         for subject in data:
+            _, _, _, num_slices = subject.ed_mask.data.shape
+            
             for slice in range(num_slices):
                 mask = subject.ed_mask.data[:, :, :, slice]
                 
@@ -221,6 +246,8 @@ class ACDCMaskDataModule(LightningDataModule):
 
                 masks[acc] = mask
                 acc += 1
+                
+            _, _, _, num_slices = subject.es_mask.data.shape
             
             for slice in range(num_slices):
                 mask = subject.es_mask.data[:, :, :, slice]
@@ -243,11 +270,11 @@ class ACDCMaskDataModule(LightningDataModule):
         return masks_onehot.float()
     
     def train_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size)
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
 
     # TODO Using the same data for validation and test
     def val_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size)
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)
     
     def test_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size)
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)
