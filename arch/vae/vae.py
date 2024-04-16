@@ -110,11 +110,14 @@ class VAE(L.LightningModule):
         
         return recon_loss + kl_div
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def get_latent(self, x: torch.Tensor) -> torch.Tensor:
         latent_repr: torch.Tensor = self.encoder(x)
         mu, logvar = torch.chunk(latent_repr, 2, dim=1)
         
-        z = self._reparametrise(mu, logvar)
+        return mu, logvar, self._reparametrise(mu, logvar)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        mu, logvar, z = self.get_latent(x)
         x_hat = self.decoder(z)
         
         return mu, logvar, x_hat
