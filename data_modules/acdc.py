@@ -175,7 +175,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
             "max_slices_test": max_slices_test,
         }, ACDC.TEST_PATH)
     
-    return data_train, data_test, max_slices_train, max_slices_test
+    return data_train, data_test, max_slices_train, max_slices_test 
 
 class ACDCDataModule(LightningDataModule):
     """
@@ -217,13 +217,15 @@ class ACDCMaskDataModule(LightningDataModule):
         
         data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
 
-        self.data_train = self._get_masks(data_train, max_slices_train, filter_empty)
+        data_train = self._get_masks(data_train, max_slices_train, filter_empty)
         # Always preserve empty masks for test set
         self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False)
         
         if one_hot:
-            self.data_train = self._one_hot(self.data_train)
+            data_train = self._one_hot(self.data_train)
             self.data_test = self._one_hot(self.data_test)
+
+        self.data_train, self.data_val = self._split_train_val(data_train)
         
     def _get_masks(self, data: tio.SubjectsDataset, max_slices: int, filter_empty: bool=True) -> torch.Tensor:
         num_channels, width, height, _ = data[0].ed_mask.data.shape
@@ -271,12 +273,26 @@ class ACDCMaskDataModule(LightningDataModule):
         
         return masks_onehot.float()
     
+    def _split_train_val(
+        self,
+        masks: torch.Tensor,
+        perc: float=0.9,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Shuffle masks
+        idx = torch.randperm(len(masks))
+        masks = masks[idx]
+        
+        split_idx = int(len(masks) * perc)
+        mask_train = masks[:split_idx]
+        mask_val = masks[split_idx:]
+        
+        return mask_train, mask_val
+    
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
 
-    # TODO Using the same data for validation and test
     def val_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=False)
     
     def test_dataloader(self):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)

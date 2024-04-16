@@ -32,10 +32,20 @@ def main(flags: argparse.Namespace):
     device = setup_device()
     print(f"Device: {device}")
     
+    # It is important to seed before preprocessing data as shuffling the data
+    # before partitioning the train and val set happens when the data module is
+    # created.
+    
+    # Then, seed again after creating the data module. This is because the
+    # preprocessing stage is skipped if the preprocessed data files are found.
+    
+    # Seed
+    L.seed_everything(SEED)
+    
     # Load data
     data_module = ACDCMaskDataModule(batch_size=16, filter_empty=flags.filter_empty)
     
-    # Seed after preprocessing data
+    # Reseed after preprocessing data
     L.seed_everything(SEED)
 
     # Train

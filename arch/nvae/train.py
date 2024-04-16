@@ -12,10 +12,13 @@ if __name__ == "__main__":
     device = setup_device()
     print(f"Device: {device}")
     
+    # Seed
+    L.seed_everything(SEED)
+    
     # Load data
     data_module = CIFAR10DataModule()
     
-    # Seed after preprocessing data
+    # Reseed after preprocessing data
     L.seed_everything(SEED)
 
     # Train

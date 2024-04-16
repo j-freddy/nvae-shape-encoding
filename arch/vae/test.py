@@ -89,10 +89,13 @@ def main(flags: argparse.Namespace):
     device = setup_device()
     print(f"Device: {device}")
     
+    # Seed
+    L.seed_everything(SEED)
+    
     # Load data
     data_module = ACDCMaskDataModule(batch_size=20)
     
-    # Seed after preprocessing data
+    # Reseed after preprocessing data
     L.seed_everything(SEED)
     
     # Load model
