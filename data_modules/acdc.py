@@ -92,11 +92,12 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     max_y = torch.max(nonzero_coords[:, 0]).item()
     
     width = max(max_x - min_x, max_y - min_y)
+    padding = 4
 
     transform = tio.transforms.Compose([
         # Crop to dimensions centred around the mask to minimise background
         tio.CropOrPad(
-            (width, width, num_slices),
+            (width + padding, width + padding, num_slices),
             mask_name="mask",
         ),
         tio.Resize((128, 128, num_slices)),
