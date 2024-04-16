@@ -40,7 +40,10 @@ python -m data_viewer --dataset acdc
 python -m arch.vae.train --epochs 50
 python -m arch.nvae.train
 # Test
-python -m arch.vae.test --model_path logs/vae_acdc/version_1/checkpoints/epoch=44-step=5220.ckpt
+# Filter empty mask data points
+python -m arch.vae.test --model_path logs/vae_acdc/version_3/checkpoints/epoch=35-step=4176.ckpt
+# Preserve empty mask data points
+python -m arch.vae.test --model_path logs/vae_acdc/version_2/checkpoints/epoch=48-step=5831.ckpt
 ```
 
 ### TensorBoard

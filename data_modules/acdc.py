@@ -209,7 +209,7 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the mask tensor values per slice (128x128x1).
     """
     
-    def __init__(self, batch_size: int=32, filter_empty: bool=True, one_hot: bool=True):
+    def __init__(self, batch_size: int=32, filter_empty: bool=False, one_hot: bool=True):
         super().__init__()
         
         self.batch_size = batch_size
@@ -217,7 +217,8 @@ class ACDCMaskDataModule(LightningDataModule):
         data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
 
         self.data_train = self._get_masks(data_train, max_slices_train, filter_empty)
-        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty)
+        # Always preserve empty masks for test set
+        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False)
         
         if one_hot:
             self.data_train = self._one_hot(self.data_train)

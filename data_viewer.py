@@ -34,7 +34,7 @@ def view_cifar10():
     show_samples(images, nrow=8, figsize=(8, 4))
 
 def view_acdc():
-    data_module = ACDCMaskDataModule(batch_size=40, filter_empty=True, one_hot=False)
+    data_module = ACDCMaskDataModule(batch_size=40, one_hot=False)
 
     print(f"Number of train samples: {len(data_module.data_train)}")
     print(f"Number of test samples: {len(data_module.data_test)}")

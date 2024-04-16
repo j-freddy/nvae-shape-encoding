@@ -18,6 +18,13 @@ def parse_args() -> argparse.Namespace:
         default=100,
     )
     
+    parser.add_argument(
+        "--filter_empty",
+        action=argparse.BooleanOptionalAction,
+        help="If set, filter out empty masks.",
+        default=False,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -26,7 +33,7 @@ def main(flags: argparse.Namespace):
     print(f"Device: {device}")
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=16)
+    data_module = ACDCMaskDataModule(batch_size=16, filter_empty=flags.filter_empty)
     
     # Seed after preprocessing data
     L.seed_everything(SEED)
