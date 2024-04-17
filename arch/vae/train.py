@@ -25,6 +25,12 @@ def parse_args() -> argparse.Namespace:
         default=False,
     )
     
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        help="Directory name of saved model checkpoints and metadata.",
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -55,7 +61,11 @@ def main(flags: argparse.Namespace):
         accelerator="auto",
         devices="auto",
         max_epochs=flags.epochs,
-        logger=TensorBoardLogger(save_dir=LOGS_PATH, name="vae_acdc"),
+        logger=TensorBoardLogger(
+            save_dir=LOGS_PATH,
+            name="vae_acdc",
+            version=flags.model_name if flags.model_name else None,
+        ),
         callbacks=[
             ModelCheckpoint(monitor="val_loss", mode="min"),
             LearningRateMonitor("epoch"),
