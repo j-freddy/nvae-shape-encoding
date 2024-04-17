@@ -108,10 +108,10 @@ def main(flags: argparse.Namespace):
     # view_reconstructions(model, samples, device)
     
     # View generations
-    # view_generations(model, device)
+    view_generations(model, device)
     
     # View linear interpolation
-    view_lerp(model, samples, device)
+    # view_lerp(model, samples, device)
     
 if __name__ == "__main__":
     flags = parse_args()
