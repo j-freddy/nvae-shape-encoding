@@ -127,6 +127,8 @@ def main(flags: argparse.Namespace):
         save_dir = os.path.join(OUT_PATH, ACDC.DIR.VAE)
         # TODO noqa
         model_name = flags.model_path.split("/")[2]
+        
+    print("View reconstructions")
 
     # View reconstructions
     view_reconstructions(
@@ -136,6 +138,8 @@ def main(flags: argparse.Namespace):
         save_path=os.path.join(save_dir, f"{model_name}-reconstructions.png") if flags.save_fig else None,
     )
     
+    print("View generations")
+    
     # View generations
     view_generations(
         model,
@@ -144,6 +148,8 @@ def main(flags: argparse.Namespace):
         model_name=model_name if flags.save_fig else None,
         save_path=os.path.join(save_dir, f"{model_name}-generations.png") if flags.save_fig else None,
     )
+    
+    print("View lerp")
     
     # View linear interpolation
     view_lerp(
