@@ -19,6 +19,20 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--latent_dim",
+        type=int,
+        help="Dimension of latent space.",
+        default=8,
+    )
+    
+    parser.add_argument(
+        "--beta",
+        type=float,
+        help="Beta value for KL divergence.",
+        default=1.0,
+    )
+    
+    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -55,7 +69,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
 
     # Train
-    model = VAE(latent_dim=8)
+    model = VAE(latent_dim=flags.latent_dim, beta=flags.beta)
     
     trainer = L.Trainer(
         accelerator="auto",

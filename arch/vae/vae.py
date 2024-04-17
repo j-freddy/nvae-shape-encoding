@@ -15,7 +15,7 @@ class VAE(L.LightningModule):
     medical imaging. 2020 Jun 17;39(11):3703-13.
     """
     
-    def __init__(self, latent_dim: int=2):
+    def __init__(self, latent_dim: int=2, beta: float=1.0):
         super().__init__()
         
         self.save_hyperparameters()
@@ -108,7 +108,7 @@ class VAE(L.LightningModule):
             dim=1,
         ).mean()
         
-        return recon_loss + kl_div
+        return recon_loss + self.hparams.beta * kl_div
     
     def get_latent(self, x: torch.Tensor) -> torch.Tensor:
         latent_repr: torch.Tensor = self.encoder(x)
