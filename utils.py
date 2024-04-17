@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision.utils import make_grid
 
 from const import SEED
@@ -47,3 +48,19 @@ def show_samples(
     plt.imshow(images)
     plt.tight_layout()
     plt.show()
+
+def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
+    # Pre: Data is ACDC one-hot encoded masks
+    _, num_channels, _, _ = real_data.shape
+    _, num_channels_fake, _, _ = fake_data.shape
+    assert num_channels == 4
+    assert num_channels_fake == 4
+    
+    # Cast data to uint8 as image and discard background dimension
+    real_data = real_data.to(torch.uint8)[:, 1:, :, :] * 255
+    fake_data = fake_data.to(torch.uint8)[:, 1:, :, :] * 255
+    
+    fid = FrechetInceptionDistance(feature=64)
+    fid.update(real_data, real=True)
+    fid.update(fake_data, real=False)
+    return fid.compute()
