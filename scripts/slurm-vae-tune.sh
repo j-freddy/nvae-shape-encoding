@@ -20,11 +20,11 @@ source activate
 # Time estimate: 7-8 min per run => 8 hrs for 78 runs
 # ==============================================================================
 
-# for latent_dim in 2 4 8 16 32 64
-for latent_dim in 2 4
+for latent_dim in 2 4 8 16 32 64
+# for latent_dim in 2 4
 do
-    # for beta in 0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100
-    for beta in 0.01 100
+    for beta in 0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100
+    # for beta in 0.01 100
     do
         model_name="ld-${latent_dim}-beta-${beta}"
         # Train
