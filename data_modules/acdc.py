@@ -222,7 +222,7 @@ class ACDCMaskDataModule(LightningDataModule):
         self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False)
         
         if one_hot:
-            data_train = self._one_hot(self.data_train)
+            data_train = self._one_hot(data_train)
             self.data_test = self._one_hot(self.data_test)
 
         self.data_train, self.data_val = self._split_train_val(data_train)

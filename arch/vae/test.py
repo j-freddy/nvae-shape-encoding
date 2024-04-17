@@ -5,7 +5,7 @@ import torch
 from arch.vae.vae import VAE
 from const import SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils import setup_device, show_samples
+from utils import frechet_inception_distance, setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -25,8 +25,7 @@ def view_reconstructions(model: VAE, samples: torch.Tensor, device: torch.device
         model.to(device)
         _, _, x_hat = model(samples)
 
-        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
-
+    reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
     samples = torch.argmax(samples, dim=1).unsqueeze(1)
     
     # Interleave samples and reconstructions
@@ -40,20 +39,25 @@ def view_reconstructions(model: VAE, samples: torch.Tensor, device: torch.device
 
     show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4))
 
-def view_generations(model: VAE, device: torch.device):
+def view_generations(model: VAE, test_data: torch.Tensor, device: torch.device):
+    num_samples, _, _, _ = test_data.shape
+    
     with torch.no_grad():
         model.eval()
         model.to(device)
         
         # Sample from latent space
-        z = torch.randn(40, model.hparams.latent_dim).to(device)
+        z = torch.randn(num_samples, model.hparams.latent_dim).to(device)
         
         # Generate segmentation maps from latent variables
-        x_hat = model.decoder(z)
-        
-        generations = torch.argmax(x_hat, dim=1).unsqueeze(1)
-    
+        fake_data: torch.Tensor = model.decoder(z)
+
+    # View generations
+    generations = torch.argmax(fake_data[:40], dim=1).unsqueeze(1)
     show_samples(generations, rgb=False, nrow=10, figsize=(10, 4))
+    
+    fid_value = frechet_inception_distance(test_data, fake_data)
+    print(f"Frechet Inception Distance: {fid_value}")
 
 def view_lerp(model: VAE, samples: torch.Tensor, device: torch.device):
     """
@@ -78,7 +82,7 @@ def view_lerp(model: VAE, samples: torch.Tensor, device: torch.device):
     
     # Pass through decoder
     with torch.no_grad():
-        x_hat = model.decoder(z_lerps)
+        x_hat: torch.Tensor = model.decoder(z_lerps)
     
     reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
     
@@ -108,7 +112,7 @@ def main(flags: argparse.Namespace):
     # view_reconstructions(model, samples, device)
     
     # View generations
-    # view_generations(model, device)
+    # view_generations(model, data_module.data_test, device)
     
     # View linear interpolation
     view_lerp(model, samples, device)
