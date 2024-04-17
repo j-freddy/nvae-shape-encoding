@@ -36,7 +36,7 @@ def show_samples(
     figsize: tuple[int, int]=(6,6),
     save_path: str=None
 ):  
-    images = images.float()
+    images = images.cpu().float()
     images = make_grid(images, nrow=nrow, padding=2, normalize=True)
     
     if not rgb:
