@@ -31,6 +31,8 @@ def view_reconstructions(model: VAE, samples: torch.Tensor, device: torch.device
     with torch.no_grad():
         model.eval()
         model.to(device)
+        
+        samples = samples.to(device)
         _, _, x_hat = model(samples)
 
     reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
@@ -82,6 +84,8 @@ def view_lerp(model: VAE, samples: torch.Tensor, device: torch.device, save_path
     with torch.no_grad():
         model.eval()
         model.to(device)
+        
+        samples = samples.to(device)
         _, _, z = model.get_latent(samples)
     
     # Hand pick 2 masks that look different
