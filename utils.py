@@ -73,6 +73,7 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     fake_data = fake_data.to(torch.uint8)[:, 1:, :, :] * 255
     
     fid = FrechetInceptionDistance(feature=64)
+    fid.to(real_data.device)
     fid.update(real_data, real=True)
     fid.update(fake_data, real=False)
     return fid.compute()
