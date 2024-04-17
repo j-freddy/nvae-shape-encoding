@@ -1,6 +1,7 @@
 __pycache__/
 data/
 logs/
+out/
 venv/
 
 sandbox.py

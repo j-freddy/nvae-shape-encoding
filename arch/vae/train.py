@@ -4,7 +4,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.vae.vae import VAE
-from const import LOGS_PATH, SEED
+from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils import setup_device
 
@@ -63,7 +63,7 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=LOGS_PATH,
-            name="vae_acdc",
+            name=ACDC.DIR.VAE,
             version=flags.model_name if flags.model_name else None,
         ),
         callbacks=[

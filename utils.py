@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -33,6 +34,7 @@ def show_samples(
     rgb: bool=True,
     nrow: int=8,
     figsize: tuple[int, int]=(6,6),
+    save_path: str=None
 ):  
     images = images.float()
     images = make_grid(images, nrow=nrow, padding=2, normalize=True)
@@ -47,6 +49,16 @@ def show_samples(
     plt.axis("off")
     plt.imshow(images)
     plt.tight_layout()
+    
+    if save_path:
+        save_dir, _ = os.path.split(save_path)
+        
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        
+        plt.savefig(save_path)
+        return
+
     plt.show()
 
 def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
