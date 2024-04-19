@@ -14,10 +14,8 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [VAE Tune]
-# VAE ACDC: Grid search on beta (KL) and latent dim hyperparameters.
-#
-# Time estimate: 4 min per run => 4 hrs for 78 runs
+# [VAE Tune - Evaluate]
+# This is slurm-vae-tune.sh, but only the evaluation part.
 # ==============================================================================
 
 # latent_dims=(2 4 8 16 32 64)
@@ -25,18 +23,6 @@ source activate
 
 latent_dims=(2 4)
 betas=(0.01 100)
-
-# Train
-
-for latent_dim in latent_dims
-do
-    for beta in betas
-    do
-        model_name="ld-${latent_dim}-beta-${beta}"
-        # Train
-        python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --model_name $model_name
-    done
-done
 
 # Evaluate
 
