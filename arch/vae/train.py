@@ -79,6 +79,7 @@ def main(flags: argparse.Namespace):
             save_dir=LOGS_PATH,
             name=ACDC.DIR.VAE,
             version=flags.model_name if flags.model_name else None,
+            default_hp_metric=False,
         ),
         callbacks=[
             ModelCheckpoint(monitor="val_loss", mode="min"),
