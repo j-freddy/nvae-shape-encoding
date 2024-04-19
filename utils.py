@@ -62,7 +62,7 @@ def show_samples(
     plt.show()
 
 def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
-    # Pre: Data is ACDC one-hot encoded masks
+    # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
     _, num_channels_fake, _, _ = fake_data.shape
     assert num_channels == 4
