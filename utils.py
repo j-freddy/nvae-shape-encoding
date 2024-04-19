@@ -34,8 +34,9 @@ def show_samples(
     rgb: bool=True,
     nrow: int=8,
     figsize: tuple[int, int]=(6,6),
-    save_path: str=None
-):  
+    save_path: str=None,
+    display: bool=True,
+):
     images = images.cpu().float()
     images = make_grid(images, nrow=nrow, padding=2, normalize=True)
     
@@ -57,9 +58,9 @@ def show_samples(
             os.makedirs(save_dir)
         
         plt.savefig(save_path)
-        return
 
-    plt.show()
+    if display:
+        plt.show()
 
 def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
     # Pre: Data is ACDC one-hot, discretised encoded masks

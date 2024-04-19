@@ -1,11 +1,12 @@
 import lightning as L
+from matplotlib import pyplot as plt
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
+from utils import frechet_inception_distance, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -56,7 +57,7 @@ class VAE(L.LightningModule):
         through the encoder.
         """
         mu, logvar = self.encoder(x)
-        return self.reparameterise(mu, logvar)
+        return self.decoder.reparameterise(mu, logvar)
     
     def discretise(self, x_hat: torch.Tensor) -> torch.Tensor:
         """
@@ -98,3 +99,72 @@ class VAE(L.LightningModule):
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
+    
+    def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        assert batch_idx == 0, "Only 1 batch allowed"
+
+        self.view_reconstructions(x[:20])
+        self.view_generations(x)
+        self.view_lerp(x[:20])
+    
+    def view_reconstructions(self, x: torch.Tensor):
+        _, _, x_hat = self(x)
+
+        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+        samples = torch.argmax(x, dim=1).unsqueeze(1)
+
+        # Interleave samples and reconstructions
+        batch_size, num_channels, width, height = samples.shape
+        assert width == height
+        samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
+        
+        for i in range(samples.shape[0]):
+            samples_and_reconstructions[i * 2] = samples[i]
+            samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
+        
+        show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+    
+    def view_generations(self, x: torch.Tensor):
+        num_samples, _, _, _ = x.shape
+            
+        # Sample from latent space
+        z = torch.randn(num_samples, self.hparams.latent_dim)
+        
+        # Generate prbabilistic segmentation maps from latent variables
+        x_fake: torch.Tensor = self.decoder.net(z)
+
+        # Discretise prbabilistic map then view generations
+        generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
+        
+        fid_value = frechet_inception_distance(x, self.discretise(x_fake))
+        self.log("fid", fid_value)
+    
+    def view_lerp(self, x: torch.Tensor):
+        """
+        Linearly interpolate between the latent representations of two samples,
+        then visualise the reconstructions.
+        """
+        z = self.get_latent(x)
+        
+        # TODO noqa
+        # Hand pick 2 masks that look different
+        z1, z2 = z[1], z[19]
+        
+        # Linear interpolation between z1 and z2
+        z_lerps = []
+
+        for i in range(10):
+            z_lerps.append(torch.lerp(z1, z2, i / 9))
+        
+        z_lerps = torch.stack(z_lerps)
+        
+        # Pass through decoder
+        x_hat: torch.Tensor = self.decoder.net(z_lerps)
+        
+        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+
+        show_samples(reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/lerp", plt.gcf())
