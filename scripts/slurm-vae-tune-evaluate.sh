@@ -18,17 +18,17 @@ source activate
 # This is slurm-vae-tune.sh, but only the evaluation part.
 # ==============================================================================
 
-# latent_dims=(2 4 8 16 32 64)
-# betas=(0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000)
+# latent_dims=("2 4 8 16 32 64")
+# betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
 
-latent_dims=(2 4)
-betas=(0.01 100)
+latent_dims=("2 4")
+betas=("0.01 100")
 
 # Evaluate
 
-for latent_dim in latent_dims
+for latent_dim in $latent_dims
 do
-    for beta in betas
+    for beta in $betas
     do
         model_name="ld-${latent_dim}-beta-${beta}"
         # Get saved model path
