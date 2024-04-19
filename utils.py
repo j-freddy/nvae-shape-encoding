@@ -68,6 +68,9 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     assert num_channels == 4
     assert num_channels_fake == 4
     
+    assert len(real_data.unique()) == 2
+    assert len(fake_data.unique()) == 2
+    
     # Cast data to uint8 as image and discard background dimension
     real_data = real_data.to(torch.uint8)[:, 1:, :, :] * 255
     fake_data = fake_data.to(torch.uint8)[:, 1:, :, :] * 255
