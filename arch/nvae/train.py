@@ -28,7 +28,11 @@ if __name__ == "__main__":
         accelerator="auto",
         devices="auto",
         max_epochs=100,
-        logger=TensorBoardLogger(save_dir=LOGS_PATH, name="nvae_cifar10"),
+        logger=TensorBoardLogger(
+            save_dir=LOGS_PATH,
+            name="nvae_cifar10",
+            default_hp_metric=False,
+        ),
         callbacks=[
             ModelCheckpoint(monitor="val_loss", mode="min"),
             LearningRateMonitor("epoch"),
