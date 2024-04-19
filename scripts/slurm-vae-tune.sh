@@ -17,7 +17,7 @@ source activate
 # [VAE Tune]
 # VAE ACDC: Grid search on beta (KL) and latent dim hyperparameters.
 #
-# Time estimate: 4 min per run => 4 hrs for 78 runs
+# Time estimate: 4 min per run => 7 hrs for 96 runs
 # ==============================================================================
 
 latent_dims=("2 4 8 16 32 64")
@@ -25,9 +25,9 @@ betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
 
 # Train
 
-for latent_dim in latent_dims
+for latent_dim in $latent_dims
 do
-    for beta in betas
+    for beta in $betas
     do
         model_name="ld-${latent_dim}-beta-${beta}"
         # Train
@@ -37,9 +37,9 @@ done
 
 # Evaluate
 
-for latent_dim in latent_dims
+for latent_dim in $latent_dims
 do
-    for beta in betas
+    for beta in $betas
     do
         model_name="ld-${latent_dim}-beta-${beta}"
         # Get saved model path
