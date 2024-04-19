@@ -116,6 +116,19 @@ class VAE(L.LightningModule):
         
         return mu, logvar, self._reparametrise(mu, logvar)
     
+    def discretise(self, x_hat: torch.Tensor) -> torch.Tensor:
+        """
+        Given a probablistic segmentation map, round each pixel to the nearest
+        class and return the non-probablistic map.
+        """
+        x_hat_argmax = torch.argmax(x_hat, dim=1)
+        x_hat_hard = F.one_hot(
+            x_hat_argmax.long(),
+            num_classes=len(x_hat_argmax.unique())
+        ).permute(0, 3, 1, 2)
+        
+        return x_hat_hard
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         mu, logvar, z = self.get_latent(x)
         x_hat = self.decoder(z)

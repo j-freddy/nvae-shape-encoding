@@ -31,6 +31,8 @@ def view_reconstructions(model: VAE, samples: torch.Tensor, device: torch.device
     with torch.no_grad():
         model.eval()
         model.to(device)
+        
+        samples = samples.to(device)
         _, _, x_hat = model(samples)
 
     reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
@@ -64,7 +66,7 @@ def view_generations(model: VAE, test_data: torch.Tensor, device: torch.device, 
     generations = torch.argmax(fake_data[:40], dim=1).unsqueeze(1)
     show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), save_path=save_path)
     
-    fid_value = frechet_inception_distance(test_data, fake_data)
+    fid_value = frechet_inception_distance(test_data, model.discretise(fake_data))
     print(f"Frechet Inception Distance: {fid_value}")
     
     # Save FID to csv file
@@ -82,6 +84,8 @@ def view_lerp(model: VAE, samples: torch.Tensor, device: torch.device, save_path
     with torch.no_grad():
         model.eval()
         model.to(device)
+        
+        samples = samples.to(device)
         _, _, z = model.get_latent(samples)
     
     # Hand pick 2 masks that look different

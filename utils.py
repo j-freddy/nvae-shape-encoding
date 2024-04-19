@@ -36,7 +36,7 @@ def show_samples(
     figsize: tuple[int, int]=(6,6),
     save_path: str=None
 ):  
-    images = images.float()
+    images = images.cpu().float()
     images = make_grid(images, nrow=nrow, padding=2, normalize=True)
     
     if not rgb:
@@ -62,7 +62,7 @@ def show_samples(
     plt.show()
 
 def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
-    # Pre: Data is ACDC one-hot encoded masks
+    # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
     _, num_channels_fake, _, _ = fake_data.shape
     assert num_channels == 4
@@ -73,6 +73,11 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     fake_data = fake_data.to(torch.uint8)[:, 1:, :, :] * 255
     
     fid = FrechetInceptionDistance(feature=64)
+    
+    # Ensure data is on the same device
+    fid.to(real_data.device)
+    fake_data = fake_data.to(real_data.device)
+    
     fid.update(real_data, real=True)
     fid.update(fake_data, real=False)
     return fid.compute()
