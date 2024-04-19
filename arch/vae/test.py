@@ -66,7 +66,7 @@ def view_generations(model: VAE, test_data: torch.Tensor, device: torch.device, 
     generations = torch.argmax(fake_data[:40], dim=1).unsqueeze(1)
     show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), save_path=save_path)
     
-    fid_value = frechet_inception_distance(test_data, fake_data)
+    fid_value = frechet_inception_distance(test_data, model.discretise(fake_data))
     print(f"Frechet Inception Distance: {fid_value}")
     
     # Save FID to csv file
