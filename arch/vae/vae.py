@@ -99,11 +99,11 @@ class VAE(L.LightningModule):
     def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
 
-        self.view_reconstructions(x[:20])
-        self.view_generations(x)
-        self.view_lerp(x[:20])
+        self.log_reconstructions(x[:20])
+        self.log_generations_and_fid(x)
+        self.log_lerp(x[:20])
     
-    def view_reconstructions(self, x: torch.Tensor):
+    def log_reconstructions(self, x: torch.Tensor):
         _, _, x_hat = self(x)
 
         reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
@@ -121,7 +121,7 @@ class VAE(L.LightningModule):
         show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
-    def view_generations(self, x: torch.Tensor):
+    def log_generations_and_fid(self, x: torch.Tensor):
         num_samples, _, _, _ = x.shape
             
         # Sample from latent space
@@ -138,7 +138,7 @@ class VAE(L.LightningModule):
         fid_value = frechet_inception_distance(x, self.discretise(x_fake))
         self.log("fid", fid_value)
     
-    def view_lerp(self, x: torch.Tensor):
+    def log_lerp(self, x: torch.Tensor):
         """
         Linearly interpolate between the latent representations of two samples,
         then visualise the reconstructions.
