@@ -31,6 +31,6 @@ do
         # Get saved model path
         model_path=$(ls logs/vae_acdc/${model_name}/checkpoints/*.ckpt)
         # Test: Save figures and metrics
-        python -m arch.vae.test --model_path $model_path --save_fig 
+        python -m arch.vae.test --model_path $model_path
     done
 done
