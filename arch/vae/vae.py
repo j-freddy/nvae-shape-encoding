@@ -129,7 +129,7 @@ class VAE(L.LightningModule):
         num_samples, _, _, _ = x.shape
             
         # Sample from latent space
-        z = torch.randn(num_samples, self.hparams.latent_dim)
+        z = torch.randn(num_samples, self.hparams.latent_dim).to(self.device)
         
         # Generate prbabilistic segmentation maps from latent variables
         x_fake: torch.Tensor = self.decoder.net(z)
