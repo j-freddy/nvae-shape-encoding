@@ -42,6 +42,8 @@ def main(flags: argparse.Namespace):
     model_name = flags.model_path.split("/")[2]
 
     trainer = L.Trainer(
+        # Using CPU for testing as FID calculation with 1 large batch can give
+        # OOM error (script runs ~1 min on CPU)
         accelerator="cpu",
         devices="auto",
         logger=TensorBoardLogger(

@@ -18,11 +18,8 @@ source activate
 # This is slurm-vae-tune.sh, but only the evaluation part.
 # ==============================================================================
 
-# latent_dims=("2 4 8 16 32 64")
-# betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
-
-latent_dims=("2")
-betas=("0.01")
+latent_dims=("2 4 8 16 32 64")
+betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
 
 # Evaluate
 
