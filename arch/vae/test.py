@@ -44,6 +44,7 @@ def main(flags: argparse.Namespace):
     trainer = L.Trainer(
         accelerator="auto",
         devices="auto",
+        accelerator="cpu",
         logger=TensorBoardLogger(
             save_dir=LOGS_PATH,
             name=ACDC.DIR.VAE,
