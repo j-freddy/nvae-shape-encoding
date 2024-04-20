@@ -9,6 +9,12 @@ SCRIPTS_PATH = "scripts"
 SEED = 1969
 
 @dataclass
+class CIFAR10:
+    class DIR:
+        VAE = "vae_cifar10"
+        NVAE = "nvae_cifar10"
+
+@dataclass
 class ACDC:
     class DIR:
         VAE = "vae_acdc"

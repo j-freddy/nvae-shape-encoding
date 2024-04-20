@@ -1,13 +1,26 @@
+import argparse
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from const import LOGS_PATH, SEED
+from const import CIFAR10, LOGS_PATH, SEED
 from data_modules.cifar10 import CIFAR10DataModule
 from arch.nvae.nvae import NVAE
 from utils import setup_device
 
-if __name__ == "__main__":
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        help="Max number of epochs.",
+        default=100,
+    )
+    
+    return parser.parse_args()
+
+def main(flags: argparse.Namespace):
     # Setup device
     device = setup_device()
     print(f"Device: {device}")
@@ -27,10 +40,10 @@ if __name__ == "__main__":
     trainer = L.Trainer(
         accelerator="auto",
         devices="auto",
-        max_epochs=100,
+        max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=LOGS_PATH,
-            name="nvae_cifar10",
+            name=CIFAR10.DIR.NVAE,
             default_hp_metric=False,
         ),
         callbacks=[
@@ -40,3 +53,7 @@ if __name__ == "__main__":
     )
     
     trainer.fit(model, data_module)
+
+if __name__ == "__main__":
+    flags = parse_args()
+    main(flags)
