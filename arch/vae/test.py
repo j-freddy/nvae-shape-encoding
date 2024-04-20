@@ -42,9 +42,8 @@ def main(flags: argparse.Namespace):
     model_name = flags.model_path.split("/")[2]
 
     trainer = L.Trainer(
-        accelerator="auto",
-        devices="auto",
         accelerator="cpu",
+        devices="auto",
         logger=TensorBoardLogger(
             save_dir=LOGS_PATH,
             name=ACDC.DIR.VAE,
