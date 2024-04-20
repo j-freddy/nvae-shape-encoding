@@ -19,17 +19,13 @@ class VAE(L.LightningModule):
     medical imaging. 2020 Jun 17;39(11):3703-13.
     """
     
-    def __init__(self, latent_dim: int=2, beta: float=1.0):
+    def __init__(self, in_channels: int=4, latent_dim: int=2, beta: float=1.0):
         super().__init__()
         
         self.save_hyperparameters()
         
-        # TODO noqa
-        # 3 segmentation classes + background
-        in_channels = 4
-        
-        self.encoder = Encoder(in_channels, self.hparams.latent_dim)
-        self.decoder = Decoder(in_channels, self.hparams.latent_dim)
+        self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
+        self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)

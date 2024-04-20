@@ -67,9 +67,11 @@ def main(flags: argparse.Namespace):
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
+    
+    _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
-    model = VAE(latent_dim=flags.latent_dim, beta=flags.beta)
+    model = VAE(in_channels=num_classes, latent_dim=flags.latent_dim, beta=flags.beta)
     
     trainer = L.Trainer(
         accelerator="auto",
