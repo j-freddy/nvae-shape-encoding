@@ -99,6 +99,11 @@ class VAE(L.LightningModule):
     def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
 
+        # Compute loss
+        mu, logvar, x_hat = self(x)
+        loss = self.loss(mu, logvar, x, x_hat)
+        self.log("test_loss", loss)
+
         self.log_reconstructions(x[:20])
         self.log_generations_and_fid(x)
         self.log_lerp(x[:20])
