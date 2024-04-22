@@ -167,5 +167,5 @@ class VAE(L.LightningModule):
         
         reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
 
-        show_samples(reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        show_samples(reconstructions, rgb=False, nrow=10, figsize=(10, 1), display=False)
         self.logger.experiment.add_figure("img/lerp", plt.gcf())
