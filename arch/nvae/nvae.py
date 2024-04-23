@@ -38,21 +38,14 @@ class NVAE(L.LightningModule):
         x = self.stem(feats)
         
         # Pass through encoder
-        z, xs, enc_combiner_cells = self.encoder(x)
-        
-        print(z.shape)
-        import sys
-        sys.exit()
+        x, xs, enc_combiner_cells = self.encoder(x)
         
         # Reverse buffers and modules for decoder
         xs = xs[::-1]
         enc_combiner_cells = enc_combiner_cells[::-1]
         enc_samplers = self.encoder.samplers[::-1]
         
-        self.decoder(xs, enc_combiner_cells, enc_samplers)
-        
-        import sys
-        sys.exit()
+        self.decoder(x, xs, enc_combiner_cells, enc_samplers)
         
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         feats, labels = batch

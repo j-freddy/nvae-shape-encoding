@@ -156,18 +156,4 @@ class Encoder(nn.Module):
         # Final x is not added as last group in last scale does not have a
         # combiner cell
         
-        x = self.compressor(x)
-        
-        # Sample mu, logsig of the topmost latent scale
-        latent_repr = self.samplers[-1](x)
-        mu, logsig = torch.chunk(latent_repr, 2, dim=1)
-        mu = soft_clamp(mu)
-        logsig = soft_clamp(logsig)
-        
-        # First approximate posterior
-        distr = Normal(mu, logsig)
-        z = distr.sample()
-        
-        # TODO Normalising flows skipped
-        
-        return z, xs, combiner_cells
+        return self.compressor(x), xs, combiner_cells

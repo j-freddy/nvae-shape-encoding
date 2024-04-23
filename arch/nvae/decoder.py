@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision.ops as ops
 
+from arch.nvae.distribution import Normal
 from utils import soft_clamp
 
 class DecoderResidualCell(nn.Module):
@@ -110,8 +111,70 @@ class Decoder(nn.Module):
 
     def forward(
         self,
+        x: torch.Tensor,
         xs: torch.Tensor,
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
     ) -> torch.Tensor:
-        NotImplemented
+        # Sample mu, logsig of the topmost latent scale
+        latent_repr = enc_samplers[0](x)
+        mu, logsig = torch.chunk(latent_repr, 2, dim=1)
+        mu = soft_clamp(mu)
+        logsig = soft_clamp(logsig)
+        
+        # Approximate posterior for top-level
+        distr = Normal(mu, logsig)
+        z = distr.sample()
+        log_qs = [distr.log_p(z)]
+        
+        # TODO Normalising flows skipped
+        
+        # Prior for top-level z
+        distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
+        
+        distributions = [distr]
+        log_ps = [distr.log_p(z)]
+        
+        import sys
+        sys.exit()
+        
+        # # To make sure we do not pass any deterministic features from x to decoder.
+        # s = 0
+
+        # idx_dec = 0
+        # s = self.prior_ftr0.unsqueeze(0)
+        # batch_size = z.size(0)
+        # s = s.expand(batch_size, -1, -1, -1)
+        # for cell in self.dec_tower:
+        #     if cell.cell_type == 'combiner_dec':
+        #         if idx_dec > 0:
+        #             # form prior
+        #             param = self.dec_sampler[idx_dec - 1](s)
+        #             mu_p, log_sig_p = torch.chunk(param, 2, dim=1)
+
+        #             # form encoder
+        #             ftr = combiner_cells_enc[idx_dec - 1](combiner_cells_s[idx_dec - 1], s)
+        #             param = self.enc_sampler[idx_dec](ftr)
+        #             mu_q, log_sig_q = torch.chunk(param, 2, dim=1)
+        #             dist = Normal(mu_p + mu_q, log_sig_p + log_sig_q) if self.res_dist else Normal(mu_q, log_sig_q)
+        #             z, _ = dist.sample()
+        #             log_q_conv = dist.log_p(z)
+        #             # apply NF
+        #             for n in range(self.num_flows):
+        #                 z, log_det = self.nf_cells[nf_offset + n](z, ftr)
+        #                 log_q_conv -= log_det
+        #             nf_offset += self.num_flows
+        #             all_log_q.append(log_q_conv)
+        #             all_q.append(dist)
+
+        #             # evaluate log_p(z)
+        #             dist = Normal(mu_p, log_sig_p)
+        #             log_p_conv = dist.log_p(z)
+        #             all_p.append(dist)
+        #             all_log_p.append(log_p_conv)
+
+        #         # 'combiner_dec'
+        #         s = cell(s, z)
+        #         idx_dec += 1
+        #     else:
+        #         s = cell(s)

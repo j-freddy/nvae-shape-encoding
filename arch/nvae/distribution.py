@@ -7,3 +7,6 @@ class Normal:
 
     def sample(self):
         return self.mu + self.sigma * torch.randn_like(self.mu)
+
+    def log_p(self, samples: torch.Tensor) -> torch.Tensor:
+        NotImplemented
