@@ -194,6 +194,23 @@ class Decoder(nn.Module):
                     mu_p, log_sig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
                     # TODO
+                    
+                    # Encoder
+                    # ftr = combiner_cells_enc[idx_dec - 1](combiner_cells_s[idx_dec - 1], s)
+                    # param = self.enc_sampler[idx_dec](ftr)
+                    # mu_q, log_sig_q = torch.chunk(param, 2, dim=1)
+                    # dist = Normal(mu_p + mu_q, log_sig_p + log_sig_q) if self.res_dist else Normal(mu_q, log_sig_q)
+                    # z, _ = dist.sample()
+                    # log_q_conv = dist.log_p(z)
+                    
+                    # all_log_q.append(log_q_conv)
+                    # all_q.append(dist)
+                    
+                    # Evaluate log_p(z)
+                    # dist = Normal(mu_p, log_sig_p)
+                    # log_p_conv = dist.log_p(z)
+                    # all_p.append(dist)
+                    # all_log_p.append(log_p_conv)
 
                 print(x.shape)
                 print(z.shape)
@@ -211,46 +228,6 @@ class Decoder(nn.Module):
                 import sys
                 sys.exit()
         
-        import sys
-        sys.exit()
+        # TODO From line 424 in model.py, official NVAE implementation
         
-        # # To make sure we do not pass any deterministic features from x to decoder.
-        # s = 0
-
-        # idx_dec = 0
-        # s = self.prior_ftr0.unsqueeze(0)
-        # batch_size = z.size(0)
-        # s = s.expand(batch_size, -1, -1, -1)
-        # for cell in self.dec_tower:
-        #     if cell.cell_type == 'combiner_dec':
-        #         if idx_dec > 0:
-        #             # form prior
-        #             param = self.dec_sampler[idx_dec - 1](s)
-        #             mu_p, log_sig_p = torch.chunk(param, 2, dim=1)
-
-        #             # form encoder
-        #             ftr = combiner_cells_enc[idx_dec - 1](combiner_cells_s[idx_dec - 1], s)
-        #             param = self.enc_sampler[idx_dec](ftr)
-        #             mu_q, log_sig_q = torch.chunk(param, 2, dim=1)
-        #             dist = Normal(mu_p + mu_q, log_sig_p + log_sig_q) if self.res_dist else Normal(mu_q, log_sig_q)
-        #             z, _ = dist.sample()
-        #             log_q_conv = dist.log_p(z)
-        #             # apply NF
-        #             for n in range(self.num_flows):
-        #                 z, log_det = self.nf_cells[nf_offset + n](z, ftr)
-        #                 log_q_conv -= log_det
-        #             nf_offset += self.num_flows
-        #             all_log_q.append(log_q_conv)
-        #             all_q.append(dist)
-
-        #             # evaluate log_p(z)
-        #             dist = Normal(mu_p, log_sig_p)
-        #             log_p_conv = dist.log_p(z)
-        #             all_p.append(dist)
-        #             all_log_p.append(log_p_conv)
-
-        #         # 'combiner_dec'
-        #         s = cell(s, z)
-        #         idx_dec += 1
-        #     else:
-        #         s = cell(s)
+        return NotImplemented
