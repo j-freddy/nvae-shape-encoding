@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torchvision.ops as ops
 
+from arch.nvae.distribution import Normal
+from utils import soft_clamp
+
 class EncoderResidualCell(nn.Module):
     """
     Encoder residual cell.
@@ -62,8 +65,10 @@ class Encoder(nn.Module):
     Also see init_encoder_tower() in official NVAE code.
     """
     
-    def __init__(self, initial_channels: int=64):
+    def __init__(self, initial_channels: int=64, z_channels: int=20):
         super().__init__()
+        
+        # Build preprocessing layers
         
         self.preprocess = nn.Sequential(
             EncoderResidualCell(initial_channels),
@@ -75,7 +80,10 @@ class Encoder(nn.Module):
         # num_groups_per_scale = [20, 10, 5]
         num_groups_per_scale = [4, 2, 1]
         
+        # Build tower
+        
         self.tower = nn.ModuleList()
+        self.samplers = nn.ModuleList()
         
         num_channels = initial_channels
         
@@ -85,10 +93,20 @@ class Encoder(nn.Module):
                 self.tower.append(EncoderResidualCell(num_channels))
                 self.tower.append(EncoderResidualCell(num_channels))
                 
+                # Add sampler
+                self.samplers.append(
+                    nn.Conv2d(
+                        num_channels,
+                        2 * z_channels,
+                        kernel_size=3,
+                        padding=1,
+                    )
+                )
+                
                 # Add enc combiner if not last group in last scale
-                # TODO Note that 2nd arg is num_channels_dec * multiplier but it
-                # is always equal to num_channels_enc
                 if not (s == num_latent_scales - 1 and g == num_groups_per_scale[s] - 1):
+                    # TODO Note that 2nd arg is num_channels_dec * multiplier
+                    # but num_channels_dec is always equal to num_channels
                     self.tower.append(EncoderCombinerCell(num_channels, num_channels))
         
             if s < num_latent_scales - 1:
@@ -105,11 +123,22 @@ class Encoder(nn.Module):
                 )
                 
                 num_channels *= 2
+      
+        # Build compressor
+        # TODO I don't know this purpose (init_encoder0 in official
+        # implementation), it doesn't even change the number of channels so
+        # technically it's not a compressor
+        
+        self.compressor = nn.Sequential(
+            nn.ELU(),
+            nn.Conv2d(num_channels, num_channels, kernel_size=1, bias=True),
+            nn.ELU(),
+        )
     
     def forward(
         self,
         x: torch.Tensor,
-    ) -> tuple[torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
         x = self.preprocess(x)
         
         xs = []
@@ -126,5 +155,19 @@ class Encoder(nn.Module):
         
         # Final x is not added as last group in last scale does not have a
         # combiner cell
-
-        return x, xs, combiner_cells
+        
+        x = self.compressor(x)
+        
+        # Sample mu, logsig of the topmost latent scale
+        latent_repr = self.samplers[-1](x)
+        mu, logsig = torch.chunk(latent_repr, 2, dim=1)
+        mu = soft_clamp(mu)
+        logsig = soft_clamp(logsig)
+        
+        # First approximate posterior
+        distr = Normal(mu, logsig)
+        z = distr.sample()
+        
+        # TODO Normalising flows skipped
+        
+        return z, xs, combiner_cells

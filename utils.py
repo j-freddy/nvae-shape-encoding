@@ -85,3 +85,6 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     fid.update(real_data, real=True)
     fid.update(fake_data, real=False)
     return fid.compute()
+
+def soft_clamp(x: torch.Tensor, factor: float=5.0):
+    return torch.tanh(x.div(factor)) * factor

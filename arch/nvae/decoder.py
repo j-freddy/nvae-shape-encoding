@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torchvision.ops as ops
 
+from utils import soft_clamp
+
 class DecoderResidualCell(nn.Module):
     """
     Decoder residual cell.
@@ -65,6 +67,8 @@ class Decoder(nn.Module):
     def __init__(self, initial_channels: int=256):
         super().__init__()
         
+        # Build tower
+        
         self.tower = nn.ModuleList()
         
         # TODO This must match Encoder, but num_groups_per_scale must be
@@ -106,6 +110,8 @@ class Decoder(nn.Module):
 
     def forward(
         self,
-        x: torch.Tensor,
+        xs: torch.Tensor,
+        enc_combiner_cells: list[nn.Module],
+        enc_samplers: list[nn.Module],
     ) -> torch.Tensor:
         NotImplemented
