@@ -49,7 +49,7 @@ class EncoderCombinerCell(nn.Module):
     
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
-        
+
         self.net = nn.Conv2d(in_channels, out_channels, kernel_size=1)
     
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:

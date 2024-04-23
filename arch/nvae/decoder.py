@@ -55,6 +55,22 @@ class DecoderResidualCell(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x + self.net(x)
 
+class DecoderCombinerCell(nn.Module):
+    """
+    Decoder combiner cell.
+    
+    Following the official NVAE implementation from class DecCombinerCell in
+    neural_operations.py
+    """
+    
+    def __init__(self, in_channels_x1: int, in_channels_x2: int, out_channels: int):
+        super().__init__()
+        
+        self.net = nn.Conv2d(in_channels_x1 + in_channels_x2, out_channels, kernel_size=1)
+
+    def forward(self, x1, x2):
+        return self.net(torch.cat([x1, x2], dim=1))
+
 class Decoder(nn.Module):
     """
     NVAE Decoder.
@@ -65,12 +81,16 @@ class Decoder(nn.Module):
     Also see init_decoder_tower() in official NVAE code.
     """
     
-    def __init__(self, initial_channels: int=256):
+    def __init__(self, initial_channels: int=256, z_channels: int=20):
         super().__init__()
+        
+        # TODO Do not hardcode the size
+        self.top_prior = nn.Parameter(torch.rand(size=(256, 8, 8)), requires_grad=True)
         
         # Build tower
         
         self.tower = nn.ModuleList()
+        self.samplers = nn.ModuleList()
         
         # TODO This must match Encoder, but num_groups_per_scale must be
         # reversed
@@ -84,25 +104,42 @@ class Decoder(nn.Module):
             for g in range(num_groups_per_scale[s]):
                 if not (s == 0 and g == 0):
                     # Residual cells
+                    # Official implementation uses mconv_e6k5g0
                     self.tower.append(DecoderResidualCell(num_channels))
                     self.tower.append(DecoderResidualCell(num_channels))
                     
-                # TODO DecoderCombinerCell
-                
-                # TODO Add samplers
-                # These are just Conv2D with output features = 20 * 2
-                # where 20 is #channels in z (see Table 6) and 20 * 2 allows to
-                # encode mean and logvar
+                    # Add sampler
+                    self.samplers.append(
+                        nn.Sequential(
+                            nn.ELU(),
+                            nn.Conv2d(
+                                num_channels,
+                                2 * z_channels,
+                                kernel_size=1,
+                            ),
+                        ),
+                    )
+
+                # Add dec combiner
+                self.tower.append(
+                    DecoderCombinerCell(
+                        num_channels,
+                        z_channels,
+                        num_channels,
+                    ),
+                )
             
             if s < num_latent_scales - 1:
                 # Upsample
+                # Official implementation uses mconv_e6k5g0 with kernel size 5
                 self.tower.append(
-                    nn.Conv2d(
+                    nn.ConvTranspose2d(
                         num_channels,
                         num_channels // 2,
-                        kernel_size=3,
+                        kernel_size=5,
                         stride=2,
-                        padding=1,
+                        padding=2,
+                        output_padding=1,
                         bias=False,
                     ),
                 )
@@ -116,14 +153,16 @@ class Decoder(nn.Module):
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
     ) -> torch.Tensor:
+        batch_size, _, _, _ = x.shape
+        
         # Sample mu, logsig of the topmost latent scale
-        latent_repr = enc_samplers[0](x)
-        mu, logsig = torch.chunk(latent_repr, 2, dim=1)
-        mu = soft_clamp(mu)
-        logsig = soft_clamp(logsig)
+        latent_repr_q = enc_samplers[0](x)
+        mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
+        mu_q = soft_clamp(mu_q)
+        logsig_q = soft_clamp(logsig_q)
         
         # Approximate posterior for top-level
-        distr = Normal(mu, logsig)
+        distr = Normal(mu_q, logsig_q)
         z = distr.sample()
         log_qs = [distr.log_p(z)]
         
@@ -132,8 +171,45 @@ class Decoder(nn.Module):
         # Prior for top-level z
         distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
         
-        distributions = [distr]
+        distrs = [distr]
         log_ps = [distr.log_p(z)]
+        
+        idx_dec = 0
+        # [1, width, height]
+        x = self.top_prior.unsqueeze(0)
+        # [batch_size, 1, width, height]
+        x = x.expand(batch_size, -1, -1, -1)
+        
+        for cell in self.tower:
+            print(cell)
+            
+            if isinstance(cell, DecoderCombinerCell):
+                print("Foo")
+                
+                if idx_dec > 0:
+                    print("Bar")
+                    
+                    # Prior
+                    latent_repr_p = self.dec_samplers[idx_dec - 1](x)
+                    mu_p, log_sig_p = torch.chunk(latent_repr_p, 2, dim=1)
+                    
+                    # TODO
+
+                print(x.shape)
+                print(z.shape)
+
+                x = cell(x, z)
+                
+                print(x.shape)
+                
+                idx_dec += 1
+            else:
+                x = cell(x)
+                print("Baz")
+                print(x.shape)
+                
+                import sys
+                sys.exit()
         
         import sys
         sys.exit()
