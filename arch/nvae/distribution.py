@@ -1,7 +1,17 @@
+import numpy as np
 import torch
 
+from utils import soft_clamp
+
 class Normal:
-    def __init__(self, mu, logsig, temp: float=1.0):
+    """
+    See class Normal in official NVAE implementation (distributions.py)
+    """
+    
+    def __init__(self, mu: torch.Tensor, logsig: torch.Tensor, temp: float=1.0):
+        mu = soft_clamp(mu)
+        logsig = soft_clamp(logsig)
+        
         self.mu = mu
         self.sigma = (torch.exp(logsig) + 1e-2) * temp
 
@@ -9,4 +19,5 @@ class Normal:
         return self.mu + self.sigma * torch.randn_like(self.mu)
 
     def log_p(self, samples: torch.Tensor) -> torch.Tensor:
-        NotImplemented
+        samples_n = (samples - self.mu) / self.sigma
+        return -0.5 * samples_n * samples_n - 0.5 * np.log(2 * np.pi) - torch.log(self.sigma)

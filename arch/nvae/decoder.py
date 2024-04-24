@@ -145,6 +145,13 @@ class Decoder(nn.Module):
                 )
                 
                 num_channels //= 2
+    
+        # Build postprocessing layers
+        
+        self.postprocess = nn.Sequential(
+            DecoderResidualCell(num_channels),
+            DecoderResidualCell(num_channels),
+        )
 
     def forward(
         self,
@@ -158,20 +165,17 @@ class Decoder(nn.Module):
         # Sample mu, logsig of the topmost latent scale
         latent_repr_q = enc_samplers[0](x)
         mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
-        mu_q = soft_clamp(mu_q)
-        logsig_q = soft_clamp(logsig_q)
-        
         # Approximate posterior for top-level
         distr = Normal(mu_q, logsig_q)
         z = distr.sample()
+        qs = [distr]
         log_qs = [distr.log_p(z)]
         
         # TODO Normalising flows skipped
         
         # Prior for top-level z
         distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
-        
-        distrs = [distr]
+        ps = [distr]
         log_ps = [distr.log_p(z)]
         
         idx_dec = 0
@@ -181,53 +185,39 @@ class Decoder(nn.Module):
         x = x.expand(batch_size, -1, -1, -1)
         
         for cell in self.tower:
-            print(cell)
-            
             if isinstance(cell, DecoderCombinerCell):
-                print("Foo")
-                
                 if idx_dec > 0:
-                    print("Bar")
+                    # Sample prior
+                    latent_repr_p = self.samplers[idx_dec - 1](x)
+                    mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    # Prior
-                    latent_repr_p = self.dec_samplers[idx_dec - 1](x)
-                    mu_p, log_sig_p = torch.chunk(latent_repr_p, 2, dim=1)
+                    # Approximate posterior
+                    comb_feats = enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], x)
+                    latent_repr_q = enc_samplers[idx_dec](comb_feats)
+                    mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
+                    # Residual distribution
+                    distr = Normal(mu_p + mu_q, logsig_p + logsig_q)
+                    z = distr.sample()
                     
-                    # TODO
+                    qs.append(distr)
+                    log_qs.append(distr.log_p(z))
                     
-                    # Encoder
-                    # ftr = combiner_cells_enc[idx_dec - 1](combiner_cells_s[idx_dec - 1], s)
-                    # param = self.enc_sampler[idx_dec](ftr)
-                    # mu_q, log_sig_q = torch.chunk(param, 2, dim=1)
-                    # dist = Normal(mu_p + mu_q, log_sig_p + log_sig_q) if self.res_dist else Normal(mu_q, log_sig_q)
-                    # z, _ = dist.sample()
-                    # log_q_conv = dist.log_p(z)
-                    
-                    # all_log_q.append(log_q_conv)
-                    # all_q.append(dist)
-                    
-                    # Evaluate log_p(z)
-                    # dist = Normal(mu_p, log_sig_p)
-                    # log_p_conv = dist.log_p(z)
-                    # all_p.append(dist)
-                    # all_log_p.append(log_p_conv)
-
-                print(x.shape)
-                print(z.shape)
+                    # Use prior
+                    distr = Normal(mu_p, logsig_p)
+                    ps.append(distr)
+                    log_ps.append(distr.log_p(z))
 
                 x = cell(x, z)
-                
-                print(x.shape)
                 
                 idx_dec += 1
             else:
                 x = cell(x)
-                print("Baz")
-                print(x.shape)
-                
-                import sys
-                sys.exit()
         
         # TODO From line 424 in model.py, official NVAE implementation
+
+        x = self.postprocess(x)
+        
+        import sys
+        sys.exit()
         
         return NotImplemented
