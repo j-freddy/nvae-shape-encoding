@@ -7,16 +7,13 @@ from arch.nvae.encoder import Encoder
 
 class NVAE(L.LightningModule):
     """
-    arch_cells = dict()
-    arch_cells['normal_enc'] = ['res_bnswish', 'res_bnswish']
-    arch_cells['down_enc'] = ['res_bnswish', 'res_bnswish']
-    arch_cells['normal_dec'] = ['mconv_e6k5g0']
-    arch_cells['up_dec'] = ['mconv_e6k5g0']
-    arch_cells['normal_pre'] = ['res_bnswish', 'res_bnswish']
-    arch_cells['down_pre'] = ['res_bnswish', 'res_bnswish']
-    arch_cells['normal_post'] = ['mconv_e3k5g0']
-    arch_cells['up_post'] = ['mconv_e3k5g0']
-    arch_cells['ar_nn'] = ['']
+    Nouveau Variational Autoencoder (NVAE) is a deep hierarchical VAE that
+    achieves SOTA in image generation tasks among non-autoregressive models.
+    This is an implementation of the framework proposed in [1], primarily based
+    on details described in the paper and the official codebase.
+    
+    [1]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
+    Advances in neural information processing systems. 2020;33:19667-79.
     """
     
     def __init__(self, initial_channels: int=64):
@@ -35,7 +32,7 @@ class NVAE(L.LightningModule):
             nn.ELU(),
             nn.Conv2d(initial_channels, 3, kernel_size=3, padding=1),
         )
-    
+
     def configure_optimizers(self):
         NotImplemented
     
