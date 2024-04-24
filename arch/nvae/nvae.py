@@ -29,8 +29,21 @@ class NVAE(L.LightningModule):
         # TODO In encoder.py I use num_latent_scales = 3
         # In general, initial_channels = initial_channels * (2 ** (num_latent_scales - 1))
         self.decoder = Decoder(initial_channels=initial_channels * 4)
+        
+        # This is the opposite of the stem
+        self.conditional_coder = nn.Sequential(
+            nn.ELU(),
+            nn.Conv2d(initial_channels, 3, kernel_size=3, padding=1),
+        )
     
     def configure_optimizers(self):
+        NotImplemented
+    
+    def loss(
+        self,
+        x: torch.Tensor,
+        x_hat: torch.Tensor,
+    ) -> torch.Tensor:
         NotImplemented
     
     def forward(self, feats: torch.Tensor) -> torch.Tensor:
@@ -45,11 +58,21 @@ class NVAE(L.LightningModule):
         enc_combiner_cells = enc_combiner_cells[::-1]
         enc_samplers = self.encoder.samplers[::-1]
         
-        self.decoder(x, xs, enc_combiner_cells, enc_samplers)
+        # Pass through decoder
+        x_hat = self.decoder(x, xs, enc_combiner_cells, enc_samplers)
+        
+        # Compute logits
+        feats_hat: torch.Tensor = self.conditional_coder(x_hat)
+
+        assert feats.shape == feats_hat.shape
+        
+        return feats_hat
         
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        feats, labels = batch
-        self(feats)
+        feats, _ = batch
+        feats_hat = self(feats)
+        
+        loss = self.loss(feats, feats_hat)
         
         NotImplemented
     

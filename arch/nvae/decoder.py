@@ -212,12 +212,7 @@ class Decoder(nn.Module):
                 idx_dec += 1
             else:
                 x = cell(x)
-        
-        # TODO From line 424 in model.py, official NVAE implementation
 
         x = self.postprocess(x)
         
-        import sys
-        sys.exit()
-        
-        return NotImplemented
+        return x
