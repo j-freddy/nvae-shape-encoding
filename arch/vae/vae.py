@@ -6,6 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
+from arch.vae.regulariser import ID_TO_REGULARISER, LossRegulariser
 from utils import frechet_inception_distance, show_samples
 
 class VAE(L.LightningModule):
@@ -19,33 +20,55 @@ class VAE(L.LightningModule):
     medical imaging. 2020 Jun 17;39(11):3703-13.
     """
     
-    def __init__(self, in_channels: int=4, latent_dim: int=2, beta: float=1.0):
+    def __init__(
+        self,
+        in_channels: int=4,
+        latent_dim: int=2,
+        regulariser: str="beta_tcvae",
+        beta: float=1.0,
+    ):
         super().__init__()
         
         self.save_hyperparameters()
         
         self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
         self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
+        
+        self.loss_regulariser: LossRegulariser = ID_TO_REGULARISER[self.hparams.regulariser](self.hparams.beta)
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
     
+    def _beta_vae_regulariser(self, kl_div: torch.Tensor) -> torch.Tensor:
+        return self.hparams.beta * kl_div
+
+    def _beta_tc_vae_regulariser(self, kl_div: torch.Tensor) -> torch.Tensor:
+        return self.hparams.beta * kl_div * 0
+    
     def loss(
         self,
+        x: torch.Tensor,
         mu: torch.Tensor,
         logvar: torch.Tensor,
-        x: torch.Tensor,
+        z: torch.Tensor,
         x_hat: torch.Tensor,
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
         
-        kl_div = -0.5 * torch.sum(
-            1 + logvar - mu.pow(2) - logvar.exp(),
-            dim=1,
-        ).mean()
+        print(self.loss_regulariser(z, mu, logvar))
         
-        return recon_loss + self.hparams.beta * kl_div
+        import sys
+        sys.exit()
+        
+        return recon_loss + self.loss_regulariser(z, mu, logvar)
+    
+    def _reparameterise(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+        # z_m = mu(x_m) + sigma(x_m) * epsilon
+        # epsilon ~ N(0, 1)
+        
+        eps = torch.randn_like(logvar)
+        return mu + torch.exp(0.5 * logvar) * eps
     
     def get_latent(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -53,7 +76,7 @@ class VAE(L.LightningModule):
         through the encoder.
         """
         mu, logvar = self.encoder(x)
-        return self.decoder.reparameterise(mu, logvar)
+        return self._reparameterise(mu, logvar)
     
     def discretise(self, x_hat: torch.Tensor) -> torch.Tensor:
         """
@@ -70,14 +93,15 @@ class VAE(L.LightningModule):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         mu, logvar = self.encoder(x)
-        x_hat = self.decoder(mu, logvar)
-        return mu, logvar, x_hat
+        z = self._reparameterise(mu, logvar)
+        x_hat = self.decoder(z)
+        return mu, logvar, z, x_hat
     
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar, x_hat = self(x)
+        mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(mu, logvar, x, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat)
         self.log("train_loss", loss)
         
         print(f"Train loss: {loss}")
@@ -88,10 +112,10 @@ class VAE(L.LightningModule):
         return loss
     
     def validation_step(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar, x_hat = self(x)
+        mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(mu, logvar, x, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -100,8 +124,8 @@ class VAE(L.LightningModule):
         assert batch_idx == 0, "Only 1 batch allowed"
 
         # Compute loss
-        mu, logvar, x_hat = self(x)
-        loss = self.loss(mu, logvar, x, x_hat)
+        mu, logvar, z, x_hat = self(x)
+        loss = self.loss(x, mu, logvar, z, x_hat)
         self.log("test_loss", loss)
 
         self.log_reconstructions(x[:20])

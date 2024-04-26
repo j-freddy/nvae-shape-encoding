@@ -35,13 +35,5 @@ class Decoder(nn.Module):
             nn.Softmax(dim=1),
         )
     
-    def reparameterise(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        # z_m = mu(x_m) + sigma(x_m) * epsilon
-        # epsilon ~ N(0, 1)
-        
-        eps = torch.randn_like(logvar)
-        return mu + torch.exp(0.5 * logvar) * eps
-    
-    def forward(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        z = self.reparameterise(mu, logvar)
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
         return self.net(z)
