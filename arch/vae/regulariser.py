@@ -34,26 +34,50 @@ class BetaTCVAERegulariser(LossRegulariser):
     This is a simplified implementation of the beta-TCVAE regulariser term based
     on [1]. It fixes alpha = gamma = 1 in Eq. (4) of [1].
     
+    The code for computing total correlation (i.e. _total_correlation,
+    _gaussian_log_density) is lifted and translated from [2], which was
+    originally implemented with TensorFlow. Their repo can be found at
+    https://github.com/google-research/disentanglement_lib.
+    
     [1]: Chen RT, Li X, Grosse RB, Duvenaud DK. Isolating sources of
     disentanglement in variational autoencoders. Advances in neural information
     processing systems. 2018;31.
+    
+    [2]: Locatello F, Bauer S, Lucic M, Raetsch G, Gelly S, Schölkopf B, Bachem
+    O. Challenging common assumptions in the unsupervised learning of
+    disentangled representations. Ininternational conference on machine learning
+    2019 May 24 (pp. 4114-4124). PMLR.
     """
+
+    def _gaussian_log_density(
+        self,
+        z: torch.Tensor,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+    ) -> torch.Tensor:
+        normalisation = torch.log(2 * torch.tensor(torch.pi))
+        return -0.5 * (
+            (z - mu) ** 2 * torch.exp(-logvar) + logvar + normalisation
+        )
     
-    # TODO noqa
-    def gaussian_log_density(self, z: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        normalization = torch.log(2 * torch.tensor(torch.pi))
-        inv_sigma = torch.exp(-logvar)
-        tmp = (z - mu)
-        return -0.5 * (tmp * tmp * inv_sigma + logvar + normalization)
-    
-    def _total_correlation(self, z: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        log_qz_prob = self.gaussian_log_density(
+    def _total_correlation(
+        self,
+        z: torch.Tensor,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+    ) -> torch.Tensor:
+        # Compute log(q(z(x_j)|x_i))
+        log_qz_prob = self._gaussian_log_density(
             z.unsqueeze(1),
             mu.unsqueeze(0),
             logvar.unsqueeze(0),
         )
         
+        # Compute log prod_l p(z(x_j)_l) = sum_l(log(sum_i(q(z(z_j)_l|x_i)))
+        # + const)
         log_qz_product = torch.logsumexp(log_qz_prob, dim=1).sum(dim=1)
+        # Compute log(q(z(x_j))) as log(sum_i(q(z(x_j)|x_i))) + const =
+        # log(sum_i(prod_l q(z(x_j)_l|x_i))) + const
         log_qz = torch.logsumexp(log_qz_prob.sum(dim=2), dim=1)
 
         return (log_qz - log_qz_product).mean()
@@ -66,11 +90,6 @@ class BetaTCVAERegulariser(LossRegulariser):
     ) -> torch.Tensor:
         kl_div = self._kl_divergence(mu, logvar)
         tc = self._total_correlation(z, mu, logvar)
-        
-        print(kl_div, tc)
-        
-        import sys
-        sys.exit()
         
         # By fixing alpha = gamma = 1, Eq. (4) of [1] simplifies to:
         #   ELBO + (beta - 1) * TC

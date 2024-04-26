@@ -24,7 +24,7 @@ class VAE(L.LightningModule):
         self,
         in_channels: int=4,
         latent_dim: int=2,
-        regulariser: str="beta_tcvae",
+        regulariser: str="beta_vae",
         beta: float=1.0,
     ):
         super().__init__()
@@ -55,11 +55,6 @@ class VAE(L.LightningModule):
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
-        
-        print(self.loss_regulariser(z, mu, logvar))
-        
-        import sys
-        sys.exit()
         
         return recon_loss + self.loss_regulariser(z, mu, logvar)
     
@@ -133,7 +128,7 @@ class VAE(L.LightningModule):
         self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
-        _, _, x_hat = self(x)
+        _, _, _, x_hat = self(x)
 
         reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
         samples = torch.argmax(x, dim=1).unsqueeze(1)
