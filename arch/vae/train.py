@@ -1,4 +1,5 @@
 import argparse
+from arch.vae.regulariser import ID_TO_REGULARISER
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -23,6 +24,14 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Dimension of latent space.",
         default=8,
+    )
+    
+    parser.add_argument(
+        "--loss_reg",
+        type=str,
+        help="Regulariser technique.",
+        choices=ID_TO_REGULARISER.keys(),
+        default="beta_vae",
     )
     
     parser.add_argument(
@@ -71,7 +80,12 @@ def main(flags: argparse.Namespace):
     _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
-    model = VAE(in_channels=num_classes, latent_dim=flags.latent_dim, beta=flags.beta)
+    model = VAE(
+        in_channels=num_classes,
+        latent_dim=flags.latent_dim,
+        regulariser=flags.loss_reg,
+        beta=flags.beta,
+    )
     
     trainer = L.Trainer(
         accelerator="auto",
