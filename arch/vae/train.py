@@ -4,7 +4,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 
-from arch.vae.factor_vae import FactorVAE
+from arch.vae.factorvae import FactorVAE
 from arch.vae.tcvae import TCVAE
 from arch.vae.vae import VAE
 from const import ACDC, LOGS_PATH, SEED
@@ -93,13 +93,12 @@ def main(flags: argparse.Namespace):
     model = Model(
         in_channels=num_classes,
         latent_dim=flags.latent_dim,
+        loss_reg=flags.loss_reg,
         beta=flags.beta,
     )
     
     trainer = L.Trainer(
         accelerator="auto",
-        # TODO Debugging
-        detect_anomaly=True,
         devices="auto",
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(

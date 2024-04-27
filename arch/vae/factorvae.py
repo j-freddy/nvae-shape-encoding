@@ -16,26 +16,25 @@ class Discriminator(nn.Module):
         
         self.net = nn.Sequential(
             nn.Linear(latent_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, 2),
         )
     
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         return self.net(z)
-    
-# https://github.com/AliLotfi92/Disentangling_by_Factorising/blob/master/FactorizedVAE.py
 
 class FactorVAE(VAE):
     def __init__(
         self,
         in_channels: int=4,
         latent_dim: int=2,
+        loss_reg: str="beta_vae",
         beta: float=1.0,
     ):
         super().__init__(in_channels, latent_dim, beta)
@@ -137,12 +136,16 @@ class FactorVAE(VAE):
         
         self.toggle_optimizer(opt_discriminator)
         
+        # TODO This shouldn't be done
+        pred = pred.detach()
+        
         # Select a random batch from the training set
         # This batch should be different from the one used in the VAE step
         
         batch_idx = torch.randint(
             0,
-            len(self.trainer.train_dataloader),
+            # Last batch may be smaller so do not use
+            len(self.trainer.train_dataloader) - 1,
             (1,),
         ).item()
 

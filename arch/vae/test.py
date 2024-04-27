@@ -2,6 +2,8 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from arch.vae.factorvae import FactorVAE
+from arch.vae.train import ID_TO_MODEL
 from arch.vae.vae import VAE
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
@@ -36,7 +38,10 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load model
-    model = VAE.load_from_checkpoint(flags.model_path)
+    # TODO Revert and load properly
+    Model = FactorVAE
+    
+    model = Model.load_from_checkpoint(flags.model_path)
 
     # TODO noqa
     model_name = flags.model_path.split("/")[2]
