@@ -92,8 +92,8 @@ class BetaTCVAERegulariser(LossRegulariser):
         tc = self._total_correlation(z, mu, logvar)
         
         # By fixing alpha = gamma = 1, Eq. (4) of [1] simplifies to:
-        #   ELBO + (beta - 1) * TC
-        return kl_div + (self.beta - 1) * tc
+        #   ELBO + (1 - beta) * TC
+        return kl_div + (1 - self.beta) * tc
 
 ID_TO_REGULARISER = {
     "beta_vae": LossRegulariser,
