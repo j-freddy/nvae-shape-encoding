@@ -2,6 +2,7 @@ import argparse
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
 from arch.vae.factor_vae import FactorVAE
 from arch.vae.tcvae import TCVAE
@@ -97,6 +98,8 @@ def main(flags: argparse.Namespace):
     
     trainer = L.Trainer(
         accelerator="auto",
+        # TODO Debugging
+        detect_anomaly=True,
         devices="auto",
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
@@ -113,6 +116,6 @@ def main(flags: argparse.Namespace):
     
     trainer.fit(model, data_module)
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     flags = parse_args()
     main(flags)
