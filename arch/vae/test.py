@@ -1,10 +1,9 @@
 import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
-from arch.vae.factorvae import FactorVAE
 from arch.vae.train import ID_TO_MODEL
-from arch.vae.vae import VAE
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils import setup_device
@@ -38,9 +37,10 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load model
-    # TODO Revert and load properly
-    Model = FactorVAE
-    
+    # TODO Inefficient: Need to load the hparams first to determine class type,
+    # then use load_from_checkpoint. So, this loads the checkpoint twice.
+    checkpoint = torch.load(flags.model_path)
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
     model = Model.load_from_checkpoint(flags.model_path)
 
     # TODO noqa

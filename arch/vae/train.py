@@ -2,20 +2,14 @@ import argparse
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
-import torch
 
 from arch.vae.factorvae import FactorVAE
 from arch.vae.tcvae import TCVAE
+from arch.vae.utils import ID_TO_MODEL
 from arch.vae.vae import VAE
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils import setup_device
-
-ID_TO_MODEL = {
-    "beta_vae": VAE,
-    "beta_tcvae": TCVAE,
-    "factor_vae": FactorVAE,
-}
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -88,7 +82,7 @@ def main(flags: argparse.Namespace):
     _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
-    Model = ID_TO_MODEL[flags.loss_reg]
+    Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
     model = Model(
         in_channels=num_classes,

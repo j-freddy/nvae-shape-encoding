@@ -34,7 +34,7 @@ class FactorVAE(VAE):
         self,
         in_channels: int=4,
         latent_dim: int=2,
-        loss_reg: str="beta_vae",
+        loss_reg: str="factor_vae",
         beta: float=1.0,
     ):
         super().__init__(in_channels, latent_dim, beta)
@@ -90,7 +90,8 @@ class FactorVAE(VAE):
         pred: torch.Tensor = self.discriminator(z)
         tc = (pred[:, :1] - pred[:, 1:]).mean()
         
-        loss = recon_loss + kl_div + (1 - self.hparams.beta) * tc
+        # beta acts as gamma
+        loss = recon_loss + kl_div + self.hparams.beta * tc
         
         if return_pred:
             return pred, loss
@@ -125,7 +126,7 @@ class FactorVAE(VAE):
             raise ValueError("NaN loss")
 
         opt_vae.zero_grad()
-        self.manual_backward(loss, retain_graph=True)
+        self.manual_backward(loss)
         opt_vae.step()
         
         self.untoggle_optimizer(opt_vae)
@@ -136,8 +137,10 @@ class FactorVAE(VAE):
         
         self.toggle_optimizer(opt_discriminator)
         
-        # TODO This shouldn't be done
-        pred = pred.detach()
+        # TODO noqa: self.manual_backward with retain_graph not working for pred
+        # As a temporary fix, just compute pred again
+        mu, logvar, z, x_hat = self(x)
+        pred, _ = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
         
         # Select a random batch from the training set
         # This batch should be different from the one used in the VAE step
@@ -170,8 +173,6 @@ class FactorVAE(VAE):
         
         tc_loss = self.loss_discriminator(pred, pred_perm)
         self.log("discriminator_loss", tc_loss)
-        
-        print(f"Discriminator loss: {tc_loss}")
         
         if torch.isnan(tc_loss):
             raise ValueError("NaN discriminator loss")
