@@ -81,6 +81,7 @@ class FactorVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
+        train: bool=True,
         return_pred: bool=False,
     ) -> torch.Tensor:
         batch_size = x.size(0)
@@ -90,8 +91,15 @@ class FactorVAE(VAE):
         pred: torch.Tensor = self.discriminator(z)
         tc = (pred[:, :1] - pred[:, 1:]).mean()
         
+        weighted_tc = self.hparams.beta * tc
+        
+        if train:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", kl_div)
+            self.log("tc", weighted_tc)
+        
         # beta acts as gamma
-        loss = recon_loss + kl_div + self.hparams.beta * tc
+        loss = recon_loss + kl_div + weighted_tc
         
         if return_pred:
             return pred, loss

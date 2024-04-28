@@ -24,6 +24,15 @@ class TCVAE(VAE):
     disentangled representations. Ininternational conference on machine learning
     2019 May 24 (pp. 4114-4124). PMLR.
     """
+    
+    def __init__(
+        self,
+        in_channels: int=4,
+        latent_dim: int=2,
+        loss_reg: str="beta_tcvae",
+        beta: float=1.0,
+    ):
+        super().__init__()
  
     def _gaussian_log_density(
         self,
@@ -65,12 +74,20 @@ class TCVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
+        train: bool=True,
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
         kl_div = self._kl_divergence(mu, logvar)
         tc = self._total_correlation(z, mu, logvar)
         
+        weighted_tc = (1 - self.hparams.beta) * tc
+        
+        if train:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", kl_div)
+            self.log("tc", weighted_tc)
+        
         # By fixing alpha = gamma = 1, Eq. (4) of [1] simplifies to:
         #   ELBO + (1 - beta) * TC
-        return recon_loss + kl_div + (1 - self.hparams.beta) * tc
+        return recon_loss + kl_div + weighted_tc

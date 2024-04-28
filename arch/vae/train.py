@@ -1,12 +1,10 @@
 import argparse
+import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.vae.factorvae import FactorVAE
-from arch.vae.tcvae import TCVAE
 from arch.vae.utils import ID_TO_MODEL
-from arch.vae.vae import VAE
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils import setup_device
@@ -59,6 +57,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
+    # Check if model name already exists
+    model_dir = os.path.join(LOGS_PATH, ACDC.DIR.VAE, flags.model_name)
+    
+    if os.path.exists(model_dir):
+        raise ValueError(f"Model {flags.model_name} already exists.")
+        
+    
     # Setup device
     device = setup_device()
     print(f"Device: {device}")

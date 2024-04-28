@@ -55,12 +55,19 @@ class VAE(L.LightningModule):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
+        train: bool=True,
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
         kl_div = self._kl_divergence(mu, logvar)
         
-        return recon_loss + self.hparams.beta * kl_div
+        weighted_kl_div = self.hparams.beta * kl_div
+        
+        if train:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", weighted_kl_div)
+        
+        return recon_loss + weighted_kl_div
     
     def _reparameterise(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         # z_m = mu(x_m) + sigma(x_m) * epsilon
@@ -114,7 +121,7 @@ class VAE(L.LightningModule):
         mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -124,7 +131,7 @@ class VAE(L.LightningModule):
 
         # Compute loss
         mu, logvar, z, x_hat = self(x)
-        loss = self.loss(x, mu, logvar, z, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
         self.log("test_loss", loss)
 
         self.log_reconstructions(x[:20])
