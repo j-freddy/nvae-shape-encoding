@@ -1,4 +1,5 @@
 import argparse
+import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -21,6 +22,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
+    # Check if model name already exists
+    model_dir = os.path.join(LOGS_PATH, CIFAR10.DIR.NVAE, flags.model_name)
+    
+    if os.path.exists(model_dir):
+        raise ValueError(f"Model {flags.model_name} already exists.")
+    
     # Setup device
     device = setup_device()
     print(f"Device: {device}")

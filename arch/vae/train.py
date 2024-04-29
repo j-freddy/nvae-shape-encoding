@@ -1,10 +1,10 @@
 import argparse
-from arch.vae.regulariser import ID_TO_REGULARISER
+import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.vae.vae import VAE
+from arch.vae.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils import setup_device
@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
         "--loss_reg",
         type=str,
         help="Regulariser technique.",
-        choices=ID_TO_REGULARISER.keys(),
+        choices=ID_TO_MODEL.keys(),
         default="beta_vae",
     )
     
@@ -57,6 +57,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
+    # Check if model name already exists
+    model_dir = os.path.join(LOGS_PATH, ACDC.DIR.VAE, flags.model_name)
+    
+    if os.path.exists(model_dir):
+        raise ValueError(f"Model {flags.model_name} already exists.")
+        
+    
     # Setup device
     device = setup_device()
     print(f"Device: {device}")
@@ -80,10 +87,12 @@ def main(flags: argparse.Namespace):
     _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
-    model = VAE(
+    Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
+    
+    model = Model(
         in_channels=num_classes,
         latent_dim=flags.latent_dim,
-        regulariser=flags.loss_reg,
+        loss_reg=flags.loss_reg,
         beta=flags.beta,
     )
     
@@ -105,6 +114,6 @@ def main(flags: argparse.Namespace):
     
     trainer.fit(model, data_module)
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     flags = parse_args()
     main(flags)

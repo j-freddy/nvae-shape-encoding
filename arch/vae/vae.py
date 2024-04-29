@@ -6,7 +6,6 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from arch.vae.regulariser import ID_TO_REGULARISER, LossRegulariser
 from utils import frechet_inception_distance, show_samples
 
 class VAE(L.LightningModule):
@@ -15,16 +14,22 @@ class VAE(L.LightningModule):
     architecture proposed in [1]. Note that [1] uses segmentation maps of size
     256x256 instead of 128x128 and a 32-dim latent space.
     
+    This class implements the beta-VAE regulariser term based on [2].
+    
     [1]: Painchaud N, Skandarani Y, Judge T, Bernard O, Lalande A, Jodoin PM.
     Cardiac segmentation with strong anatomical guarantees. IEEE transactions on
     medical imaging. 2020 Jun 17;39(11):3703-13.
+    
+    [2]: Higgins I, Matthey L, Pal A, Burgess CP, Glorot X, Botvinick MM,
+    Mohamed S, Lerchner A. beta-vae: Learning basic visual concepts with a
+    constrained variational framework. ICLR (Poster). 2017 Apr 24;3.
     """
     
     def __init__(
         self,
         in_channels: int=4,
         latent_dim: int=2,
-        regulariser: str="beta_vae",
+        loss_reg: str="beta_vae",
         beta: float=1.0,
     ):
         super().__init__()
@@ -33,17 +38,15 @@ class VAE(L.LightningModule):
         
         self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
         self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
-        
-        self.loss_regulariser: LossRegulariser = ID_TO_REGULARISER[self.hparams.regulariser](self.hparams.beta)
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
     
-    def _beta_vae_regulariser(self, kl_div: torch.Tensor) -> torch.Tensor:
-        return self.hparams.beta * kl_div
-
-    def _beta_tc_vae_regulariser(self, kl_div: torch.Tensor) -> torch.Tensor:
-        return self.hparams.beta * kl_div * 0
+    def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+        return -0.5 * torch.sum(
+            1 + logvar - mu.pow(2) - logvar.exp(),
+            dim=1,
+        ).mean()
     
     def loss(
         self,
@@ -52,11 +55,19 @@ class VAE(L.LightningModule):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
+        train: bool=True,
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        kl_div = self._kl_divergence(mu, logvar)
         
-        return recon_loss + self.loss_regulariser(z, mu, logvar)
+        weighted_kl_div = self.hparams.beta * kl_div
+        
+        if train:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", weighted_kl_div)
+        
+        return recon_loss + weighted_kl_div
     
     def _reparameterise(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         # z_m = mu(x_m) + sigma(x_m) * epsilon
@@ -110,7 +121,7 @@ class VAE(L.LightningModule):
         mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -120,7 +131,7 @@ class VAE(L.LightningModule):
 
         # Compute loss
         mu, logvar, z, x_hat = self(x)
-        loss = self.loss(x, mu, logvar, z, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
         self.log("test_loss", loss)
 
         self.log_reconstructions(x[:20])

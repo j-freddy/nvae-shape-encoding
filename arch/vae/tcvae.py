@@ -1,38 +1,14 @@
-import math
 import torch
+import torch.nn.functional as F
 
-class LossRegulariser:
+from arch.vae.vae import VAE
+
+class TCVAE(VAE):
     """
-    The default regulariser for VAE. This implements the beta-VAE regulariser
-    term based on [1].
+    See DOCSTRING of VAE class.
     
-    [1]: Higgins I, Matthey L, Pal A, Burgess CP, Glorot X, Botvinick MM,
-    Mohamed S, Lerchner A. beta-vae: Learning basic visual concepts with a
-    constrained variational framework. ICLR (Poster). 2017 Apr 24;3.
-    """
-    
-    def __init__(self, beta=1.0):
-        self.beta = beta
-        
-    def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        return -0.5 * torch.sum(
-            1 + logvar - mu.pow(2) - logvar.exp(),
-            dim=1,
-        ).mean()
-
-    def __call__(
-        self,
-        z: torch.Tensor,
-        mu: torch.Tensor,
-        logvar: torch.Tensor,
-    ) -> torch.Tensor:
-        kl_div = self._kl_divergence(mu, logvar)
-        return self.beta * kl_div
-
-class BetaTCVAERegulariser(LossRegulariser):
-    """
-    This is a simplified implementation of the beta-TCVAE regulariser term based
-    on [1]. It fixes alpha = gamma = 1 in Eq. (4) of [1].
+    This model uses a simplified implementation of the beta-TCVAE regulariser
+    term based on [1]. It fixes alpha = gamma = 1 in Eq. (4) of [1].
     
     The code for computing total correlation (i.e. _total_correlation,
     _gaussian_log_density) is lifted and translated from [2], which was
@@ -48,7 +24,16 @@ class BetaTCVAERegulariser(LossRegulariser):
     disentangled representations. Ininternational conference on machine learning
     2019 May 24 (pp. 4114-4124). PMLR.
     """
-
+    
+    def __init__(
+        self,
+        in_channels: int=4,
+        latent_dim: int=2,
+        loss_reg: str="beta_tcvae",
+        beta: float=1.0,
+    ):
+        super().__init__()
+ 
     def _gaussian_log_density(
         self,
         z: torch.Tensor,
@@ -81,21 +66,28 @@ class BetaTCVAERegulariser(LossRegulariser):
         log_qz = torch.logsumexp(log_qz_prob.sum(dim=2), dim=1)
 
         return (log_qz - log_qz_product).mean()
-    
-    def __call__(
+
+    def loss(
         self,
-        z: torch.Tensor,
+        x: torch.Tensor,
         mu: torch.Tensor,
         logvar: torch.Tensor,
+        z: torch.Tensor,
+        x_hat: torch.Tensor,
+        train: bool=True,
     ) -> torch.Tensor:
+        batch_size = x.size(0)
+        recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
         kl_div = self._kl_divergence(mu, logvar)
         tc = self._total_correlation(z, mu, logvar)
         
+        weighted_tc = (1 - self.hparams.beta) * tc
+        
+        if train:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", kl_div)
+            self.log("tc", weighted_tc)
+        
         # By fixing alpha = gamma = 1, Eq. (4) of [1] simplifies to:
         #   ELBO + (1 - beta) * TC
-        return kl_div + (1 - self.beta) * tc
-
-ID_TO_REGULARISER = {
-    "beta_vae": LossRegulariser,
-    "beta_tcvae": BetaTCVAERegulariser,
-}
+        return recon_loss + kl_div + weighted_tc
