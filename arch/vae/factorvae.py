@@ -18,7 +18,6 @@ class Discriminator(nn.Module):
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, 1),
-            nn.Sigmoid(),
         )
     
     def forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -104,13 +103,16 @@ class FactorVAE(VAE):
         pred: torch.Tensor,
         predp: torch.Tensor,
     ) -> torch.Tensor:
-        loss = 0.5 * (
-            F.binary_cross_entropy(pred, torch.zeros_like(pred)) +
-            F.binary_cross_entropy(predp, torch.ones_like(predp))
-        )
+        pred_prob = torch.sigmoid(pred)
+        predp_prob = torch.sigmoid(predp)
         
-        print(pred)
-        print(predp)
+        print(pred_prob)
+        print(predp_prob)
+        
+        loss = 0.5 * (
+            F.binary_cross_entropy(pred_prob, torch.zeros_like(pred)) +
+            F.binary_cross_entropy(predp_prob, torch.ones_like(predp))
+        )
         
         return loss
 
