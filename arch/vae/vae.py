@@ -56,7 +56,7 @@ class VAE(L.LightningModule):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        train: bool=True,
+        mode: str="train",
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
@@ -64,9 +64,12 @@ class VAE(L.LightningModule):
         
         weighted_kl_div = self.hparams.beta * kl_div
         
-        if train:
+        if mode == "train":
             self.log("recon_loss", recon_loss)
             self.log("kl_div", weighted_kl_div)
+        
+        if mode == "test":
+            return recon_loss
         
         return recon_loss + weighted_kl_div
     
@@ -122,7 +125,7 @@ class VAE(L.LightningModule):
         mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
+        loss = self.loss(x, mu, logvar, z, x_hat, mode="validation")
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -132,8 +135,8 @@ class VAE(L.LightningModule):
 
         # Compute loss
         mu, logvar, z, x_hat = self(x)
-        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
-        self.log("test_loss", loss)
+        recon_loss = self.loss(x, mu, logvar, z, x_hat, mode="test")
+        self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(x[:20])
         self.log_generations_and_fid(x)

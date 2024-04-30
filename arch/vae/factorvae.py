@@ -68,7 +68,7 @@ class FactorVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        train: bool=True,
+        mode: str="train",
         return_pred: bool=False,
     ) -> torch.Tensor:
         batch_size = x.size(0)
@@ -79,19 +79,22 @@ class FactorVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        kl_qp = pred.mean()
+        kl_qp = max(0, pred.mean())
         # kl_qp = torch.abs(pred.mean())
         print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
         
-        if train:
+        if mode == "train":
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
             self.log("kl_qp", weighted_kl_qp)
-        
-        # beta acts as gamma
+            
+        if mode == "test":
+            assert not return_pred
+            return recon_loss
+
         loss = recon_loss + weighted_kl_div + weighted_kl_qp
         
         if return_pred:
@@ -164,5 +167,4 @@ class FactorVAE(VAE):
         
         self.untoggle_optimizer(opt_discriminator)
 
-        # return loss
-        return torch.zeros(1)
+        return loss
