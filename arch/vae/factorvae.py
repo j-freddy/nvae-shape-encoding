@@ -1,9 +1,7 @@
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from arch.vae.vae import VAE
 
@@ -36,8 +34,11 @@ class FactorVAE(VAE):
         latent_dim: int=2,
         loss_reg: str="factor_vae",
         beta: float=1.0,
+        gamma: float=1.0,
     ):
-        super().__init__(in_channels, latent_dim, beta)
+        super().__init__(in_channels, latent_dim, loss_reg, beta)
+        
+        self.save_hyperparameters()
         
         # "For advanced research topics like reinforcement learning, sparse
         # coding, or GAN research, it may be desirable to manually manage the
@@ -86,20 +87,24 @@ class FactorVAE(VAE):
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        # KL divergence between q(z|x) and p(z)
+        # Forming part of ELBO
         kl_div = self._kl_divergence(mu, logvar)
         
         pred: torch.Tensor = self.discriminator(z)
-        tc = (pred[:, :1] - pred[:, 1:]).mean()
+        # KL divergence between q(z) and p(z)
+        kl_qp = torch.abs(pred[:, :1] - pred[:, 1:]).mean()
         
-        weighted_tc = self.hparams.beta * tc
+        weighted_kl_div = self.hparams.beta * kl_div
+        weighted_kl_qp = self.hparams.gamma * kl_qp
         
         if train:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
-            self.log("tc", weighted_tc)
+            self.log("kl_qp", weighted_kl_qp)
         
         # beta acts as gamma
-        loss = recon_loss + kl_div + weighted_tc
+        loss = recon_loss + weighted_kl_div + weighted_kl_qp
         
         if return_pred:
             return pred, loss
@@ -108,16 +113,14 @@ class FactorVAE(VAE):
     def loss_discriminator(
         self,
         pred: torch.Tensor,
-        pred_perm: torch.Tensor,
+        predp: torch.Tensor,
     ) -> torch.Tensor:
         return 0.5 * (
             F.cross_entropy(pred, torch.zeros_like(pred)) +
-            F.cross_entropy(pred_perm, torch.ones_like(pred_perm))
+            F.cross_entropy(predp, torch.ones_like(predp))
         )
 
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
-        batch_size, _, _, _ = x.shape
-        
         opt_vae, opt_discriminator = self.optimizers()
         
         # VAE step
@@ -142,6 +145,9 @@ class FactorVAE(VAE):
         # Discriminator step
         # See Algorithm 2: FactorVAE
         # https://proceedings.mlr.press/v80/kim18b/kim18b.pdf
+        # 
+        # Calculating KL[q(z) || p(z)] instead of TC
+        # p(z) is the standard Gaussian prior
         
         self.toggle_optimizer(opt_discriminator)
         
@@ -150,43 +156,17 @@ class FactorVAE(VAE):
         mu, logvar, z, x_hat = self(x)
         pred, _ = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
         
-        # Select a random batch from the training set
-        # This batch should be different from the one used in the VAE step
+        zp = torch.randn_like(z)
+        predp: torch.Tensor = self.discriminator(zp)
         
-        batch_idx = torch.randint(
-            0,
-            # Last batch may be smaller so do not use
-            len(self.trainer.train_dataloader) - 1,
-            (1,),
-        ).item()
-
-        sampler = SubsetRandomSampler(
-            list(
-                range(batch_idx * batch_size, (batch_idx + 1) * batch_size)
-            )
-        )
+        discriminator_loss = self.loss_discriminator(pred, predp)
+        self.log("discriminator_loss", discriminator_loss)
         
-        xp = next(iter(
-            DataLoader(
-                self.trainer.train_dataloader.dataset,
-                sampler=sampler,
-                batch_size=batch_size,
-            )
-        )).to(self.device)
-        
-        zp = self.get_latent(xp)
-        zp_perm = self._permute(zp).detach()
-        
-        pred_perm: torch.Tensor = self.discriminator(zp_perm)
-        
-        tc_loss = self.loss_discriminator(pred, pred_perm)
-        self.log("discriminator_loss", tc_loss)
-        
-        if torch.isnan(tc_loss):
+        if torch.isnan(discriminator_loss):
             raise ValueError("NaN discriminator loss")
         
         opt_discriminator.zero_grad()
-        self.manual_backward(tc_loss)
+        self.manual_backward(discriminator_loss)
         opt_discriminator.step()
         
         self.untoggle_optimizer(opt_discriminator)

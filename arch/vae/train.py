@@ -42,6 +42,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--gamma",
+        type=float,
+        help="Gamma value for divergence between q(z) and p(z).",
+        default=1.0,
+    )
+    
+    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -94,6 +101,7 @@ def main(flags: argparse.Namespace):
         latent_dim=flags.latent_dim,
         loss_reg=flags.loss_reg,
         beta=flags.beta,
+        gamma=flags.gamma,
     )
     
     trainer = L.Trainer(

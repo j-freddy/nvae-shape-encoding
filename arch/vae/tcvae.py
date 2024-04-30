@@ -31,8 +31,11 @@ class TCVAE(VAE):
         latent_dim: int=2,
         loss_reg: str="beta_tcvae",
         beta: float=1.0,
+        gamma: float=1.0,
     ):
-        super().__init__()
+        super().__init__(in_channels, latent_dim, loss_reg, beta)
+        
+        self.save_hyperparameters()
  
     def _gaussian_log_density(
         self,
@@ -64,6 +67,12 @@ class TCVAE(VAE):
         # Compute log(q(z(x_j))) as log(sum_i(q(z(x_j)|x_i))) + const =
         # log(sum_i(prod_l q(z(x_j)_l|x_i))) + const
         log_qz = torch.logsumexp(log_qz_prob.sum(dim=2), dim=1)
+        
+        print(log_qz_product.mean())
+        print(log_qz.mean())
+        
+        import sys
+        sys.exit()
 
         return (log_qz - log_qz_product).mean()
 
@@ -81,7 +90,8 @@ class TCVAE(VAE):
         kl_div = self._kl_divergence(mu, logvar)
         tc = self._total_correlation(z, mu, logvar)
         
-        weighted_tc = (1 - self.hparams.beta) * tc
+        weighted_kl_div = self.hparams.beta * kl_div # beta = 0.1
+        weighted_tc = self.hparams.gamma * tc        # gamma
         
         if train:
             self.log("recon_loss", recon_loss)
@@ -90,4 +100,4 @@ class TCVAE(VAE):
         
         # By fixing alpha = gamma = 1, Eq. (4) of [1] simplifies to:
         #   ELBO + (1 - beta) * TC
-        return recon_loss + kl_div + weighted_tc
+        return recon_loss + weighted_kl_div + weighted_tc

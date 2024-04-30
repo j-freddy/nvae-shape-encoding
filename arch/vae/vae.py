@@ -31,6 +31,7 @@ class VAE(L.LightningModule):
         latent_dim: int=2,
         loss_reg: str="beta_vae",
         beta: float=1.0,
+        gamma: float=1.0,
     ):
         super().__init__()
         
