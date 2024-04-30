@@ -81,6 +81,7 @@ class FactorVAE(VAE):
         # KL divergence between q(z) and p(z)
         kl_qp = pred.mean()
         # kl_qp = torch.abs(pred.mean())
+        print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
@@ -103,8 +104,8 @@ class FactorVAE(VAE):
         predp: torch.Tensor,
     ) -> torch.Tensor:
         loss = 0.5 * (
-            F.binary_cross_entropy_with_logits(pred, torch.zeros_like(pred)) +
-            F.binary_cross_entropy_with_logits(predp, torch.ones_like(predp))
+            F.binary_cross_entropy_with_logits(pred, torch.ones_like(pred)) +
+            F.binary_cross_entropy_with_logits(predp, torch.zeros_like(predp))
         )
         
         return loss
