@@ -79,9 +79,8 @@ class FactorVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        # TODO Refactor
-        kl_qp = (pred[:, :1] - pred[:, 1:]).mean()
-        # kl_qp = torch.abs(pred[:, :1] - pred[:, 1:]).mean()
+        kl_qp = pred.mean()
+        # kl_qp = torch.abs(pred.mean())
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
@@ -103,15 +102,9 @@ class FactorVAE(VAE):
         pred: torch.Tensor,
         predp: torch.Tensor,
     ) -> torch.Tensor:
-        pred_prob = torch.sigmoid(pred)
-        predp_prob = torch.sigmoid(predp)
-        
-        print(pred_prob)
-        print(predp_prob)
-        
         loss = 0.5 * (
-            F.binary_cross_entropy(pred_prob, torch.zeros_like(pred)) +
-            F.binary_cross_entropy(predp_prob, torch.ones_like(predp))
+            F.binary_cross_entropy_with_logits(pred, torch.zeros_like(pred)) +
+            F.binary_cross_entropy_with_logits(predp, torch.ones_like(predp))
         )
         
         return loss
@@ -121,27 +114,27 @@ class FactorVAE(VAE):
         
         # VAE step
         
-        # self.toggle_optimizer(opt_vae)
+        self.toggle_optimizer(opt_vae)
 
-        # mu, logvar, z, x_hat = self(x)
-        # pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
-        # self.log("train_loss", loss)
+        mu, logvar, z, x_hat = self(x)
+        pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
+        self.log("train_loss", loss)
         
-        # print(f"Train loss: {loss}")
+        print(f"Train loss: {loss}")
         
-        # if torch.isnan(loss):
-        #     raise ValueError("NaN loss")
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
 
-        # opt_vae.zero_grad()
-        # self.manual_backward(loss)
-        # opt_vae.step()
+        opt_vae.zero_grad()
+        self.manual_backward(loss)
+        opt_vae.step()
         
-        # self.untoggle_optimizer(opt_vae)
+        self.untoggle_optimizer(opt_vae)
         
         # Discriminator step
         # See Algorithm 2: FactorVAE
         # https://proceedings.mlr.press/v80/kim18b/kim18b.pdf
-        # 
+        
         # Calculating KL[q(z) || p(z)] instead of TC
         # p(z) is the standard Gaussian prior
         
@@ -151,6 +144,8 @@ class FactorVAE(VAE):
         # As a temporary fix, just compute pred again
         mu, logvar, z, x_hat = self(x)
         pred, _ = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
+        
+        # print(z.mean(), z.std())
         
         zp = torch.randn_like(z)
         predp: torch.Tensor = self.discriminator(zp)
