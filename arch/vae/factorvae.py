@@ -10,18 +10,15 @@ class Discriminator(nn.Module):
         super().__init__()
         
         self.latent_dim = latent_dim
-        self.hidden_dim = 512
+        self.hidden_dim = 8
         
         self.net = nn.Sequential(
             nn.Linear(latent_dim, self.hidden_dim),
             nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, 2),
+            nn.Linear(self.hidden_dim, 1),
+            nn.Sigmoid(),
         )
     
     def forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -59,21 +56,11 @@ class FactorVAE(VAE):
         
         opt_discriminator = optim.Adam(
             self.discriminator.parameters(),
-            lr=6e-5,
+            lr=6e-2,
             weight_decay=1e-2,
         )
         
         return [opt_vae, opt_discriminator], []
-
-    def _permute(self, z):
-        batch_size, _ = z.size()
-        perm_z = []
-        
-        for z_j in z.split(1, 1):
-            perm = torch.randperm(batch_size).to(z.device)
-            perm_z.append(z_j[perm])
-
-        return torch.cat(perm_z, 1)
         
     def loss(
         self,
@@ -93,7 +80,9 @@ class FactorVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        kl_qp = torch.abs(pred[:, :1] - pred[:, 1:]).mean()
+        # TODO Refactor
+        kl_qp = (pred[:, :1] - pred[:, 1:]).mean()
+        # kl_qp = torch.abs(pred[:, :1] - pred[:, 1:]).mean()
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
@@ -115,32 +104,37 @@ class FactorVAE(VAE):
         pred: torch.Tensor,
         predp: torch.Tensor,
     ) -> torch.Tensor:
-        return 0.5 * (
-            F.cross_entropy(pred, torch.zeros_like(pred)) +
-            F.cross_entropy(predp, torch.ones_like(predp))
+        loss = 0.5 * (
+            F.binary_cross_entropy(pred, torch.zeros_like(pred)) +
+            F.binary_cross_entropy(predp, torch.ones_like(predp))
         )
+        
+        print(pred)
+        print(predp)
+        
+        return loss
 
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
         opt_vae, opt_discriminator = self.optimizers()
         
         # VAE step
         
-        self.toggle_optimizer(opt_vae)
+        # self.toggle_optimizer(opt_vae)
 
-        mu, logvar, z, x_hat = self(x)
-        pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
-        self.log("train_loss", loss)
+        # mu, logvar, z, x_hat = self(x)
+        # pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
+        # self.log("train_loss", loss)
         
-        print(f"Train loss: {loss}")
+        # print(f"Train loss: {loss}")
         
-        if torch.isnan(loss):
-            raise ValueError("NaN loss")
+        # if torch.isnan(loss):
+        #     raise ValueError("NaN loss")
 
-        opt_vae.zero_grad()
-        self.manual_backward(loss)
-        opt_vae.step()
+        # opt_vae.zero_grad()
+        # self.manual_backward(loss)
+        # opt_vae.step()
         
-        self.untoggle_optimizer(opt_vae)
+        # self.untoggle_optimizer(opt_vae)
         
         # Discriminator step
         # See Algorithm 2: FactorVAE
@@ -161,6 +155,7 @@ class FactorVAE(VAE):
         
         discriminator_loss = self.loss_discriminator(pred, predp)
         self.log("discriminator_loss", discriminator_loss)
+        print(f"Discriminator loss: {discriminator_loss}")
         
         if torch.isnan(discriminator_loss):
             raise ValueError("NaN discriminator loss")
@@ -171,4 +166,5 @@ class FactorVAE(VAE):
         
         self.untoggle_optimizer(opt_discriminator)
 
-        return loss
+        # return loss
+        return torch.zeros(1)
