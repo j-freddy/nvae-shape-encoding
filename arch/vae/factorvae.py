@@ -10,18 +10,14 @@ class Discriminator(nn.Module):
         super().__init__()
         
         self.latent_dim = latent_dim
-        self.hidden_dim = 512
+        self.hidden_dim = 8
         
         self.net = nn.Sequential(
             nn.Linear(latent_dim, self.hidden_dim),
             nn.LeakyReLU(0.2, inplace=False),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU(0.2, inplace=False),
-            nn.Linear(self.hidden_dim, 2),
+            nn.Linear(self.hidden_dim, 1),
         )
     
     def forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -59,21 +55,11 @@ class FactorVAE(VAE):
         
         opt_discriminator = optim.Adam(
             self.discriminator.parameters(),
-            lr=6e-5,
+            lr=6e-2,
             weight_decay=1e-2,
         )
         
         return [opt_vae, opt_discriminator], []
-
-    def _permute(self, z):
-        batch_size, _ = z.size()
-        perm_z = []
-        
-        for z_j in z.split(1, 1):
-            perm = torch.randperm(batch_size).to(z.device)
-            perm_z.append(z_j[perm])
-
-        return torch.cat(perm_z, 1)
         
     def loss(
         self,
@@ -82,7 +68,7 @@ class FactorVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        train: bool=True,
+        mode: str="train",
         return_pred: bool=False,
     ) -> torch.Tensor:
         batch_size = x.size(0)
@@ -93,17 +79,22 @@ class FactorVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        kl_qp = torch.abs(pred[:, :1] - pred[:, 1:]).mean()
+        kl_qp = max(0, pred.mean())
+        # kl_qp = torch.abs(pred.mean())
+        print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
         
-        if train:
+        if mode == "train":
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
             self.log("kl_qp", weighted_kl_qp)
-        
-        # beta acts as gamma
+            
+        if mode == "test":
+            assert not return_pred
+            return recon_loss
+
         loss = recon_loss + weighted_kl_div + weighted_kl_qp
         
         if return_pred:
@@ -115,10 +106,12 @@ class FactorVAE(VAE):
         pred: torch.Tensor,
         predp: torch.Tensor,
     ) -> torch.Tensor:
-        return 0.5 * (
-            F.cross_entropy(pred, torch.zeros_like(pred)) +
-            F.cross_entropy(predp, torch.ones_like(predp))
+        loss = 0.5 * (
+            F.binary_cross_entropy_with_logits(pred, torch.ones_like(pred)) +
+            F.binary_cross_entropy_with_logits(predp, torch.zeros_like(predp))
         )
+        
+        return loss
 
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
         opt_vae, opt_discriminator = self.optimizers()
@@ -145,7 +138,7 @@ class FactorVAE(VAE):
         # Discriminator step
         # See Algorithm 2: FactorVAE
         # https://proceedings.mlr.press/v80/kim18b/kim18b.pdf
-        # 
+        
         # Calculating KL[q(z) || p(z)] instead of TC
         # p(z) is the standard Gaussian prior
         
@@ -156,11 +149,14 @@ class FactorVAE(VAE):
         mu, logvar, z, x_hat = self(x)
         pred, _ = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
         
+        # print(z.mean(), z.std())
+        
         zp = torch.randn_like(z)
         predp: torch.Tensor = self.discriminator(zp)
         
         discriminator_loss = self.loss_discriminator(pred, predp)
         self.log("discriminator_loss", discriminator_loss)
+        print(f"Discriminator loss: {discriminator_loss}")
         
         if torch.isnan(discriminator_loss):
             raise ValueError("NaN discriminator loss")
