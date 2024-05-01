@@ -102,9 +102,12 @@ class FactorVAE(VAE):
         pred: torch.Tensor,
         predp: torch.Tensor,
     ) -> torch.Tensor:
+        ones = torch.ones_like(pred).to(pred.device)
+        zeros = torch.zeros_like(predp).to(predp.device)
+        
         loss = 0.5 * (
-            F.binary_cross_entropy_with_logits(pred, torch.ones_like(pred)) +
-            F.binary_cross_entropy_with_logits(predp, torch.zeros_like(predp))
+            F.binary_cross_entropy_with_logits(pred, ones) +
+            F.binary_cross_entropy_with_logits(predp, zeros)
         )
         
         return loss
@@ -145,7 +148,7 @@ class FactorVAE(VAE):
         _, _, z, _ = self(x)
         pred: torch.Tensor = self.discriminator(z)
         
-        zp = torch.randn_like(z)
+        zp = torch.randn_like(z).to(z.device)
         predp: torch.Tensor = self.discriminator(zp)
         
         discriminator_loss = self.loss_discriminator(pred, predp)
