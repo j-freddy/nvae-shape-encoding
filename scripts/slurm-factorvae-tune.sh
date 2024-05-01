@@ -14,17 +14,26 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [VAE Tune]
-# VAE ACDC: Grid search on beta (KL) and latent dim hyperparameters.
+# [FactorVAE Tune]
+# VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
+# hyperparameters.
 #
-# Time taken: 4 hr 2 min
+# Time taken: unknown
 # ==============================================================================
 
-# grid size is 96
+# Try beta=1 at least, as a beta<1 means the expression is not guaranteed to be
+# a lower bound
+
+# Using a coarser grid search than beta-VAE due to the extra gamma
+# hyperparameter
+
+# grid size is 144
+# size=4
+latent_dims=("4 8 16 32")
 # size=6
-latent_dims=("2 4 8 16 32 64")
-# size=16
-betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
+betas=("0.01 0.05 0.1 0.5 1 5")
+# size=6
+gammas=("100 500 1000 5000 10000 50000")
 
 # Train
 
@@ -32,9 +41,12 @@ for latent_dim in $latent_dims
 do
     for beta in $betas
     do
-        model_name="ld-${latent_dim}-beta-${beta}"
-        # Train
-        python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --model_name $model_name
+        for gamma in $gammas
+        do
+            model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
+            # Train
+            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg factor_vae
+        done
     done
 done
 
@@ -44,7 +56,7 @@ for latent_dim in $latent_dims
 do
     for beta in $betas
     do
-        model_name="ld-${latent_dim}-beta-${beta}"
+        model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
         # Get saved model path
         model_path=$(ls logs/vae_acdc/${model_name}/checkpoints/*.ckpt)
         # Test: Save figures and metrics
