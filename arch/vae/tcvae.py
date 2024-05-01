@@ -3,6 +3,9 @@ import torch.nn.functional as F
 
 from arch.vae.vae import VAE
 
+# TODO Wrong implementation
+# Replace TC with KL(q(z) || p(z))
+
 class TCVAE(VAE):
     """
     See DOCSTRING of VAE class.
@@ -83,7 +86,7 @@ class TCVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        train: bool=True,
+        log_components: bool=True,
     ) -> torch.Tensor:
         batch_size = x.size(0)
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
@@ -93,7 +96,7 @@ class TCVAE(VAE):
         weighted_kl_div = self.hparams.beta * kl_div # beta = 0.1
         weighted_tc = self.hparams.gamma * tc        # gamma
         
-        if train:
+        if log_components:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
             self.log("tc", weighted_tc)

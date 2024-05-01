@@ -24,6 +24,8 @@ class Discriminator(nn.Module):
         return self.net(z)
 
 class FactorVAE(VAE):
+    # TODO Write DOCSTRING
+    
     def __init__(
         self,
         in_channels: int=4,
@@ -68,11 +70,10 @@ class FactorVAE(VAE):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        mode: str="train",
+        log_components: bool=True,
         return_pred: bool=False,
     ) -> torch.Tensor:
-        batch_size = x.size(0)
-        recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        recon_loss = self.reconstruction_loss(x, x_hat)
         # KL divergence between q(z|x) and p(z)
         # Forming part of ELBO
         kl_div = self._kl_divergence(mu, logvar)
@@ -80,20 +81,15 @@ class FactorVAE(VAE):
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
         kl_qp = max(0, pred.mean())
-        # kl_qp = torch.abs(pred.mean())
         print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
         
-        if mode == "train":
+        if log_components:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
             self.log("kl_qp", weighted_kl_qp)
-            
-        if mode == "test":
-            assert not return_pred
-            return recon_loss
 
         loss = recon_loss + weighted_kl_div + weighted_kl_qp
         
@@ -146,10 +142,8 @@ class FactorVAE(VAE):
         
         # TODO noqa: self.manual_backward with retain_graph not working for pred
         # As a temporary fix, just compute pred again
-        mu, logvar, z, x_hat = self(x)
-        pred, _ = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
-        
-        # print(z.mean(), z.std())
+        _, _, z, _ = self(x)
+        pred: torch.Tensor = self.discriminator(z)
         
         zp = torch.randn_like(z)
         predp: torch.Tensor = self.discriminator(zp)
