@@ -80,7 +80,7 @@ class FactorVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        kl_qp = max(0, pred.mean())
+        kl_qp = torch.max(torch.tensor(0.0).to(pred.device), pred.mean())
         print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
