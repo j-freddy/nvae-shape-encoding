@@ -23,7 +23,7 @@ class Discriminator(nn.Module):
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         return self.net(z)
 
-class FactorVAE(VAE):
+class InfoAdversarialVAE(VAE):
     # TODO Write DOCSTRING
     
     def __init__(
