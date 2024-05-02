@@ -37,18 +37,18 @@ gammas=("100 500 1000 5000 10000 50000")
 
 # Train
 
-for latent_dim in $latent_dims
-do
-    for beta in $betas
-    do
-        for gamma in $gammas
-        do
-            model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
-            # Train
-            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg factor_vae
-        done
-    done
-done
+# for latent_dim in $latent_dims
+# do
+#     for beta in $betas
+#     do
+#         for gamma in $gammas
+#         do
+#             model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
+#             # Train
+#             python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg factor_vae
+#         done
+#     done
+# done
 
 # Evaluate
 
@@ -56,10 +56,13 @@ for latent_dim in $latent_dims
 do
     for beta in $betas
     do
-        model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
-        # Get saved model path
-        model_path=$(ls logs/vae_acdc/${model_name}/checkpoints/*.ckpt)
-        # Test: Save figures and metrics
-        python -m arch.vae.test --model_path $model_path
+        for gamma in $gammas
+        do
+            model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
+            # Get saved model path
+            model_path=$(ls logs/vae_acdc/${model_name}/checkpoints/*.ckpt)
+            # Test: Save figures and metrics
+            python -m arch.vae.test --model_path $model_path
+        done
     done
 done
