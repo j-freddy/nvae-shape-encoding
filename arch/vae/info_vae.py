@@ -42,15 +42,10 @@ class InfoVAE(VAE):
             logvar.unsqueeze(0),
         )
 
-        print(log_qz_prob.shape)
-
         # Compute log(q(z(x_j))) as log(sum_i(q(z(x_j) | x_i))) + const =
         # log(sum_i(prod_l q(z(x_j)_l | x_i))) + const
         log_qz = torch.logsumexp(log_qz_prob.sum(dim=2), dim=1)
-
-        print(log_qz.shape)
-        print(log_qz)
-        print(torch.exp(log_qz).sum())
+        qz = torch.exp(log_qz)
         
         # Compute log p i.e. log standard Normal
         # Generate samples from the standard Normal
@@ -64,7 +59,13 @@ class InfoVAE(VAE):
 
         log_pz = torch.logsumexp(log_pz_prob.sum(dim=2), dim=1)
 
-        return (log_qz - log_pz).mean()
+        # Normalise qz so it sums to 1 for stability
+        qz = qz / qz.sum()
+
+        zero = torch.tensor(0.0).to(z.device)
+        kl_qp = (qz * (log_qz - log_pz)).mean()
+
+        return torch.max(zero, kl_qp)
 
     def loss(
         self,
@@ -79,6 +80,7 @@ class InfoVAE(VAE):
         recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
         kl_div = self._kl_divergence(mu, logvar)
         kl_qp = self._kl_qp(z, mu, logvar)
+        print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
