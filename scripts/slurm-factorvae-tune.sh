@@ -31,7 +31,8 @@ source activate
 # size=4
 latent_dims=("4 8 16 32")
 # size=6
-betas=("0.01 0.05 0.1 0.5 1 5")
+# betas=("0.01 0.05 0.1 0.5 1 5")
+betas=("0")
 # size=6
 gammas=("100 500 1000 5000 10000 50000")
 
