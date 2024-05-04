@@ -30,7 +30,7 @@ class InfoAdversarialVAE(VAE):
         self,
         in_channels: int=4,
         latent_dim: int=2,
-        loss_reg: str="factor_vae",
+        loss_reg: str="info_adversarial_vae",
         beta: float=1.0,
         gamma: float=1.0,
     ):

@@ -10,7 +10,7 @@ class InfoVAE(VAE):
         self,
         in_channels: int=4,
         latent_dim: int=2,
-        loss_reg: str="beta_tcvae",
+        loss_reg: str="info_vae",
         beta: float=1.0,
         gamma: float=1.0,
     ):
@@ -45,27 +45,15 @@ class InfoVAE(VAE):
         # Compute log(q(z(x_j))) as log(sum_i(q(z(x_j) | x_i))) + const =
         # log(sum_i(prod_l q(z(x_j)_l | x_i))) + const
         log_qz = torch.logsumexp(log_qz_prob.sum(dim=2), dim=1)
-        qz = torch.exp(log_qz)
         
         # Compute log p i.e. log standard Normal
-        # Generate samples from the standard Normal
-        zp = torch.randn_like(z).to(z.device)
+        log_pz = self._gaussian_log_density(
+            z,
+            torch.zeros_like(mu).to(z.device),
+            torch.zeros_like(logvar).to(z.device),
+        ).sum(dim=1)
 
-        log_pz_prob = self._gaussian_log_density(
-            zp.unsqueeze(1),
-            torch.zeros_like(mu).to(z.device).unsqueeze(0),
-            torch.zeros_like(logvar).to(z.device).unsqueeze(0),
-        )
-
-        log_pz = torch.logsumexp(log_pz_prob.sum(dim=2), dim=1)
-
-        # Normalise qz so it sums to 1 for stability
-        qz = qz / qz.sum()
-
-        zero = torch.tensor(0.0).to(z.device)
-        kl_qp = (qz * (log_qz - log_pz)).mean()
-
-        return torch.max(zero, kl_qp)
+        return (log_qz - log_pz).mean()
 
     def loss(
         self,

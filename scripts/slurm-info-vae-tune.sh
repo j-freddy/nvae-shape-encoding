@@ -14,7 +14,7 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [FactorVAE Tune]
+# [InfoVAE Tune]
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
@@ -45,7 +45,7 @@ do
         do
             model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
             # Train
-            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg factor_vae
+            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg info_vae
         done
     done
 done
