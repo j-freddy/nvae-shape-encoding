@@ -42,6 +42,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--gamma",
+        type=float,
+        help="Gamma value for divergence between q(z) and p(z).",
+        default=1.0,
+    )
+    
+    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -57,12 +64,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
-    # Check if model name already exists
-    model_dir = os.path.join(LOGS_PATH, ACDC.DIR.VAE, flags.model_name)
-    
-    if os.path.exists(model_dir):
-        raise ValueError(f"Model {flags.model_name} already exists.")
+    if flags.model_name:
+        # Check if model name already exists
+        model_dir = os.path.join(LOGS_PATH, ACDC.DIR.VAE, flags.model_name)
         
+        if os.path.exists(model_dir):
+            raise ValueError(f"Model {flags.model_name} already exists.")
     
     # Setup device
     device = setup_device()
@@ -94,6 +101,7 @@ def main(flags: argparse.Namespace):
         latent_dim=flags.latent_dim,
         loss_reg=flags.loss_reg,
         beta=flags.beta,
+        gamma=flags.gamma,
     )
     
     trainer = L.Trainer(

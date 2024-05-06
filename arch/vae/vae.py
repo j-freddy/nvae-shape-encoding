@@ -31,6 +31,7 @@ class VAE(L.LightningModule):
         latent_dim: int=2,
         loss_reg: str="beta_vae",
         beta: float=1.0,
+        gamma: float=1.0,
     ):
         super().__init__()
         
@@ -47,6 +48,10 @@ class VAE(L.LightningModule):
             1 + logvar - mu.pow(2) - logvar.exp(),
             dim=1,
         ).mean()
+        
+    def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+        batch_size = x.size(0)
+        return F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
     
     def loss(
         self,
@@ -55,15 +60,14 @@ class VAE(L.LightningModule):
         logvar: torch.Tensor,
         z: torch.Tensor,
         x_hat: torch.Tensor,
-        train: bool=True,
+        log_components: bool=True,
     ) -> torch.Tensor:
-        batch_size = x.size(0)
-        recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        recon_loss = self.reconstruction_loss(x, x_hat)
         kl_div = self._kl_divergence(mu, logvar)
         
         weighted_kl_div = self.hparams.beta * kl_div
         
-        if train:
+        if log_components:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", weighted_kl_div)
         
@@ -121,7 +125,7 @@ class VAE(L.LightningModule):
         mu, logvar, z, x_hat = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
+        loss = self.loss(x, mu, logvar, z, x_hat, log_components=False)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -130,9 +134,9 @@ class VAE(L.LightningModule):
         assert batch_idx == 0, "Only 1 batch allowed"
 
         # Compute loss
-        mu, logvar, z, x_hat = self(x)
-        loss = self.loss(x, mu, logvar, z, x_hat, train=False)
-        self.log("test_loss", loss)
+        _, _, _, x_hat = self(x)
+        recon_loss = self.reconstruction_loss(x, x_hat)
+        self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(x[:20])
         self.log_generations_and_fid(x)
