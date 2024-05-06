@@ -1,9 +1,12 @@
 __pycache__/
 data/
-logs/
+logs/*/*
 out/
 venv/
 
 sandbox.py
 sandbox.ipynb
 todo.md
+
+# Keep track of csv logs
+!logs/*/*.csv
