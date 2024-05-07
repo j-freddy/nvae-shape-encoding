@@ -4,8 +4,8 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from const import CIFAR10, LOGS_PATH, SEED
-from data_modules.cifar10 import CIFAR10DataModule
+from const import ACDC, LOGS_PATH, SEED
+from data_modules.acdc import ACDCMaskDataModule
 from arch.nvae.nvae import NVAE
 from utils import setup_device
 
@@ -17,6 +17,13 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Max number of epochs.",
         default=100,
+    )
+    
+    parser.add_argument(
+        "--filter_empty",
+        action=argparse.BooleanOptionalAction,
+        help="If set, filter out empty masks.",
+        default=False,
     )
     
     parser.add_argument(
@@ -37,7 +44,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(LOGS_PATH, CIFAR10.DIR.NVAE, flags.model_name)
+        model_dir = os.path.join(LOGS_PATH, ACDC.DIR.NVAE, flags.model_name)
         
         if os.path.exists(model_dir):
             raise ValueError(f"Model {flags.model_name} already exists.")
@@ -50,13 +57,19 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = CIFAR10DataModule()
+    data_module = ACDCMaskDataModule(batch_size=8, filter_empty=flags.filter_empty)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
+    
+    _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
-    model = NVAE()
+    model = NVAE(
+        in_channels=num_classes,
+        initial_channels=8,
+        max_epochs=flags.epochs,
+    )
     
     trainer = L.Trainer(
         accelerator="auto",
@@ -64,7 +77,8 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=LOGS_PATH,
-            name=CIFAR10.DIR.NVAE,
+            name=ACDC.DIR.NVAE,
+            version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,
         ),
         callbacks=[

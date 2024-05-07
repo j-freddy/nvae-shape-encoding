@@ -84,7 +84,10 @@ class Decoder(nn.Module):
         super().__init__()
         
         # TODO Do not hardcode the size
-        self.top_prior = nn.Parameter(torch.rand(size=(256, 8, 8)), requires_grad=True)
+        # This is just the size of the topmost prior
+        # To work it out, just use print(x.shape) after self.encoder(x) in
+        # nvae.py
+        self.top_prior = nn.Parameter(torch.rand(size=(32, 32, 32)), requires_grad=True)
         
         # Build tower
         

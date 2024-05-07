@@ -1,10 +1,13 @@
 import lightning as L
+from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
+from utils import show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -17,25 +20,50 @@ class NVAE(L.LightningModule):
     Advances in neural information processing systems. 2020;33:19667-79.
     """
     
-    def __init__(self, initial_channels: int=64):
+    def __init__(
+        self,
+        in_channels: int=4,
+        initial_channels: int=64,
+        max_epochs: int=50,
+    ):
         super().__init__()
         
-        # Table 6: # initial channels in enc. (NVAE paper)
-        self.stem = nn.Conv2d(3, initial_channels, kernel_size=3, padding=1, bias=True)
+        self.save_hyperparameters()
         
-        self.encoder = Encoder(initial_channels=initial_channels)
+        # Table 6: # initial channels in enc. (NVAE paper)
+        self.stem = nn.Conv2d(
+            self.hparams.in_channels,
+            self.hparams.initial_channels,
+            kernel_size=3,
+            padding=1,
+            bias=True,
+        )
+        
+        self.encoder = Encoder(initial_channels=self.hparams.initial_channels)
         # TODO In encoder.py I use num_latent_scales = 3
         # In general, initial_channels = initial_channels * (2 ** (num_latent_scales - 1))
-        self.decoder = Decoder(initial_channels=initial_channels * 4)
+        self.decoder = Decoder(initial_channels=self.hparams.initial_channels * 4)
         
         # This is the opposite of the stem
         self.conditional_coder = nn.Sequential(
             nn.ELU(),
-            nn.Conv2d(initial_channels, 3, kernel_size=3, padding=1),
+            nn.Conv2d(
+                self.hparams.initial_channels,
+                self.hparams.in_channels,
+                kernel_size=3,
+                padding=1,
+            ),
         )
 
     def configure_optimizers(self):
-        NotImplemented
+        optimiser = torch.optim.Adamax(self.parameters(), lr=0.01)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimiser,
+            T_max=self.hparams.max_epochs,
+            eta_min=1e-4,
+        )
+        
+        return [optimiser], [lr_scheduler]
     
     def _kl_divergence(
         self,
@@ -44,6 +72,8 @@ class NVAE(L.LightningModule):
         log_qs: list[torch.Tensor],
         log_ps: list[torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        # log_p, log_q and kl_diag are for metrics purposes
+        
         kl_div = []
         kl_diag = []
         
@@ -59,7 +89,13 @@ class NVAE(L.LightningModule):
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        return log_q, log_p, kl_div, kl_diag
+        kl_div = torch.sum(torch.stack(kl_div, dim=1), dim=1).mean()
+        
+        return kl_div
+
+    def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+        batch_size = x.size(0)
+        return F.binary_cross_entropy_with_logits(x_hat, x, reduction="sum") / batch_size
     
     def loss(
         self,
@@ -69,8 +105,19 @@ class NVAE(L.LightningModule):
         ps: list[Normal],
         log_qs: list[torch.Tensor],
         log_ps: list[torch.Tensor],
+        log_components: bool=True,
     ) -> torch.Tensor:
-        log_q, log_p, kl_div, kl_diag = self._kl_divergence(qs, ps, log_qs, log_ps)
+        recon_loss = self.reconstruction_loss(x, x_hat)
+        kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
+        
+        print(f"Reconstruction loss: {recon_loss}")
+        print(f"KL divergence: {kl_div}")
+        
+        if log_components:
+            self.log("recon_loss", recon_loss)
+            self.log("kl_div", 0.001 * kl_div)
+        
+        return recon_loss + 0.001 * kl_div
     
     def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
@@ -94,16 +141,59 @@ class NVAE(L.LightningModule):
         
         return feats_hat, qs, ps, log_qs, log_ps
         
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        feats, _ = batch
+    def training_step(self, feats: torch.Tensor) -> torch.Tensor:
         feats_hat, qs, ps, log_qs, log_ps = self(feats)
         
+        # Compute loss
         loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
+        self.log("train_loss", loss)
         
-        import sys
-        sys.exit()
+        print(f"Train loss: {loss}")
         
-        NotImplemented
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
+
+        return loss
     
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        NotImplemented
+    def validation_step(self, feats: torch.Tensor) -> torch.Tensor:
+        feats_hat, qs, ps, log_qs, log_ps = self(feats)
+        
+        # Compute loss
+        loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
+        self.log("val_loss", loss)
+        
+        print(f"Val loss: {loss}")
+        
+    def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        assert batch_idx == 0, "Only 1 batch allowed"
+        
+        # TODO Using the first 20 samples only
+        feats = feats[:20]
+
+        # Compute loss
+        feats_hat, _, _, _, _ = self(feats)
+        recon_loss = self.reconstruction_loss(feats, feats_hat)
+        self.log("test_recon_loss", recon_loss)
+
+        self.log_reconstructions(feats[:20])
+        self.log_generations_and_fid(feats)
+
+    def log_reconstructions(self, x: torch.Tensor):
+        # TODO This is mostly duplicate code from VAE class
+        
+        x_hat, _, _, _, _ = self(x)
+
+        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+        samples = torch.argmax(x, dim=1).unsqueeze(1)
+
+        # Interleave samples and reconstructions
+        batch_size, num_channels, width, height = samples.shape
+        assert width == height
+        samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
+        
+        for i in range(samples.shape[0]):
+            samples_and_reconstructions[i * 2] = samples[i]
+            samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
+        
+        show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
