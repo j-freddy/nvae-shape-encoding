@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 
 from arch.nvae.decoder import Decoder
+from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 
 class NVAE(L.LightningModule):
@@ -36,14 +37,42 @@ class NVAE(L.LightningModule):
     def configure_optimizers(self):
         NotImplemented
     
+    def _kl_divergence(
+        self,
+        qs: list[Normal],
+        ps: list[Normal],
+        log_qs: list[torch.Tensor],
+        log_ps: list[torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        kl_div = []
+        kl_diag = []
+        
+        log_p: float = 0
+        log_q: float = 0
+        
+        for q, p, log_q_conv, log_p_conv in zip(qs, ps, log_qs, log_ps):
+            # TODO Change this for normalising flow
+            kl_per_var = q.kl(p)
+
+            kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
+            kl_div.append(torch.sum(kl_per_var, dim=[1, 2, 3]))
+            log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
+            log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
+        
+        return log_q, log_p, kl_div, kl_diag
+    
     def loss(
         self,
         x: torch.Tensor,
         x_hat: torch.Tensor,
+        qs: list[Normal],
+        ps: list[Normal],
+        log_qs: list[torch.Tensor],
+        log_ps: list[torch.Tensor],
     ) -> torch.Tensor:
-        NotImplemented
+        log_q, log_p, kl_div, kl_diag = self._kl_divergence(qs, ps, log_qs, log_ps)
     
-    def forward(self, feats: torch.Tensor) -> torch.Tensor:
+    def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
         x = self.stem(feats)
         
@@ -56,20 +85,23 @@ class NVAE(L.LightningModule):
         enc_samplers = self.encoder.samplers[::-1]
         
         # Pass through decoder
-        x_hat = self.decoder(x, xs, enc_combiner_cells, enc_samplers)
+        x_hat, qs, ps, log_qs, log_ps = self.decoder(x, xs, enc_combiner_cells, enc_samplers)
         
         # Compute logits
         feats_hat: torch.Tensor = self.conditional_coder(x_hat)
 
         assert feats.shape == feats_hat.shape
         
-        return feats_hat
+        return feats_hat, qs, ps, log_qs, log_ps
         
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         feats, _ = batch
-        feats_hat = self(feats)
+        feats_hat, qs, ps, log_qs, log_ps = self(feats)
         
-        loss = self.loss(feats, feats_hat)
+        loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
+        
+        import sys
+        sys.exit()
         
         NotImplemented
     

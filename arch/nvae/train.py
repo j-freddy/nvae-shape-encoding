@@ -19,6 +19,19 @@ def parse_args() -> argparse.Namespace:
         default=100,
     )
     
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        help="Directory name of saved model checkpoints and metadata.",
+    )
+    
+    parser.add_argument(
+        "--logs",
+        type=str,
+        help="Root save directory for logs.",
+        default=LOGS_PATH,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):

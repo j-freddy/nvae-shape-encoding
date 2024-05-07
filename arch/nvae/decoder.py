@@ -3,7 +3,6 @@ import torch.nn as nn
 import torchvision.ops as ops
 
 from arch.nvae.distribution import Normal
-from utils import soft_clamp
 
 class DecoderResidualCell(nn.Module):
     """
@@ -159,7 +158,7 @@ class Decoder(nn.Module):
         xs: torch.Tensor,
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         batch_size, _, _, _ = x.shape
         
         # Sample mu, logsig of the topmost latent scale
@@ -215,4 +214,4 @@ class Decoder(nn.Module):
 
         x = self.postprocess(x)
         
-        return x
+        return x, qs, ps, log_qs, log_ps
