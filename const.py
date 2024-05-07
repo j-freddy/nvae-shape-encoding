@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import os
 
-
 DATA_PATH = "data"
 LOGS_PATH = "logs"
 OUT_PATH = "out"
