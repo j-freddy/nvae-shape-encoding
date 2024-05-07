@@ -35,6 +35,8 @@ betas=("0 0.01 0.05 0.1 0.5 1 5")
 # size=8
 gammas=("1 5 10 50 100 500 1000 5000")
 
+logdir="logs-info-adversarial-vae"
+
 # Train
 
 for latent_dim in $latent_dims
@@ -45,7 +47,7 @@ do
         do
             model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
             # Train
-            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg info_adversarial_vae
+            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg info_adversarial_vae --logs $logdir
         done
     done
 done
@@ -62,7 +64,7 @@ do
             # Get saved model path
             model_path=$(ls logs/vae_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
-            python -m arch.vae.test --model_path $model_path
+            python -m arch.vae.test --model_path $model_path --logs $logdir
         done
     done
 done
