@@ -17,6 +17,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to model checkpoint.",
         required=True,
     )
+    
+    parser.add_argument(
+        "--logs",
+        type=str,
+        help="Root save directory for logs.",
+        default=LOGS_PATH,
+    )
 
     return parser.parse_args()
 
@@ -52,7 +59,7 @@ def main(flags: argparse.Namespace):
         accelerator="cpu",
         devices="auto",
         logger=TensorBoardLogger(
-            save_dir=LOGS_PATH,
+            save_dir=flags.logs,
             name=ACDC.DIR.VAE,
             version=model_name,
             default_hp_metric=False,

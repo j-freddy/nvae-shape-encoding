@@ -32,8 +32,8 @@ source activate
 latent_dims=("4 8 16 32")
 # size=6
 betas=("0 0.01 0.05 0.1 0.5 1 5")
-# size=6
-gammas=("100 500 1000 5000 10000 50000")
+# size=8
+gammas=("1 5 10 50 100 500 1000 5000")
 
 # Train
 

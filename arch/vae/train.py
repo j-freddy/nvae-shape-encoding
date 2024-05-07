@@ -61,12 +61,19 @@ def parse_args() -> argparse.Namespace:
         help="Directory name of saved model checkpoints and metadata.",
     )
     
+    parser.add_argument(
+        "--logs",
+        type=str,
+        help="Root save directory for logs.",
+        default=LOGS_PATH,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(LOGS_PATH, ACDC.DIR.VAE, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.VAE, flags.model_name)
         
         if os.path.exists(model_dir):
             raise ValueError(f"Model {flags.model_name} already exists.")
@@ -109,7 +116,7 @@ def main(flags: argparse.Namespace):
         devices="auto",
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
-            save_dir=LOGS_PATH,
+            save_dir=flags.logs,
             name=ACDC.DIR.VAE,
             version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,
