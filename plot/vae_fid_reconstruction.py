@@ -8,11 +8,12 @@ if __name__ == '__main__':
     plt.style.use("ggplot")
 
     paths = [
+        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "beta-vae.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-adversarial-vae.csv"),
     ]
 
-    labels = ["InfoVAE", "InfoAdversarialVAE"]
+    labels = ["beta-VAE", "InfoVAE", "InfoAdversarialVAE"]
 
     for label, path in zip(labels, paths):
         df = pd.read_csv(path, index_col="model_name")

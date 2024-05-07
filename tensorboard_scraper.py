@@ -7,10 +7,8 @@ from const import ACDC, LOGS_PATH
 
 def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
     """
-    Scrape single-value metrics from TensorBoard logs. Each metric takes ~2
-    seconds. TensorBoard must be active on localhost:6006.
-
-    Example: 2 metrics and 144 experiments = 4.8 minutes
+    Scrape single-value metrics from TensorBoard logs. TensorBoard must be
+    active on localhost:6006.
     """
     experiments = os.listdir(log_dir)
 
@@ -50,7 +48,7 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 if __name__ == '__main__':
     # Configuration
     # TODO Move to argparse
-    log_subdir = "info-adversarial-vae"
+    log_subdir = "beta-vae"
     metrics = ["fid", "test_recon_loss"]
 
     df = get_tensorboard_data(
