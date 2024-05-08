@@ -80,8 +80,7 @@ class InfoAdversarialVAE(VAE):
         
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
-        zero = torch.tensor(0.0).to(pred.device)
-        kl_qp = torch.max(zero, pred.mean())
+        kl_qp = pred.mean()
         print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
@@ -116,25 +115,6 @@ class InfoAdversarialVAE(VAE):
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
         opt_vae, opt_discriminator = self.optimizers()
         
-        # VAE step
-        
-        self.toggle_optimizer(opt_vae)
-
-        mu, logvar, z, x_hat = self(x)
-        pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
-        self.log("train_loss", loss)
-        
-        print(f"Train loss: {loss}")
-        
-        if torch.isnan(loss):
-            raise ValueError("NaN loss")
-
-        opt_vae.zero_grad()
-        self.manual_backward(loss)
-        opt_vae.step()
-        
-        self.untoggle_optimizer(opt_vae)
-        
         # Discriminator step
         # See Algorithm 2: FactorVAE
         # https://proceedings.mlr.press/v80/kim18b/kim18b.pdf
@@ -143,9 +123,7 @@ class InfoAdversarialVAE(VAE):
         # p(z) is the standard Gaussian prior
         
         self.toggle_optimizer(opt_discriminator)
-        
-        # TODO noqa: self.manual_backward with retain_graph not working for pred
-        # As a temporary fix, just compute pred again
+
         _, _, z, _ = self(x)
         pred: torch.Tensor = self.discriminator(z)
         
@@ -164,5 +142,24 @@ class InfoAdversarialVAE(VAE):
         opt_discriminator.step()
         
         self.untoggle_optimizer(opt_discriminator)
+        
+        # VAE step
+        
+        self.toggle_optimizer(opt_vae)
+
+        mu, logvar, z, x_hat = self(x)
+        pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
+        self.log("train_loss", loss)
+        
+        print(f"Train loss: {loss}")
+        
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
+
+        opt_vae.zero_grad()
+        self.manual_backward(loss)
+        opt_vae.step()
+        
+        self.untoggle_optimizer(opt_vae)
 
         return loss
