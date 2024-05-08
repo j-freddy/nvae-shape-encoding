@@ -83,11 +83,19 @@ class Decoder(nn.Module):
     def __init__(self, initial_channels: int=256, z_channels: int=20):
         super().__init__()
         
+        self.z_channels = z_channels
+        
         # TODO Do not hardcode the size
-        # This is just the size of the topmost prior
-        # To work it out, just use print(x.shape) after self.encoder(x) in
-        # nvae.py
-        self.top_prior = nn.Parameter(torch.rand(size=(32, 32, 32)), requires_grad=True)
+        self.img_width = 128
+        self.img_height = 128
+
+        # This is the size of the topmost prior
+        # [top_channels, width, height]
+        # ACDC is 128x128 and we have 3 layers so 128 -> 64 -> 32
+        self.top_prior = nn.Parameter(
+            torch.rand(size=(initial_channels, self.img_width // 4, self.img_height // 4)),
+            requires_grad=True,
+        )
         
         # Build tower
         
@@ -170,6 +178,7 @@ class Decoder(nn.Module):
         # Approximate posterior for top-level
         distr = Normal(mu_q, logsig_q)
         z = distr.sample()
+        
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
@@ -181,9 +190,9 @@ class Decoder(nn.Module):
         log_ps = [distr.log_p(z)]
         
         idx_dec = 0
-        # [1, width, height]
+        # [1, top_channels, width, height]
         x = self.top_prior.unsqueeze(0)
-        # [batch_size, 1, width, height]
+        # [batch_size, top_channels, width, height]
         x = x.expand(batch_size, -1, -1, -1)
         
         for cell in self.tower:
@@ -218,3 +227,40 @@ class Decoder(nn.Module):
         x = self.postprocess(x)
         
         return x, qs, ps, log_qs, log_ps
+
+    def generate(self, num_samples: int, device: torch.device) -> torch.Tensor:
+        # Form posterior for top-level assuming Gaussian prior
+        top_latent_shape = (num_samples, self.z_channels, self.img_width // 4, self.img_height // 4)
+        distr = Normal(
+            mu=torch.zeros(top_latent_shape).to(device),
+            logsig=torch.zeros(top_latent_shape).to(device),
+        )
+        z = distr.sample()
+        
+        idx_dec = 0
+        
+        # [1, top_channels, width, height]
+        x = self.top_prior.unsqueeze(0)
+        # [num_samples, top_channels, width, height]
+        x = x.expand(num_samples, -1, -1, -1)
+        
+        for cell in self.tower:
+            if isinstance(cell, DecoderCombinerCell):
+                if idx_dec > 0:
+                    # Form prior
+                    latent_repr_p = self.samplers[idx_dec - 1](x)
+                    mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
+                    
+                    # Distribution
+                    distr = Normal(mu_p, logsig_p)
+                    z = distr.sample()
+
+                x = cell(x, z)
+                
+                idx_dec += 1
+            else:
+                x = cell(x)
+        
+        x = self.postprocess(x)
+        
+        return x

@@ -25,6 +25,7 @@ class NVAE(L.LightningModule):
         in_channels: int=4,
         initial_channels: int=64,
         max_epochs: int=50,
+        beta: float=1.0,
     ):
         super().__init__()
         
@@ -110,14 +111,16 @@ class NVAE(L.LightningModule):
         recon_loss = self.reconstruction_loss(x, x_hat)
         kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
         
+        weighted_kl_div = self.hparams.beta * kl_div
+        
         print(f"Reconstruction loss: {recon_loss}")
-        print(f"KL divergence: {kl_div}")
+        print(f"Weighted KL divergence: {weighted_kl_div}")
         
         if log_components:
             self.log("recon_loss", recon_loss)
-            self.log("kl_div", 0.001 * kl_div)
+            self.log("kl_div", weighted_kl_div)
         
-        return recon_loss + 0.001 * kl_div
+        return recon_loss + weighted_kl_div
     
     def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
@@ -197,3 +200,17 @@ class NVAE(L.LightningModule):
         
         show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+
+    def log_generations_and_fid(self, feats: torch.Tensor):
+        num_samples, _, _, _ = feats.shape
+        
+        # Generate probabilistic segmentation maps
+        x_fake = self.decoder.generate(num_samples, device=feats.device)
+        feats_fake = self.conditional_coder(x_fake)
+
+        # Discretise probabilistic map then view generations
+        generations = torch.argmax(x_fake[:20], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, nrow=10, figsize=(10, 2), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
+
+        # TODO FID

@@ -12,7 +12,7 @@ from torchvision.utils import make_grid
 
 from const import SEED
 
-def setup_device():
+def setup_device() -> torch.device:
     """
     Set up Torch device and set seed. Enforce all operations to be
     deterministic.
@@ -67,7 +67,7 @@ def show_samples(
     if display:
         plt.show()
 
-def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
+def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
     _, num_channels_fake, _, _ = fake_data.shape

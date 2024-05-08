@@ -181,10 +181,10 @@ class VAE(L.LightningModule):
         # Sample from latent space
         z = torch.randn(num_samples, self.hparams.latent_dim).to(self.device)
         
-        # Generate prbabilistic segmentation maps from latent variables
+        # Generate probabilistic segmentation maps from latent variables
         x_fake: torch.Tensor = self.decoder.net(z)
 
-        # Discretise prbabilistic map then view generations
+        # Discretise probabilistic map then view generations
         generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
