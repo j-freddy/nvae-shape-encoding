@@ -161,5 +161,5 @@ def frechet_inception_distance_manual(
 
     return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
 
-def soft_clamp(x: torch.Tensor, factor: float=5.0):
+def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
     return torch.tanh(x.div(factor)) * factor
