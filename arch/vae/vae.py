@@ -179,9 +179,7 @@ class VAE(L.LightningModule):
             self.discretise(x_fake),
             device=self.device,
         )
-        print(f"FID: {fid_value}")
-        import sys
-        sys.exit()
+
         self.log("fid_manual", fid_value)
     
     def log_lerp(self, x: torch.Tensor):
