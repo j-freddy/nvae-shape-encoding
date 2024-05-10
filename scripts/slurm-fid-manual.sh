@@ -41,10 +41,10 @@ done
 
 # [InfoAdversarialVAE Evaluate]
 
-# grid size is 144
+# grid size is 224
 # size=4
 latent_dims=("4 8 16 32")
-# size=6
+# size=7
 betas=("0 0.01 0.05 0.1 0.5 1 5")
 # size=8
 gammas=("1 5 10 50 100 500 1000 5000")
@@ -68,10 +68,10 @@ done
 
 # [InfoVAE Evaluate]
 
-# grid size is 192
+# grid size is 224
 # size=4
 latent_dims=("4 8 16 32")
-# size=6
+# size=7
 betas=("0 0.01 0.05 0.1 0.5 1 5")
 # size=8
 gammas=("1 5 10 50 100 500 1000 5000")
