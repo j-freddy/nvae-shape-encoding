@@ -6,6 +6,7 @@ import torch
 import torchio as tio
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import torchvision.transforms.functional as TF
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
 
@@ -110,10 +111,10 @@ def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
     subjects = []
     
     # TODO noqa
-    # seq = range(101, 151) if test else range(1, 101)
+    seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
-    seq = range(101, 106) if test else range(1, 6)
+    # seq = range(101, 106) if test else range(1, 6)
     
     max_slices = 0
     
@@ -215,24 +216,54 @@ class ACDCMaskDataModule(LightningDataModule):
         batch_size: int=32,
         filter_empty: bool=False,
         one_hot: bool=True,
-        # TODO Default to False
-        register_alignment: bool=True,
+        register_alignment: bool=False,
     ):
         super().__init__()
         
         self.batch_size = batch_size
         
-        data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
+        if register_alignment and os.path.exists(ACDC.ALIGNED.TRAIN_PATH) and os.path.exists(ACDC.ALIGNED.TEST_PATH):
+            print("Preprocessed aligned masks found. Loading...")
+            
+            data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
+            self.data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+        else:
+            data_train, data_test, _, _ = download_and_preprocess_acdc()
 
-        data_train = self._get_masks(data_train, max_slices_train, filter_empty, register_alignment)
-        # Always preserve empty masks for test set
-        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False, register_alignment=register_alignment)
+            data_train = self._get_masks(data_train, filter_empty, register_alignment)
+            # Always preserve empty masks for test set
+            self.data_test = self._get_masks(data_test, filter_empty=False, register_alignment=register_alignment)
+            
+            # Save aligned masks because it takes a lot of time
+            if register_alignment:
+                torch.save(data_train, ACDC.ALIGNED.TRAIN_PATH)
+                torch.save(self.data_test, ACDC.ALIGNED.TEST_PATH)
         
         if one_hot:
             data_train = self._one_hot(data_train)
             self.data_test = self._one_hot(self.data_test)
 
         self.data_train, self.data_val = self._split_train_val(data_train)
+    
+    def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
+        # avg_y is average y-coordinate of right ventricle
+        # Align masks so right ventricle is on top
+        aligned_masks, best_avg_y = masks, torch.inf
+        
+        tick_deg = 1
+        
+        for i in range(0, 360, tick_deg):
+            rotated_masks = TF.rotate(masks, i)
+            
+            # Calculate average y-coordinate of right ventricle (labelled as 1)
+            coords = torch.nonzero(rotated_masks[:, 0, :, :] == 1)[:, 1:]
+            avg_y = coords[:, 0].float().mean()
+            
+            if avg_y < best_avg_y:
+                best_avg_y = avg_y
+                aligned_masks = rotated_masks
+        
+        return aligned_masks
     
     def _get_masks_from_subject(
         self,
@@ -255,12 +286,16 @@ class ACDCMaskDataModule(LightningDataModule):
 
             masks.append(mask)
         
-        return torch.stack(masks)
+        masks = torch.stack(masks)
+        
+        if register_alignment:
+            masks = self._register_alignment(masks)
+        
+        return masks
         
     def _get_masks(
         self,
         data: tio.SubjectsDataset,
-        max_slices: int,
         filter_empty: bool=True,
         register_alignment: bool=False,
     ) -> torch.Tensor:

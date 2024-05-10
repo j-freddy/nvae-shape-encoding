@@ -25,3 +25,8 @@ class ACDC:
     
     TRAIN_PATH = os.path.join(DATA_PATH, "acdc_processed_train.pt")
     TEST_PATH = os.path.join(DATA_PATH, "acdc_processed_test.pt")
+    
+    @dataclass
+    class ALIGNED:
+        TRAIN_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_train.pt")
+        TEST_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_test.pt")
