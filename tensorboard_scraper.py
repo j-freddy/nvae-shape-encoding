@@ -49,12 +49,14 @@ if __name__ == '__main__':
     # Configuration
     # TODO Move to argparse
     log_subdir = "beta-vae"
-    metrics = ["fid", "test_recon_loss"]
+    metrics = ["fid", "fid_manual", "test_recon_loss"]
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),
         metrics=metrics,
     )
+
+    df.sort_values(by="fid_manual", inplace=True, ascending=True)
 
     print(df.head())
 
