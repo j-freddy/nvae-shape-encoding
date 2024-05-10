@@ -110,10 +110,10 @@ def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
     subjects = []
     
     # TODO noqa
-    seq = range(101, 151) if test else range(1, 101)
+    # seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
-    # seq = range(101, 106) if test else range(1, 6)
+    seq = range(101, 106) if test else range(1, 6)
     
     max_slices = 0
     
@@ -210,59 +210,80 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the mask tensor values per slice (128x128x1).
     """
     
-    def __init__(self, batch_size: int=32, filter_empty: bool=False, one_hot: bool=True):
+    def __init__(
+        self,
+        batch_size: int=32,
+        filter_empty: bool=False,
+        one_hot: bool=True,
+        # TODO Default to False
+        register_alignment: bool=True,
+    ):
         super().__init__()
         
         self.batch_size = batch_size
         
         data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
 
-        data_train = self._get_masks(data_train, max_slices_train, filter_empty)
+        data_train = self._get_masks(data_train, max_slices_train, filter_empty, register_alignment)
         # Always preserve empty masks for test set
-        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False)
+        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False, register_alignment=register_alignment)
         
         if one_hot:
             data_train = self._one_hot(data_train)
             self.data_test = self._one_hot(self.data_test)
 
         self.data_train, self.data_val = self._split_train_val(data_train)
+    
+    def _get_masks_from_subject(
+        self,
+        subject: tio.Subject,
+        is_es: bool=False,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        subject_mask_data = subject.es_mask.data if is_es else subject.ed_mask.data
         
-    def _get_masks(self, data: tio.SubjectsDataset, max_slices: int, filter_empty: bool=True) -> torch.Tensor:
-        num_channels, width, height, _ = data[0].ed_mask.data.shape
+        masks = []
         
-        masks = torch.empty((
-            len(data) * max_slices * 2,
-            num_channels,
-            width,
-            height,
-        ))
+        _, _, _, num_slices = subject_mask_data.shape
         
-        acc = 0 
+        for slice in range(num_slices):
+            mask = subject_mask_data[:, :, :, slice]
+            
+            if filter_empty and torch.all(mask == 0):
+                continue
+
+            masks.append(mask)
+        
+        return torch.stack(masks)
+        
+    def _get_masks(
+        self,
+        data: tio.SubjectsDataset,
+        max_slices: int,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        masks = []
         
         for subject in data:
-            _, _, _, num_slices = subject.ed_mask.data.shape
+            ed_masks = self._get_masks_from_subject(
+                subject,
+                is_es=False,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(ed_masks)
             
-            for slice in range(num_slices):
-                mask = subject.ed_mask.data[:, :, :, slice]
-                
-                if filter_empty and torch.all(mask == 0):
-                    continue
-
-                masks[acc] = mask
-                acc += 1
-                
-            _, _, _, num_slices = subject.es_mask.data.shape
-            
-            for slice in range(num_slices):
-                mask = subject.es_mask.data[:, :, :, slice]
-                
-                if filter_empty and torch.all(mask == 0):
-                    continue
-
-                masks[acc] = mask
-                acc += 1
+            es_masks = self._get_masks_from_subject(
+                subject,
+                is_es=True,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(es_masks)
         
-        return masks[:acc]
+        return torch.cat(masks)
 
     def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
         masks = torch.squeeze(masks, dim=1)
