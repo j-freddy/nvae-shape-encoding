@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 from lightning import LightningDataModule
 import subprocess
@@ -94,7 +95,19 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     max_y = torch.max(nonzero_coords[:, 0]).item()
     
     width = max(max_x - min_x, max_y - min_y)
-    padding = 4
+    
+    # With rotation augmentation, padding is required to prevent cropping
+
+    # The exact padding can be calculated by drawing a square inscribed within a
+    # circle inscribed within a larger square, since rotating a square traces
+    # out a circle
+    
+    # Let x be the original size (i.e. width of square)
+    # Then the radius of circle is x / sqrt(2)
+    # Then the width of larger square is 2x / sqrt(2) = x * sqrt(2)
+    
+    # Absolute padding after resizing to 128x128 is 128 - (64 * sqrt(2)) = 37.5
+    padding = math.ceil(width * math.sqrt(2))
 
     transform = tio.transforms.Compose([
         # Crop to dimensions centred around the mask to minimise background
