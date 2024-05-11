@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
+from dataset.acdc import ACDCMaskDataset
 
 def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     info_file = os.path.join(
@@ -217,6 +218,8 @@ class ACDCMaskDataModule(LightningDataModule):
         filter_empty: bool=False,
         one_hot: bool=True,
         register_alignment: bool=False,
+        augment: bool=False,
+        augment_test: bool=False,
     ):
         super().__init__()
         
@@ -226,24 +229,28 @@ class ACDCMaskDataModule(LightningDataModule):
             print("Preprocessed aligned masks found. Loading...")
             
             data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-            self.data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+            data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
         else:
             data_train, data_test, _, _ = download_and_preprocess_acdc()
 
             data_train = self._get_masks(data_train, filter_empty, register_alignment)
             # Always preserve empty masks for test set
-            self.data_test = self._get_masks(data_test, filter_empty=False, register_alignment=register_alignment)
+            data_test = self._get_masks(data_test, filter_empty=False, register_alignment=register_alignment)
             
             # Save aligned masks because it takes a lot of time
             if register_alignment:
                 torch.save(data_train, ACDC.ALIGNED.TRAIN_PATH)
-                torch.save(self.data_test, ACDC.ALIGNED.TEST_PATH)
+                torch.save(data_test, ACDC.ALIGNED.TEST_PATH)
         
         if one_hot:
             data_train = self._one_hot(data_train)
-            self.data_test = self._one_hot(self.data_test)
+            data_test = self._one_hot(data_test)
 
-        self.data_train, self.data_val = self._split_train_val(data_train)
+        data_train, data_val = self._split_train_val(data_train)
+        
+        self.data_train = ACDCMaskDataset(data_train, augment)
+        self.data_val = ACDCMaskDataset(data_val, augment=False)
+        self.data_test = ACDCMaskDataset(data_test, augment=augment_test)
     
     def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
         # avg_y is average y-coordinate of right ventricle

@@ -37,7 +37,12 @@ def view_acdc():
     # Seed
     L.seed_everything(SEED)
     
-    data_module = ACDCMaskDataModule(batch_size=40, one_hot=False, register_alignment=True)
+    data_module = ACDCMaskDataModule(
+        batch_size=40,
+        one_hot=False,
+        register_alignment=True,
+        augment_test=True,
+    )
 
     print(f"Number of train samples: {len(data_module.data_train)}")
     print(f"Number of test samples: {len(data_module.data_test)}")
