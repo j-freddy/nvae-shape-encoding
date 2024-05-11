@@ -24,6 +24,13 @@ def parse_args() -> argparse.Namespace:
         help="Root save directory for logs.",
         default=LOGS_PATH,
     )
+    
+    parser.add_argument(
+        "--register_alignment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, use masks that have been rotated such that the right ventricle points upwards.",
+        default=False,
+    )
 
     return parser.parse_args()
 
@@ -36,7 +43,10 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=20)
+    data_module = ACDCMaskDataModule(
+        batch_size=20,
+        register_alignment=flags.register_alignment,
+    )
     # TODO Bit hacky but I want to use 1 batch only to calculate FID
     data_module.batch_size = data_module.data_test.shape[0]
     
