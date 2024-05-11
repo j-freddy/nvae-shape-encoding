@@ -134,13 +134,13 @@ class VAE(L.LightningModule):
         assert batch_idx == 0, "Only 1 batch allowed"
 
         # Compute loss
-        # _, _, _, x_hat = self(x)
-        # recon_loss = self.reconstruction_loss(x, x_hat)
-        # self.log("test_recon_loss", recon_loss)
+        _, _, _, x_hat = self(x)
+        recon_loss = self.reconstruction_loss(x, x_hat)
+        self.log("test_recon_loss", recon_loss)
 
-        # self.log_reconstructions(x[:20])
+        self.log_reconstructions(x[:20])
         self.log_generations_and_fid(x)
-        # self.log_lerp(x[:20])
+        self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
         _, _, _, x_hat = self(x)
@@ -170,9 +170,9 @@ class VAE(L.LightningModule):
         x_fake: torch.Tensor = self.decoder.net(z)
 
         # Discretise prbabilistic map then view generations
-        # generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
-        # show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
-        # self.logger.experiment.add_figure("img/generations", plt.gcf())
+        generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
         
         fid_value = frechet_inception_distance_manual(
             x,
