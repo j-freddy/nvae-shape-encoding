@@ -1,8 +1,12 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.linalg import sqrtm
 import torch
+import torch.nn as nn
 from torchmetrics.image.fid import FrechetInceptionDistance
+from torchvision import transforms
+from torchvision.models import inception_v3
 from torchvision.utils import make_grid
 
 from const import SEED
@@ -85,6 +89,75 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     fid.update(real_data, real=True)
     fid.update(fake_data, real=False)
     return fid.compute()
+
+# TODO Cite this function
+def frechet_inception_distance_manual(
+    real_data: torch.Tensor,
+    fake_data: torch.Tensor,
+    device: torch.device,
+):
+    def get_feats(x, model, device):
+        with torch.no_grad():
+            x = x.to(device)
+            # Discard background dimension
+            x = x[:, 1:, :, :].float()
+
+            transform = transforms.Compose([
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                nn.Upsample(size=(299, 299), mode="bilinear", align_corners=True),
+            ])
+
+            feats = model(transform(x))
+
+        return feats.detach().cpu()
+    
+    # Load inception model
+    inception_model = inception_v3(weights="DEFAULT", transform_input=False).to(device)
+    
+    inception_model.fc = nn.Identity()
+    inception_model.eval()
+
+    # Extract features for real images
+    real_feats = []
+    
+    batch_size = 2
+    real_data_split = torch.split(real_data, batch_size, dim=0)
+
+    for real_data_batch in real_data_split:
+        real_data_batch = real_data_batch * 2 - 1
+        feats = get_feats(real_data_batch, inception_model, device)
+        real_feats.append(feats)
+        
+    real_feats = torch.cat(real_feats, 0)
+
+    # Extract features for generated images
+    fake_feats = []
+    
+    batch_size = 2
+    fake_data_split = torch.split(fake_data, batch_size, dim=0)
+
+    for batch in fake_data_split:
+        batch = batch * 2 - 1
+        fake_feats.append(get_feats(batch, inception_model, device))
+    
+    fake_feats = torch.cat(fake_feats, 0)
+
+    # Calculate mean and covariance
+    mu_real = real_feats.mean(0)
+    sigma_real = np.cov(real_feats.numpy(), rowvar=False)
+
+    mu_fake = fake_feats.mean(0)
+    sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
+
+    # Compute FID score
+    sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
+    covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
+    
+    # Check and correct for imaginary numbers from sqrt
+    if np.iscomplexobj(covm_real_fake):
+        covm_real_fake = covm_real_fake.real
+
+    return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
 
 def soft_clamp(x: torch.Tensor, factor: float=5.0):
     return torch.tanh(x.div(factor)) * factor

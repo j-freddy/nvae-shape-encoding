@@ -14,18 +14,32 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [InfoAdversarialVAE Tune]
-# VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
-# hyperparameters.
-#
-# Time taken: 10 hr 27 min
+# This is a temporary script to evaluate FID manually
 # ==============================================================================
 
-# Try beta=1 at least, as a beta<1 means the expression is not guaranteed to be
-# a lower bound
+# [VAE Evaluate]
 
-# Using a coarser grid search than beta-VAE due to the extra gamma
-# hyperparameter
+# grid size is 96
+# size=6
+latent_dims=("2 4 8 16 32 64")
+# size=16
+betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
+
+logdir="logs-beta-vae"
+
+for latent_dim in $latent_dims
+do
+    for beta in $betas
+    do
+        model_name="ld-${latent_dim}-beta-${beta}"
+        # Get saved model path
+        model_path=$(ls ${logdir}/vae_acdc/${model_name}/checkpoints/*.ckpt)
+        # Test: Save figures and metrics
+        python -m arch.vae.test --model_path $model_path --logs $logdir
+    done
+done
+
+# [InfoAdversarialVAE Evaluate]
 
 # grid size is 224
 # size=4
@@ -37,8 +51,6 @@ gammas=("1 5 10 50 100 500 1000 5000")
 
 logdir="logs-info-adversarial-vae"
 
-# Train
-
 for latent_dim in $latent_dims
 do
     for beta in $betas
@@ -46,13 +58,25 @@ do
         for gamma in $gammas
         do
             model_name="ld-${latent_dim}-beta-${beta}-gamma-${gamma}"
-            # Train
-            python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --gamma $gamma --model_name $model_name --loss_reg info_adversarial_vae --logs $logdir
+            # Get saved model path
+            model_path=$(ls ${logdir}/vae_acdc/${model_name}/checkpoints/*.ckpt)
+            # Test: Save figures and metrics
+            python -m arch.vae.test --model_path $model_path --logs $logdir
         done
     done
 done
 
-# Evaluate
+# [InfoVAE Evaluate]
+
+# grid size is 224
+# size=4
+latent_dims=("4 8 16 32")
+# size=7
+betas=("0 0.01 0.05 0.1 0.5 1 5")
+# size=8
+gammas=("1 5 10 50 100 500 1000 5000")
+
+logdir="logs-info-vae"
 
 for latent_dim in $latent_dims
 do
