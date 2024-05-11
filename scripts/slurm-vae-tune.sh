@@ -36,7 +36,12 @@ do
     do
         model_name="ld-${latent_dim}-beta-${beta}"
         # Train
-        python -m arch.vae.train --epochs 50 --latent_dim $latent_dim --beta $beta --model_name $model_name --logs $logdir
+        python -m arch.vae.train \
+            --epochs 50 \
+            --latent_dim $latent_dim \
+            --beta $beta \
+            --model_name $model_name \
+            --logs $logdir
     done
 done
 
