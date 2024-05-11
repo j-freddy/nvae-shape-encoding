@@ -107,7 +107,10 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     # Then the width of larger square is 2x / sqrt(2) = x * sqrt(2)
     
     # Absolute padding after resizing to 128x128 is 128 - (64 * sqrt(2)) = 37.5
-    padding = math.ceil(width * math.sqrt(2))
+    # padding = math.ceil(width * math.sqrt(2))
+    
+    # TODO Revert
+    padding = 4
 
     transform = tio.transforms.Compose([
         # Crop to dimensions centred around the mask to minimise background
