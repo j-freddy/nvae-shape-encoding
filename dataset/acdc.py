@@ -5,6 +5,7 @@ from torchvision import transforms
 class ACDCMaskDataset(Dataset):
     def __init__(self, masks: torch.Tensor, augment: bool=False):
         self.masks = masks
+        self.num_classes = masks.shape[1]
         self.augment = augment
         
         self.augmentation_pipeline = transforms.Compose([

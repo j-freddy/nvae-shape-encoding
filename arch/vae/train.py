@@ -117,14 +117,12 @@ def main(flags: argparse.Namespace):
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
-    
-    _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
     model = Model(
-        in_channels=num_classes,
+        in_channels=data_module.data_test.num_classes,
         latent_dim=flags.latent_dim,
         loss_reg=flags.loss_reg,
         beta=flags.beta,
