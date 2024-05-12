@@ -31,7 +31,7 @@ betas=("0 0.01 0.1 1")
 # size=4
 gammas=("100 500 1000 5000")
 
-logdir="logs-info-vae-register-augment"
+logdir="logs-info-vae-register"
 
 # Train
 
