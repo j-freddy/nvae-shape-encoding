@@ -282,7 +282,7 @@ class ACDCMaskDataModule(LightningDataModule):
             coords = torch.nonzero(rotated_masks[:, 0, :, :] == 1)[:, 1:]
             avg_y = coords[:, 0].float().mean()
             
-            if avg_y < best_avg_y:
+            if best_avg_y > avg_y :
                 best_avg_y = avg_y
                 aligned_masks = rotated_masks
         

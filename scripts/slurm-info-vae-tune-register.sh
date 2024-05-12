@@ -14,11 +14,11 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [InfoVAE Tune with Registration and Augmentation]
+# [InfoVAE Tune with Registration]
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
-# Time taken: 8 hr 50 min
+# Time taken: unknown
 # ==============================================================================
 
 # Using a smaller grid search conditioned on results from slurm-info-vae-tune.sh
@@ -51,7 +51,6 @@ do
                 --model_name $model_name \
                 --loss_reg info_vae \
                 --register_alignment \
-                --augment \
                 --logs $logdir
         done
     done
