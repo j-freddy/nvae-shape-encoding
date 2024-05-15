@@ -172,8 +172,6 @@ class NVAE(L.LightningModule):
         if self.global_step < self.hparams.kl_warmup_steps:
             weighted_kl_div *= self.global_step / self.hparams.kl_warmup_steps
         
-        weighted_kl_div = self.hparams.beta * kl_div
-        
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {weighted_kl_div}")
         
