@@ -24,6 +24,10 @@ class NVAE(L.LightningModule):
         self,
         in_channels: int=4,
         initial_channels: int=64,
+        num_latent_scales: int=3,
+        # num_groups_per_scale: list[int]=[20, 10, 5],
+        num_groups_per_scale: list[int]=[4, 2, 1],
+        initial_downsample_factor: int=8,
         max_epochs: int=50,
         beta: float=1.0,
     ):
@@ -40,10 +44,22 @@ class NVAE(L.LightningModule):
             bias=True,
         )
         
-        self.encoder = Encoder(initial_channels=self.hparams.initial_channels)
-        # TODO In encoder.py I use num_latent_scales = 3
-        # In general, initial_channels = initial_channels * (2 ** (num_latent_scales - 1))
-        self.decoder = Decoder(initial_channels=self.hparams.initial_channels * 4)
+        self.encoder = Encoder(
+            num_latent_scales=self.hparams.num_latent_scales,
+            num_groups_per_scale=self.hparams.num_groups_per_scale,
+            initial_channels=self.hparams.initial_channels,
+            initial_downsample_factor=self.hparams.initial_downsample_factor,
+        )
+        
+        top_latent_dim = (128 // self.hparams.initial_downsample_factor) // (2 ** (self.hparams.num_latent_scales - 1))
+
+        self.decoder = Decoder(
+            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
+            num_latent_scales=self.hparams.num_latent_scales,
+            num_groups_per_scale=self.hparams.num_groups_per_scale[::-1],
+            top_latent_shape=(top_latent_dim, top_latent_dim),
+            final_upsample_factor=self.hparams.initial_downsample_factor,
+        )
         
         # This is the opposite of the stem
         self.conditional_coder = nn.Sequential(

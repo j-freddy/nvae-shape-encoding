@@ -80,20 +80,28 @@ class Decoder(nn.Module):
     Also see init_decoder_tower() in official NVAE code.
     """
     
-    def __init__(self, initial_channels: int=256, z_channels: int=20):
+    def __init__(
+        self,
+        num_latent_scales: int,
+        # This must be the reverse of the encoder, otherwise the shapes of
+        # samples drawn from the encoder samplers will not match
+        num_groups_per_scale: list[int],
+        initial_channels: int=256,
+        top_latent_shape: tuple[int, int]=(4, 4),
+        z_channels: int=20,
+        # This must match initial_downsample_factor of Encoder
+        final_upsample_factor: int=2,
+    ):
         super().__init__()
         
-        self.z_channels = z_channels
+        assert len(num_groups_per_scale) == num_latent_scales
         
-        # TODO Do not hardcode the size
-        self.img_width = 128
-        self.img_height = 128
+        self.z_channels = z_channels
+        self.top_latent_shape = top_latent_shape
 
-        # This is the size of the topmost prior
-        # [top_channels, width, height]
-        # ACDC is 128x128 and we have 3 layers so 128 -> 64 -> 32
+        # Size of the topmost prior: [top_channels, width, height]
         self.top_prior = nn.Parameter(
-            torch.rand(size=(initial_channels, self.img_width // 4, self.img_height // 4)),
+            torch.rand(size=(initial_channels, *self.top_latent_shape)),
             requires_grad=True,
         )
         
@@ -101,12 +109,6 @@ class Decoder(nn.Module):
         
         self.tower = nn.ModuleList()
         self.samplers = nn.ModuleList()
-        
-        # TODO This must match Encoder, but num_groups_per_scale must be
-        # reversed
-        num_latent_scales = 3
-        num_groups_per_scale = [4, 2, 1]
-        num_groups_per_scale = num_groups_per_scale[::-1]
         
         num_channels = initial_channels
         
@@ -160,6 +162,15 @@ class Decoder(nn.Module):
         
         self.postprocess = nn.Sequential(
             DecoderResidualCell(num_channels),
+            nn.ConvTranspose2d(
+                num_channels,
+                num_channels,
+                kernel_size=final_upsample_factor + 1,
+                stride=final_upsample_factor,
+                padding=1,
+                output_padding=1,
+                bias=False,
+            ),
             DecoderResidualCell(num_channels),
         )
 
@@ -230,7 +241,7 @@ class Decoder(nn.Module):
 
     def generate(self, num_samples: int, device: torch.device) -> torch.Tensor:
         # Form posterior for top-level assuming Gaussian prior
-        top_latent_shape = (num_samples, self.z_channels, self.img_width // 4, self.img_height // 4)
+        top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
         distr = Normal(
             mu=torch.zeros(top_latent_shape).to(device),
             logsig=torch.zeros(top_latent_shape).to(device),
@@ -260,7 +271,7 @@ class Decoder(nn.Module):
                 idx_dec += 1
             else:
                 x = cell(x)
-        
+
         x = self.postprocess(x)
         
         return x
