@@ -268,7 +268,7 @@ class NVAE(L.LightningModule):
         generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
         
         show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/generations-bruh", plt.gcf())
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
 
         fid_value = frechet_inception_distance_manual(
             feats,
