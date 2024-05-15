@@ -35,8 +35,12 @@ class NVAE(L.LightningModule):
         num_groups_per_scale: list[int]=[4, 2, 1],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
+<<<<<<< HEAD
         beta_per_scale: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
+=======
+        beta: float=1.0,
+>>>>>>> af1aa95 (NVAE: Generate (bad) images)
     ):
         super().__init__()
         
@@ -169,6 +173,8 @@ class NVAE(L.LightningModule):
         # Linear KL warm-up
         if self.global_step < self.hparams.kl_warmup_steps:
             weighted_kl_div *= self.global_step / self.hparams.kl_warmup_steps
+        
+        weighted_kl_div = self.hparams.beta * kl_div
         
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {weighted_kl_div}")

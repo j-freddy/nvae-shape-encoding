@@ -94,6 +94,7 @@ class Decoder(nn.Module):
     ):
         super().__init__()
         
+<<<<<<< HEAD
         assert len(num_groups_per_scale) == num_latent_scales
         
         self.z_channels = z_channels
@@ -102,6 +103,19 @@ class Decoder(nn.Module):
         # Size of the topmost prior: [top_channels, width, height]
         self.top_prior = nn.Parameter(
             torch.rand(size=(initial_channels, *self.top_latent_shape)),
+=======
+        self.z_channels = z_channels
+        
+        # TODO Do not hardcode the size
+        self.img_width = 128
+        self.img_height = 128
+
+        # This is the size of the topmost prior
+        # [top_channels, width, height]
+        # ACDC is 128x128 and we have 3 layers so 128 -> 64 -> 32
+        self.top_prior = nn.Parameter(
+            torch.rand(size=(initial_channels, self.img_width // 4, self.img_height // 4)),
+>>>>>>> af1aa95 (NVAE: Generate (bad) images)
             requires_grad=True,
         )
         
@@ -241,7 +255,11 @@ class Decoder(nn.Module):
 
     def generate(self, num_samples: int, device: torch.device) -> torch.Tensor:
         # Form posterior for top-level assuming Gaussian prior
+<<<<<<< HEAD
         top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
+=======
+        top_latent_shape = (num_samples, self.z_channels, self.img_width // 4, self.img_height // 4)
+>>>>>>> af1aa95 (NVAE: Generate (bad) images)
         distr = Normal(
             mu=torch.zeros(top_latent_shape).to(device),
             logsig=torch.zeros(top_latent_shape).to(device),
@@ -271,7 +289,11 @@ class Decoder(nn.Module):
                 idx_dec += 1
             else:
                 x = cell(x)
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> af1aa95 (NVAE: Generate (bad) images)
         x = self.postprocess(x)
         
         return x
