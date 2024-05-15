@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils import frechet_inception_distance, frechet_inception_distance_manual, show_samples
+from utils import discretise, frechet_inception_distance_manual, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -102,20 +102,7 @@ class VAE(L.LightningModule):
         """
         mu, logvar = self.encoder(x)
         return self._reparameterise(mu, logvar)
-    
-    def discretise(self, x_hat: torch.Tensor) -> torch.Tensor:
-        """
-        Given a probablistic segmentation map, round each pixel to the nearest
-        class and return the non-probablistic map.
-        """
-        x_hat_argmax = torch.argmax(x_hat, dim=1)
-        x_hat_hard = F.one_hot(
-            x_hat_argmax.long(),
-            num_classes=len(x_hat_argmax.unique())
-        ).permute(0, 3, 1, 2)
-        
-        return x_hat_hard
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         mu, logvar = self.encoder(x)
         z = self._reparameterise(mu, logvar)
@@ -191,7 +178,7 @@ class VAE(L.LightningModule):
         
         fid_value = frechet_inception_distance_manual(
             x,
-            self.discretise(x_fake),
+            discretise(x_fake),
             device=self.device,
         )
 

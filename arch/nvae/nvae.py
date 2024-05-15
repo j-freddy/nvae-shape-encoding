@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils import show_samples
+from utils import discretise, frechet_inception_distance_manual, show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -35,12 +35,8 @@ class NVAE(L.LightningModule):
         num_groups_per_scale: list[int]=[4, 2, 1],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
-<<<<<<< HEAD
         beta_per_scale: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
-=======
-        beta: float=1.0,
->>>>>>> af1aa95 (NVAE: Generate (bad) images)
     ):
         super().__init__()
         
@@ -246,8 +242,6 @@ class NVAE(L.LightningModule):
     def log_reconstructions(self, x: torch.Tensor):
         # TODO This is mostly duplicate code from VAE class
         
-        num_samples, _, _, _ = x.shape
-        
         x_hat, _, _, _, _ = self(x)
 
         reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
@@ -273,11 +267,15 @@ class NVAE(L.LightningModule):
         feats_fake = self.conditional_coder(x_fake)
 
         # Discretise probabilistic map then view generations
-        generations = torch.argmax(feats_fake[:20], dim=1).unsqueeze(1)
+        generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
         
-        print(generations.unique())
-        
-        show_samples(generations, rgb=False, nrow=10, figsize=(10, 2), display=False)
-        self.logger.experiment.add_figure("img/generations-new", plt.gcf())
+        show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations-bruh", plt.gcf())
 
-        # TODO FID
+        fid_value = frechet_inception_distance_manual(
+            feats,
+            discretise(feats_fake),
+            device=self.device,
+        )
+
+        self.log("fid_manual", fid_value)

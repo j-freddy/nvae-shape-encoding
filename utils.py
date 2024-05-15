@@ -68,6 +68,19 @@ def show_samples(
     if display:
         plt.show()
 
+def discretise(x_hat: torch.Tensor) -> torch.Tensor:
+    """
+    Given a probablistic segmentation map, round each pixel to the nearest
+    class and return the non-probablistic map.
+    """
+    x_hat_argmax = torch.argmax(x_hat, dim=1)
+    x_hat_hard = F.one_hot(
+        x_hat_argmax.long(),
+        num_classes=len(x_hat_argmax.unique())
+    ).permute(0, 3, 1, 2)
+    
+    return x_hat_hard
+
 def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
