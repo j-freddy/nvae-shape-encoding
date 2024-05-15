@@ -20,6 +20,43 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--projected_channels",
+        type=int,
+        help="Number of channels in the immediate space projected through the stem (and conditional coder).",
+        default=64,
+    )
+    
+    parser.add_argument(
+        "--warmup_steps",
+        type=int,
+        help="Number of steps for KL divergence linear deterministic warmup.",
+        # Each epoch has 214 steps with batch size of 8 and ACDC dataset
+        # (with empty masks preserved)
+        default=500,
+    )
+    
+    parser.add_argument(
+        "--beta0",
+        type=float,
+        help="Beta value for KL divergence corresponding to layer 0 (shallowest layer).",
+        default=1.0,
+    )
+    
+    parser.add_argument(
+        "--beta1",
+        type=float,
+        help="Beta value for KL divergence corresponding to layer 1.",
+        default=1.0,
+    )
+    
+    parser.add_argument(
+        "--beta2",
+        type=float,
+        help="Beta value for KL divergence corresponding to layer 2 (topmost layer).",
+        default=1.0,
+    )
+    
+    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -67,8 +104,10 @@ def main(flags: argparse.Namespace):
     # Train
     model = NVAE(
         in_channels=num_classes,
-        initial_channels=8,
+        initial_channels=flags.projected_channels,
         max_epochs=flags.epochs,
+        beta_per_scale=[flags.beta0, flags.beta1, flags.beta2],
+        kl_warmup_steps=flags.warmup_steps,
     )
     
     trainer = L.Trainer(

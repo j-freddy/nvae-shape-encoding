@@ -1,3 +1,5 @@
+from collections import defaultdict
+import math
 import lightning as L
 from matplotlib import pyplot as plt
 import torch
@@ -16,6 +18,9 @@ class NVAE(L.LightningModule):
     This is an implementation of the framework proposed in [1], primarily based
     on details described in the paper and the official codebase.
     
+    Indexing of latent groups is as follows: 0 corresponds to the shallowest
+    group and n-1 corresponds to the topmost group, for n latent scales.
+    
     [1]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
     Advances in neural information processing systems. 2020;33:19667-79.
     """
@@ -25,16 +30,20 @@ class NVAE(L.LightningModule):
         in_channels: int=4,
         initial_channels: int=64,
         num_latent_scales: int=3,
-        # num_groups_per_scale: list[int]=[20, 10, 5],
+        # Topmost latent scale has fewest groups (i.e. 1)
+        # Shallowest latent scale has most groups (i.e. 4)
         num_groups_per_scale: list[int]=[4, 2, 1],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
-        beta: float=1.0,
+        beta_per_scale: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
     ):
         super().__init__()
         
         self.save_hyperparameters()
+        
+        # TODO Do not hardcode this
+        self.img_width = 128
         
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
@@ -52,7 +61,8 @@ class NVAE(L.LightningModule):
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
         
-        top_latent_dim = (128 // self.hparams.initial_downsample_factor) // (2 ** (self.hparams.num_latent_scales - 1))
+        top_latent_dim = self._get_latent_dim(self.hparams.num_latent_scales - 1)
+        print(f"Top latent dim: {top_latent_dim}")
 
         self.decoder = Decoder(
             initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
@@ -88,6 +98,17 @@ class NVAE(L.LightningModule):
         
         return [optimiser], [lr_scheduler]
     
+    def _get_latent_dim(self, layer: int) -> int:
+        # Layer 0 is the shallowest layer
+        # Layer @(num_latent_scales - 1) is the deepest (topmost) layer
+        return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
+
+    def _get_layer_index(self, latent_dim: int) -> int:
+        # Inverse of _get_latent_dim
+        idx = math.log2((self.img_width // self.hparams.initial_downsample_factor) // latent_dim)
+        assert idx.is_integer()
+        return int(idx)
+    
     def _kl_divergence(
         self,
         qs: list[Normal],
@@ -97,24 +118,36 @@ class NVAE(L.LightningModule):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # log_p, log_q and kl_diag are for metrics purposes
         
-        kl_div = []
+        kl_div = defaultdict(lambda: [])
         kl_diag = []
         
         log_p: float = 0
         log_q: float = 0
         
         for q, p, log_q_conv, log_p_conv in zip(qs, ps, log_qs, log_ps):
+            assert q.mu.shape == p.mu.shape
+            
+            _, _, width, height = q.mu.shape
+            assert width == height
+            curr_layer = self._get_layer_index(width)
+            
             # TODO Change this for normalising flow
             kl_per_var = q.kl(p)
 
             kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
-            kl_div.append(torch.sum(kl_per_var, dim=[1, 2, 3]))
+            kl_div[curr_layer].append(torch.sum(kl_per_var, dim=[1, 2, 3]))
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        kl_div = torch.sum(torch.stack(kl_div, dim=1), dim=1).mean()
+        weighted_kl_divs = []
         
-        return kl_div
+        for layer_idx, kl_div_per_layer in kl_div.items():
+            kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
+            weighted_kl_divs.append(
+                self.hparams.beta_per_scale[layer_idx] * kl_div,
+            )
+        
+        return weighted_kl_divs.sum() / len(weighted_kl_divs)
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
@@ -131,9 +164,7 @@ class NVAE(L.LightningModule):
         log_components: bool=True,
     ) -> torch.Tensor:
         recon_loss = self.reconstruction_loss(x, x_hat)
-        kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
-        
-        weighted_kl_div = self.hparams.beta * kl_div
+        weighted_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
         
         # Linear KL warm-up
         if self.global_step < self.hparams.kl_warmup_steps:
