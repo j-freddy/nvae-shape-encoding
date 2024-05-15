@@ -18,25 +18,26 @@ source activate
 # NVAE ACDC: Grid search on hyperparameters: project channel size, warmup steps,
 # beta values.
 #
-# Time taken: unknown
+# Time taken: unknown (est. 2 days)
 # ==============================================================================
 
 # grid size is 162
 # size=2
 projected_channels_list=("8 16")
-# # size=3
-# warmup_steps_list=("500 1500 5000")
-# # size=3
-# betas0=("1 10 100")
-# # size=3
-# betas1=("10 100 1000")
-# # size=3
-# betas2=("200 2000 20000")
+# size=3
+warmup_steps_list=("500 1500 5000")
+# size=3
+betas0=("1 10 100")
+# size=3
+betas1=("10 100 1000")
+# size=3
+betas2=("200 2000 20000")
 
-warmup_steps_list=("500")
-betas0=("1")
-betas1=("10")
-betas2=("200")
+# Uncomment for testing
+# warmup_steps_list=("500")
+# betas0=("1")
+# betas1=("10")
+# betas2=("200")
 
 logdir="logs-nvae"
 
