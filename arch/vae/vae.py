@@ -177,7 +177,7 @@ class VAE(L.LightningModule):
     
     def log_generations_and_fid(self, x: torch.Tensor):
         num_samples, _, _, _ = x.shape
-            
+
         # Sample from latent space
         z = torch.randn(num_samples, self.hparams.latent_dim).to(self.device)
         

@@ -66,7 +66,6 @@ class NVAE(L.LightningModule):
         )
         
         top_latent_dim = self._get_latent_dim(self.hparams.num_latent_scales - 1)
-        print(f"Top latent dim: {top_latent_dim}")
 
         self.decoder = Decoder(
             initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
@@ -119,7 +118,8 @@ class NVAE(L.LightningModule):
         ps: list[Normal],
         log_qs: list[torch.Tensor],
         log_ps: list[torch.Tensor],
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        log_components: bool=True,
+    ) -> torch.Tensor:
         # log_p, log_q and kl_diag are for metrics purposes
         
         kl_div = defaultdict(lambda: [])
@@ -147,11 +147,13 @@ class NVAE(L.LightningModule):
         
         for layer_idx, kl_div_per_layer in kl_div.items():
             kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
-            weighted_kl_divs.append(
-                self.hparams.beta_per_scale[layer_idx] * kl_div,
-            )
+            weighted_kl_div = self.hparams.beta_per_scale[layer_idx] * kl_div
+            weighted_kl_divs.append(weighted_kl_div)
+            
+            if log_components:
+                self.log(f"kl_div_{layer_idx}", weighted_kl_div)
         
-        return weighted_kl_divs.sum() / len(weighted_kl_divs)
+        return sum(weighted_kl_divs) / len(weighted_kl_divs)
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
@@ -168,7 +170,7 @@ class NVAE(L.LightningModule):
         log_components: bool=True,
     ) -> torch.Tensor:
         recon_loss = self.reconstruction_loss(x, x_hat)
-        weighted_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
+        weighted_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         
         # Linear KL warm-up
         if self.global_step < self.hparams.kl_warmup_steps:
@@ -232,9 +234,6 @@ class NVAE(L.LightningModule):
         
     def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-        
-        # TODO Using the first 20 samples only
-        feats = feats[:20]
 
         # Compute loss
         feats_hat, _, _, _, _ = self(feats)
@@ -246,6 +245,8 @@ class NVAE(L.LightningModule):
 
     def log_reconstructions(self, x: torch.Tensor):
         # TODO This is mostly duplicate code from VAE class
+        
+        num_samples, _, _, _ = x.shape
         
         x_hat, _, _, _, _ = self(x)
 
@@ -272,8 +273,11 @@ class NVAE(L.LightningModule):
         feats_fake = self.conditional_coder(x_fake)
 
         # Discretise probabilistic map then view generations
-        generations = torch.argmax(x_fake[:20], dim=1).unsqueeze(1)
+        generations = torch.argmax(feats_fake[:20], dim=1).unsqueeze(1)
+        
+        print(generations.unique())
+        
         show_samples(generations, rgb=False, nrow=10, figsize=(10, 2), display=False)
-        self.logger.experiment.add_figure("img/generations", plt.gcf())
+        self.logger.experiment.add_figure("img/generations-new", plt.gcf())
 
         # TODO FID
