@@ -30,6 +30,7 @@ class NVAE(L.LightningModule):
         initial_downsample_factor: int=8,
         max_epochs: int=50,
         beta: float=1.0,
+        kl_warmup_steps: int=500,
     ):
         super().__init__()
         
@@ -73,7 +74,12 @@ class NVAE(L.LightningModule):
         )
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adamax(self.parameters(), lr=0.01)
+        optimiser = torch.optim.Adamax(
+            self.parameters(),
+            lr=1e-2,
+            eps=1e-3,
+            weight_decay=3e-4,
+        )
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimiser,
             T_max=self.hparams.max_epochs,
@@ -128,6 +134,10 @@ class NVAE(L.LightningModule):
         kl_div = self._kl_divergence(qs, ps, log_qs, log_ps)
         
         weighted_kl_div = self.hparams.beta * kl_div
+        
+        # Linear KL warm-up
+        if self.global_step < self.hparams.kl_warmup_steps:
+            weighted_kl_div *= self.global_step / self.hparams.kl_warmup_steps
         
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {weighted_kl_div}")
