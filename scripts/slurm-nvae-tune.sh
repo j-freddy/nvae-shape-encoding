@@ -56,7 +56,7 @@ do
                     model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
                     # Train
                     python -m arch.nvae.train \
-                        --epochs 50 \
+                        --epochs 35 \
                         --projected_channels $projected_channels \
                         --warmup_steps $warmup_steps \
                         --beta0 $beta0 \
