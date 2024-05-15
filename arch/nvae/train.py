@@ -81,7 +81,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(LOGS_PATH, ACDC.DIR.NVAE, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.NVAE, flags.model_name)
         
         if os.path.exists(model_dir):
             raise ValueError(f"Model {flags.model_name} already exists.")
@@ -115,7 +115,7 @@ def main(flags: argparse.Namespace):
         devices="auto",
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
-            save_dir=LOGS_PATH,
+            save_dir=flags.logs,
             name=ACDC.DIR.NVAE,
             version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,

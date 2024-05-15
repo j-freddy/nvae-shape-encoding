@@ -52,7 +52,7 @@ do
             do
                 for beta2 in $betas2
                 do
-                    model_name="pc-${projected_channels}-ws-${warmup_step}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
+                    model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
                     # Train
                     python -m arch.nvae.train \
                         --epochs 50 \
@@ -81,7 +81,7 @@ do
             do
                 for beta2 in $betas2
                 do
-                    model_name="pc-${projected_channels}-ws-${warmup_step}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
+                    model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
                     # Get saved model path
                     model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
                     # Test: Save figures and metrics
