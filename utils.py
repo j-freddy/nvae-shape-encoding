@@ -4,6 +4,7 @@ import numpy as np
 from scipy.linalg import sqrtm
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision import transforms
 from torchvision.models import inception_v3

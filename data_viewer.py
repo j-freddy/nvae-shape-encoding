@@ -39,7 +39,7 @@ def view_acdc():
     
     data_module = ACDCMaskDataModule(
         batch_size=40,
-        one_hot=False,
+        one_hot=True,
         register_alignment=True,
         augment_test=True,
     )
@@ -56,7 +56,7 @@ def view_acdc():
     samples: torch.Tensor = next(iter(loader_test))
     
     # If one-hot encoded, uncomment this line to view each channel separately
-    # samples = samples[:, 0, :, :].unsqueeze(1)
+    samples = samples[:, 0, :, :].unsqueeze(1)
     # samples = samples[:, 1, :, :].unsqueeze(1)
     # samples = samples[:, 2, :, :].unsqueeze(1)
     # samples = samples[:, 3, :, :].unsqueeze(1)

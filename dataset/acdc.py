@@ -16,9 +16,22 @@ class ACDCMaskDataset(Dataset):
         return len(self.masks)
 
     def __getitem__(self, idx):
+        # 4x128x128
         mask = self.masks[idx]
 
         if self.augment:
-            mask = self.augmentation_pipeline(mask)
+            # Do not apply augmentation to background class
+            augmented_mask_no_bg = self.augmentation_pipeline(mask[1:, :, :])
+            
+            # Collapse all classes into one
+            # 128x128
+            mask_collapsed, _ = torch.max(augmented_mask_no_bg, dim=0)
+            
+            # Get new background class
+            # 128x128
+            bg = (mask_collapsed == 0).int()
+            
+            # Combine
+            mask = torch.cat([bg.unsqueeze(0), augmented_mask_no_bg], dim=0)
 
         return mask
