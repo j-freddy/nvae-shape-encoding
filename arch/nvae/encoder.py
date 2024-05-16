@@ -161,6 +161,9 @@ class Encoder(nn.Module):
         xs = []
         combiner_cells = []
         
+        if print_logs:
+            print(self.tower)
+        
         # Go through the tower and checkpoint combiner cells as it requires
         # sampled variables in the decoder pass
         for cell in self.tower:
@@ -169,17 +172,19 @@ class Encoder(nn.Module):
                 combiner_cells.append(cell)
             else:
                 x = cell(x)
-                if print_logs:
-                    print(x.shape)
 
         x = self.compressor(x)
-        if print_logs:
-            print(x.shape)
         
         # Final x is not added as last group in last scale does not have a
         # combiner cell
         
         if print_logs:
+            print("Printing xs and final x...")
+
+            for x_buf in xs:
+                print(x_buf.shape)
+            print(x.shape)
+
             print("End of encoder.")
         
         return x, xs, combiner_cells
