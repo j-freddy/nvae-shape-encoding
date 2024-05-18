@@ -15,31 +15,25 @@ source activate
 
 # ==============================================================================
 # [NVAE Tune]
-# NVAE ACDC: Grid search on hyperparameters: project channel size, warmup steps,
-# beta values.
+# NVAE ACDC: More refined grid search with more train epochs. See
+# slurm-nvae-tune.sh for previous configurations.
 #
-# Time taken: 44 hr 19 min
+# Time taken: unknown
 # ==============================================================================
 
-# grid size is 162
-# size=2
-projected_channels_list=("8 16")
+# grid size is 48
+# size=1
+projected_channels_list=("16")
+# size=1 (5350 is 214*25 so first 25 epochs)
+warmup_steps_list=("5350")
+# size=4
+betas0=("50 250 1000 5000")
+# size=4
+betas1=("50 250 1000 5000")
 # size=3
-warmup_steps_list=("500 1500 5000")
-# size=3
-betas0=("1 10 100")
-# size=3
-betas1=("10 100 1000")
-# size=3
-betas2=("200 2000 20000")
+betas2=("500 2500 10000")
 
-# Uncomment for testing
-# warmup_steps_list=("500")
-# betas0=("1")
-# betas1=("10")
-# betas2=("200")
-
-logdir="logs-nvae"
+logdir="logs-nvae-2"
 
 # Train
 
@@ -56,7 +50,7 @@ do
                     model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
                     # Train
                     python -m arch.nvae.train \
-                        --epochs 35 \
+                        --epochs 100 \
                         --projected_channels $projected_channels \
                         --warmup_steps $warmup_steps \
                         --beta0 $beta0 \

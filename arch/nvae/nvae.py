@@ -183,7 +183,7 @@ class NVAE(L.LightningModule):
     
     def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
-        x = self.stem(feats)
+        x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
         x, xs, enc_combiner_cells = self.encoder(x)
