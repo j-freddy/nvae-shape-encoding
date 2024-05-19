@@ -79,15 +79,18 @@ class InfoAdversarialVAE(VAE):
         pred: torch.Tensor = self.discriminator(z)
         # KL divergence between q(z) and p(z)
         kl_qp = pred.mean()
-        print(f"KL_qp: {kl_qp}")
         
         weighted_kl_div = self.hparams.beta * kl_div
         weighted_kl_qp = self.hparams.gamma * kl_qp
         
         if log_components:
+            marginal_kl_div = self._kl_divergence(mu, logvar, marginal=True)
+            
             self.log("recon_loss", recon_loss)
             self.log("kl_div", kl_div)
             self.log("kl_qp", weighted_kl_qp)
+            for i, marginal_kl in enumerate(marginal_kl_div):
+                self.log(f"marginal_kl_div/dim_{i}", marginal_kl)
 
         loss = recon_loss + weighted_kl_div + weighted_kl_qp
         

@@ -43,7 +43,18 @@ class VAE(L.LightningModule):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
     
-    def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    def _kl_divergence(
+        self,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+        marginal: bool=False,
+    ) -> torch.Tensor:
+        if marginal:
+            return -0.5 * torch.mean(
+                1 + logvar - mu.pow(2) - logvar.exp(),
+                dim=0,
+            )
+        
         return -0.5 * torch.sum(
             1 + logvar - mu.pow(2) - logvar.exp(),
             dim=1,
@@ -64,12 +75,16 @@ class VAE(L.LightningModule):
     ) -> torch.Tensor:
         recon_loss = self.reconstruction_loss(x, x_hat)
         kl_div = self._kl_divergence(mu, logvar)
-        
+
         weighted_kl_div = self.hparams.beta * kl_div
         
         if log_components:
+            marginal_kl_div = self._kl_divergence(mu, logvar, marginal=True)
+            
             self.log("recon_loss", recon_loss)
             self.log("kl_div", weighted_kl_div)
+            for i, marginal_kl in enumerate(marginal_kl_div):
+                self.log(f"marginal_kl_div/dim_{i}", marginal_kl)
         
         return recon_loss + weighted_kl_div
     
