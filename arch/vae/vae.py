@@ -172,7 +172,7 @@ class VAE(L.LightningModule):
             samples_and_reconstructions[i * 2] = samples[i]
             samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
         
-        show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
     def log_generations_and_fid(self, x: torch.Tensor):
@@ -186,7 +186,7 @@ class VAE(L.LightningModule):
 
         # Discretise prbabilistic map then view generations
         generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
-        show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
         fid_value = frechet_inception_distance_manual(
@@ -221,5 +221,5 @@ class VAE(L.LightningModule):
         
         reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
 
-        show_samples(reconstructions, rgb=False, nrow=10, figsize=(10, 1), display=False)
+        show_samples(reconstructions, rgb=False, ncol=10, figsize=(10, 1), display=False)
         self.logger.experiment.add_figure("img/lerp", plt.gcf())

@@ -37,13 +37,13 @@ def setup_device():
 def show_samples(
     images: torch.Tensor,
     rgb: bool=True,
-    nrow: int=8,
+    ncol: int=8,
     figsize: tuple[int, int]=(6,6),
     save_path: str=None,
     display: bool=True,
 ):
     images = images.cpu().float()
-    images = make_grid(images, nrow=nrow, padding=2, normalize=True)
+    images = make_grid(images, nrow=ncol, padding=2, normalize=True)
     
     if not rgb:
         # Remove channel dimension so imshow uses cmap
