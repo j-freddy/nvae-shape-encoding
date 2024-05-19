@@ -48,8 +48,8 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 if __name__ == '__main__':
     # Configuration
     # TODO Move to argparse
-    log_subdir = "beta-vae"
-    metrics = ["fid", "fid_manual", "test_recon_loss"]
+    log_subdir = "info-vae-register"
+    metrics = ["fid_manual", "test_recon_loss"]
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),

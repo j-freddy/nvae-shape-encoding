@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 from lightning import LightningDataModule
 import subprocess
@@ -6,8 +7,10 @@ import torch
 import torchio as tio
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import torchvision.transforms.functional as TF
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
+from dataset.acdc import ACDCMaskDataset
 
 def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     info_file = os.path.join(
@@ -92,6 +95,21 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     max_y = torch.max(nonzero_coords[:, 0]).item()
     
     width = max(max_x - min_x, max_y - min_y)
+    
+    # With rotation augmentation, padding is required to prevent cropping
+
+    # The exact padding can be calculated by drawing a square inscribed within a
+    # circle inscribed within a larger square, since rotating a square traces
+    # out a circle
+    
+    # Let x be the original size (i.e. width of square)
+    # Then the radius of circle is x / sqrt(2)
+    # Then the width of larger square is 2x / sqrt(2) = x * sqrt(2)
+    
+    # Absolute padding after resizing to 128x128 is 128 - (64 * sqrt(2)) = 37.5
+    # padding = math.ceil(width * math.sqrt(2))
+    
+    # TODO Revert
     padding = 4
 
     transform = tio.transforms.Compose([
@@ -210,59 +228,120 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the mask tensor values per slice (128x128x1).
     """
     
-    def __init__(self, batch_size: int=32, filter_empty: bool=False, one_hot: bool=True):
+    def __init__(
+        self,
+        batch_size: int=32,
+        filter_empty: bool=False,
+        one_hot: bool=True,
+        register_alignment: bool=False,
+        augment: bool=False,
+        augment_test: bool=False,
+    ):
         super().__init__()
         
         self.batch_size = batch_size
         
-        data_train, data_test, max_slices_train, max_slices_test = download_and_preprocess_acdc()
+        if register_alignment and os.path.exists(ACDC.ALIGNED.TRAIN_PATH) and os.path.exists(ACDC.ALIGNED.TEST_PATH):
+            print("Preprocessed aligned masks found. Loading...")
+            
+            data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
+            data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+        else:
+            data_train, data_test, _, _ = download_and_preprocess_acdc()
 
-        data_train = self._get_masks(data_train, max_slices_train, filter_empty)
-        # Always preserve empty masks for test set
-        self.data_test = self._get_masks(data_test, max_slices_test, filter_empty=False)
+            data_train = self._get_masks(data_train, filter_empty, register_alignment)
+            # Always preserve empty masks for test set
+            data_test = self._get_masks(data_test, filter_empty=False, register_alignment=register_alignment)
+            
+            # Save aligned masks because it takes a lot of time
+            if register_alignment:
+                torch.save(data_train, ACDC.ALIGNED.TRAIN_PATH)
+                torch.save(data_test, ACDC.ALIGNED.TEST_PATH)
         
         if one_hot:
             data_train = self._one_hot(data_train)
-            self.data_test = self._one_hot(self.data_test)
+            data_test = self._one_hot(data_test)
 
-        self.data_train, self.data_val = self._split_train_val(data_train)
+        data_train, data_val = self._split_train_val(data_train)
         
-    def _get_masks(self, data: tio.SubjectsDataset, max_slices: int, filter_empty: bool=True) -> torch.Tensor:
-        num_channels, width, height, _ = data[0].ed_mask.data.shape
+        self.data_train = ACDCMaskDataset(data_train, augment)
+        self.data_val = ACDCMaskDataset(data_val, augment=False)
+        self.data_test = ACDCMaskDataset(data_test, augment=augment_test)
+    
+    def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
+        # avg_y is average y-coordinate of right ventricle
+        # Align masks so right ventricle is on top
+        aligned_masks, best_avg_y = masks, torch.inf
         
-        masks = torch.empty((
-            len(data) * max_slices * 2,
-            num_channels,
-            width,
-            height,
-        ))
+        tick_deg = 1
         
-        acc = 0 
+        for i in range(0, 360, tick_deg):
+            rotated_masks = TF.rotate(masks, i)
+            
+            # Calculate average y-coordinate of right ventricle (labelled as 1)
+            coords = torch.nonzero(rotated_masks[:, 0, :, :] == 1)[:, 1:]
+            avg_y = coords[:, 0].float().mean()
+            
+            if best_avg_y > avg_y :
+                best_avg_y = avg_y
+                aligned_masks = rotated_masks
+        
+        return aligned_masks
+    
+    def _get_masks_from_subject(
+        self,
+        subject: tio.Subject,
+        is_es: bool=False,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        subject_mask_data = subject.es_mask.data if is_es else subject.ed_mask.data
+        
+        masks = []
+        
+        _, _, _, num_slices = subject_mask_data.shape
+        
+        for slice in range(num_slices):
+            mask = subject_mask_data[:, :, :, slice]
+            
+            if filter_empty and torch.all(mask == 0):
+                continue
+
+            masks.append(mask)
+        
+        masks = torch.stack(masks)
+        
+        if register_alignment:
+            masks = self._register_alignment(masks)
+        
+        return masks
+        
+    def _get_masks(
+        self,
+        data: tio.SubjectsDataset,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        masks = []
         
         for subject in data:
-            _, _, _, num_slices = subject.ed_mask.data.shape
+            ed_masks = self._get_masks_from_subject(
+                subject,
+                is_es=False,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(ed_masks)
             
-            for slice in range(num_slices):
-                mask = subject.ed_mask.data[:, :, :, slice]
-                
-                if filter_empty and torch.all(mask == 0):
-                    continue
-
-                masks[acc] = mask
-                acc += 1
-                
-            _, _, _, num_slices = subject.es_mask.data.shape
-            
-            for slice in range(num_slices):
-                mask = subject.es_mask.data[:, :, :, slice]
-                
-                if filter_empty and torch.all(mask == 0):
-                    continue
-
-                masks[acc] = mask
-                acc += 1
+            es_masks = self._get_masks_from_subject(
+                subject,
+                is_es=True,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(es_masks)
         
-        return masks[:acc]
+        return torch.cat(masks)
 
     def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
         masks = torch.squeeze(masks, dim=1)

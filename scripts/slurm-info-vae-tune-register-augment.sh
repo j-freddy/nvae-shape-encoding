@@ -14,28 +14,24 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [InfoAdversarialVAE Tune]
+# [InfoVAE Tune with Registration and Augmentation]
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
-# Time taken: 10 hr 27 min
+# Time taken: 8 hr 50 min
 # ==============================================================================
 
-# Try beta=1 at least, as a beta<1 means the expression is not guaranteed to be
-# a lower bound
+# Using a smaller grid search conditioned on results from slurm-info-vae-tune.sh
 
-# Using a coarser grid search than beta-VAE due to the extra gamma
-# hyperparameter
-
-# grid size is 224
+# grid size is 64
 # size=4
 latent_dims=("4 8 16 32")
-# size=7
-betas=("0 0.01 0.05 0.1 0.5 1 5")
-# size=8
-gammas=("1 5 10 50 100 500 1000 5000")
+# size=4
+betas=("0 0.01 0.1 1")
+# size=4
+gammas=("100 500 1000 5000")
 
-logdir="logs-info-adversarial-vae"
+logdir="logs-info-vae-register-augment"
 
 # Train
 
@@ -53,7 +49,9 @@ do
                 --beta $beta \
                 --gamma $gamma \
                 --model_name $model_name \
-                --loss_reg info_adversarial_vae \
+                --loss_reg info_vae \
+                --register_alignment \
+                --augment \
                 --logs $logdir
         done
     done
@@ -71,7 +69,10 @@ do
             # Get saved model path
             model_path=$(ls ${logdir}/vae_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
-            python -m arch.vae.test --model_path $model_path --logs $logdir
+            python -m arch.vae.test \
+                --model_path $model_path \
+                --register_alignment \
+                --logs $logdir
         done
     done
 done

@@ -105,8 +105,6 @@ class Encoder(nn.Module):
                 
                 # Add enc combiner if not last group in last scale
                 if not (s == num_latent_scales - 1 and g == num_groups_per_scale[s] - 1):
-                    # TODO Note that 2nd arg is num_channels_dec * multiplier
-                    # but num_channels_dec is always equal to num_channels
                     self.tower.append(EncoderCombinerCell(num_channels, num_channels))
         
             if s < num_latent_scales - 1:

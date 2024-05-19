@@ -3,11 +3,12 @@ import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
 from arch.vae.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils import setup_device
+from utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -68,6 +69,20 @@ def parse_args() -> argparse.Namespace:
         default=LOGS_PATH,
     )
     
+    parser.add_argument(
+        "--register_alignment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, use masks that have been rotated such that the right ventricle points upwards.",
+        default=False,
+    )
+    
+    parser.add_argument(
+        "--augment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, augment training data with small random rotation.",
+        default=False,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -93,18 +108,21 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=16, filter_empty=flags.filter_empty)
+    data_module = ACDCMaskDataModule(
+        batch_size=16,
+        filter_empty=flags.filter_empty,
+        register_alignment=flags.register_alignment,
+        augment=flags.augment,
+    )
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
-    
-    _, num_classes, _, _ = data_module.data_test.shape
 
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
     model = Model(
-        in_channels=num_classes,
+        in_channels=data_module.data_test.num_classes,
         latent_dim=flags.latent_dim,
         loss_reg=flags.loss_reg,
         beta=flags.beta,

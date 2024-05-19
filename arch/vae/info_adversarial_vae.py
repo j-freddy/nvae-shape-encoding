@@ -24,8 +24,6 @@ class Discriminator(nn.Module):
         return self.net(z)
 
 class InfoAdversarialVAE(VAE):
-    # TODO Write DOCSTRING
-    
     def __init__(
         self,
         in_channels: int=4,
