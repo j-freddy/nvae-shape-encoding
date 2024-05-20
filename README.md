@@ -47,8 +47,14 @@ python -m arch.vae.train \
     --loss_reg info_vae \
     --register_alignment \
     --augment
-# Train a NVAE model with good configurations (~40 minutes)
-python -m arch.nvae.train --epochs 50
+# Train a NVAE model with good configurations (~80 minutes)
+python -m arch.nvae.train \
+    --epochs 100 \
+    --projected_channels 16 \
+    --warmup_steps 5350 \
+    --beta0 1000 \
+    --beta1 1000 \
+    --beta2 10000
 # Test (~5 minutes)
 python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --register_alignment
 python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
