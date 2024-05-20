@@ -81,7 +81,13 @@ def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     
     return x_hat_hard
 
-def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
+def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
+    """
+    Deprecated. Use fid_manual instead.
+    
+    Reason: This pipeline to evaluate generation quality does not align with
+    empirical analysis as well as fid_manual.
+    """
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
     _, num_channels_fake, _, _ = fake_data.shape
@@ -106,7 +112,7 @@ def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor)
     return fid.compute()
 
 # TODO Cite this function
-def frechet_inception_distance_manual(
+def fid_manual(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
     device: torch.device,

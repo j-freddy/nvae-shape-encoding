@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils import discretise, frechet_inception_distance_manual, show_samples
+from utils import discretise, fid_manual, show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -270,10 +270,10 @@ class NVAE(L.LightningModule):
         show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
 
-        fid_value = frechet_inception_distance_manual(
+        fid_value = fid_manual(
             feats,
             discretise(feats_fake),
             device=self.device,
         )
 
-        self.log("fid_manual", fid_value)
+        self.log("fid", fid_value)

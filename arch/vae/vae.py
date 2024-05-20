@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils import discretise, frechet_inception_distance_manual, show_samples
+from utils import discretise, fid_manual, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -176,13 +176,13 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value = frechet_inception_distance_manual(
+        fid_value = fid_manual(
             x,
             discretise(x_fake),
             device=self.device,
         )
 
-        self.log("fid_manual", fid_value)
+        self.log("fid", fid_value)
     
     def log_lerp(self, x: torch.Tensor):
         """
