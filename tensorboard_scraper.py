@@ -46,9 +46,8 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
     return df
 
 if __name__ == '__main__':
-    # Configuration
-    # TODO Move to argparse
-    log_subdir = "info-vae-register"
+    # Customisable: Configure the folder and metrics to scrape
+    log_subdir = "info-vae-register-augment"
     metrics = ["fid_manual", "test_recon_loss"]
 
     df = get_tensorboard_data(
