@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import sqrtm
+from scipy.linalg import sqrtm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,7 +13,7 @@ from torchvision.utils import make_grid
 
 from const import SEED
 
-def setup_device():
+def setup_device() -> torch.device:
     """
     Set up Torch device and set seed. Enforce all operations to be
     deterministic.
@@ -67,7 +68,20 @@ def show_samples(
     if display:
         plt.show()
 
-def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor):
+def discretise(x_hat: torch.Tensor) -> torch.Tensor:
+    """
+    Given a probablistic segmentation map, round each pixel to the nearest
+    class and return the non-probablistic map.
+    """
+    x_hat_argmax = torch.argmax(x_hat, dim=1)
+    x_hat_hard = F.one_hot(
+        x_hat_argmax.long(),
+        num_classes=len(x_hat_argmax.unique())
+    ).permute(0, 3, 1, 2)
+    
+    return x_hat_hard
+
+def frechet_inception_distance(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
     _, num_channels_fake, _, _ = fake_data.shape
@@ -160,5 +174,5 @@ def frechet_inception_distance_manual(
 
     return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
 
-def soft_clamp(x: torch.Tensor, factor: float=5.0):
+def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
     return torch.tanh(x.div(factor)) * factor

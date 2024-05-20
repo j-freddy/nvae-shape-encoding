@@ -3,7 +3,6 @@ import torch.nn as nn
 import torchvision.ops as ops
 
 from arch.nvae.distribution import Normal
-from utils import soft_clamp
 
 class DecoderResidualCell(nn.Module):
     """
@@ -81,22 +80,35 @@ class Decoder(nn.Module):
     Also see init_decoder_tower() in official NVAE code.
     """
     
-    def __init__(self, initial_channels: int=256, z_channels: int=20):
+    def __init__(
+        self,
+        num_latent_scales: int,
+        # This must be the reverse of the encoder, otherwise the shapes of
+        # samples drawn from the encoder samplers will not match
+        num_groups_per_scale: list[int],
+        initial_channels: int=256,
+        top_latent_shape: tuple[int, int]=(4, 4),
+        z_channels: int=20,
+        # This must match initial_downsample_factor of Encoder
+        final_upsample_factor: int=2,
+    ):
         super().__init__()
         
-        # TODO Do not hardcode the size
-        self.top_prior = nn.Parameter(torch.rand(size=(256, 8, 8)), requires_grad=True)
+        assert len(num_groups_per_scale) == num_latent_scales
+        
+        self.z_channels = z_channels
+        self.top_latent_shape = top_latent_shape
+
+        # Size of the topmost prior: [top_channels, width, height]
+        self.top_prior = nn.Parameter(
+            torch.rand(size=(initial_channels, *self.top_latent_shape)),
+            requires_grad=True,
+        )
         
         # Build tower
         
         self.tower = nn.ModuleList()
         self.samplers = nn.ModuleList()
-        
-        # TODO This must match Encoder, but num_groups_per_scale must be
-        # reversed
-        num_latent_scales = 3
-        num_groups_per_scale = [4, 2, 1]
-        num_groups_per_scale = num_groups_per_scale[::-1]
         
         num_channels = initial_channels
         
@@ -150,6 +162,15 @@ class Decoder(nn.Module):
         
         self.postprocess = nn.Sequential(
             DecoderResidualCell(num_channels),
+            nn.ConvTranspose2d(
+                num_channels,
+                num_channels,
+                kernel_size=final_upsample_factor + 1,
+                stride=final_upsample_factor,
+                padding=1,
+                output_padding=1,
+                bias=False,
+            ),
             DecoderResidualCell(num_channels),
         )
 
@@ -159,7 +180,7 @@ class Decoder(nn.Module):
         xs: torch.Tensor,
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         batch_size, _, _, _ = x.shape
         
         # Sample mu, logsig of the topmost latent scale
@@ -168,6 +189,7 @@ class Decoder(nn.Module):
         # Approximate posterior for top-level
         distr = Normal(mu_q, logsig_q)
         z = distr.sample()
+        
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
@@ -179,9 +201,9 @@ class Decoder(nn.Module):
         log_ps = [distr.log_p(z)]
         
         idx_dec = 0
-        # [1, width, height]
+        # [1, top_channels, width, height]
         x = self.top_prior.unsqueeze(0)
-        # [batch_size, 1, width, height]
+        # [batch_size, top_channels, width, height]
         x = x.expand(batch_size, -1, -1, -1)
         
         for cell in self.tower:
@@ -213,6 +235,43 @@ class Decoder(nn.Module):
             else:
                 x = cell(x)
 
+        x = self.postprocess(x)
+        
+        return x, qs, ps, log_qs, log_ps
+
+    def generate(self, num_samples: int, device: torch.device) -> torch.Tensor:
+        # Form posterior for top-level assuming Gaussian prior
+        top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
+        distr = Normal(
+            mu=torch.zeros(top_latent_shape).to(device),
+            logsig=torch.zeros(top_latent_shape).to(device),
+        )
+        z = distr.sample()
+        
+        idx_dec = 0
+        
+        # [1, top_channels, width, height]
+        x = self.top_prior.unsqueeze(0)
+        # [num_samples, top_channels, width, height]
+        x = x.expand(num_samples, -1, -1, -1)
+        
+        for cell in self.tower:
+            if isinstance(cell, DecoderCombinerCell):
+                if idx_dec > 0:
+                    # Form prior
+                    latent_repr_p = self.samplers[idx_dec - 1](x)
+                    mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
+                    
+                    # Distribution
+                    distr = Normal(mu_p, logsig_p)
+                    z = distr.sample()
+
+                x = cell(x, z)
+                
+                idx_dec += 1
+            else:
+                x = cell(x)
+        
         x = self.postprocess(x)
         
         return x

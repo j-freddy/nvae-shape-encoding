@@ -65,20 +65,36 @@ class Encoder(nn.Module):
     Also see init_encoder_tower() in official NVAE code.
     """
     
-    def __init__(self, initial_channels: int=64, z_channels: int=20):
+    def __init__(
+        self,
+        num_latent_scales: int,
+        num_groups_per_scale: list[int],
+        initial_channels: int=64,
+        z_channels: int=20,
+        initial_downsample_factor: int=2,
+    ):
         super().__init__()
+        
+        assert len(num_groups_per_scale) == num_latent_scales
         
         # Build preprocessing layers
         
+        # In official NVAE implementation, by default arch_type is 'res_mbconv'
+        # and so 'down_pre' is ['res_bnswish', 'res_bnswish'] with 2 preprocess
+        # cells, 1 preprocess block and channel multiplier of 1.
+        
         self.preprocess = nn.Sequential(
             EncoderResidualCell(initial_channels),
+            nn.Conv2d(
+                initial_channels,
+                initial_channels,
+                kernel_size=initial_downsample_factor + 1,
+                stride=initial_downsample_factor,
+                padding=initial_downsample_factor // 2,
+                bias=False,
+            ),
             EncoderResidualCell(initial_channels),
         )
-        
-        # NVAE paper: Table 6
-        num_latent_scales = 3
-        # num_groups_per_scale = [20, 10, 5]
-        num_groups_per_scale = [4, 2, 1]
         
         # Build tower
         
@@ -136,11 +152,17 @@ class Encoder(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
+        print_logs: bool=False,
     ) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
         x = self.preprocess(x)
-        
+        if print_logs:
+            print(x.shape)
+
         xs = []
         combiner_cells = []
+        
+        if print_logs:
+            print(self.tower)
         
         # Go through the tower and checkpoint combiner cells as it requires
         # sampled variables in the decoder pass
@@ -150,8 +172,19 @@ class Encoder(nn.Module):
                 combiner_cells.append(cell)
             else:
                 x = cell(x)
+
+        x = self.compressor(x)
         
         # Final x is not added as last group in last scale does not have a
         # combiner cell
         
-        return self.compressor(x), xs, combiner_cells
+        if print_logs:
+            print("Printing xs and final x...")
+
+            for x_buf in xs:
+                print(x_buf.shape)
+            print(x.shape)
+
+            print("End of encoder.")
+        
+        return x, xs, combiner_cells

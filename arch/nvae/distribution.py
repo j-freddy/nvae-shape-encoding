@@ -21,3 +21,8 @@ class Normal:
     def log_p(self, samples: torch.Tensor) -> torch.Tensor:
         samples_n = (samples - self.mu) / self.sigma
         return -0.5 * samples_n * samples_n - 0.5 * np.log(2 * np.pi) - torch.log(self.sigma)
+
+    def kl(self, other: "Normal") -> torch.Tensor:
+        a = (self.mu - other.mu) / other.sigma
+        b = self.sigma / other.sigma
+        return 0.5 * (a * a + b * b) - 0.5 - torch.log(b)
