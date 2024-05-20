@@ -39,7 +39,7 @@ def main(flags: argparse.Namespace):
     # Load data
     data_module = ACDCMaskDataModule(batch_size=20)
     # TODO Bit hacky but I want to use 1 batch only to calculate FID
-    data_module.batch_size = data_module.data_test.shape[0]
+    data_module.batch_size = len(data_module.data_test)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)

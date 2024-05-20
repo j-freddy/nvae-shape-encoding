@@ -18,7 +18,7 @@ source activate
 # NVAE ACDC: More refined grid search with more train epochs. See
 # slurm-nvae-tune.sh for previous configurations.
 #
-# Time taken: unknown
+# Time taken: 33 hr 40 min
 # ==============================================================================
 
 # grid size is 48

@@ -182,7 +182,6 @@ class NVAE(L.LightningModule):
         return recon_loss + weighted_kl_div
     
     def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
-        # TODO Official NVAE implementation uses s = self.stem(2 * x - 1.0)
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
@@ -254,7 +253,7 @@ class NVAE(L.LightningModule):
             samples_and_reconstructions[i * 2] = samples[i]
             samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
         
-        show_samples(samples_and_reconstructions, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
     def log_generations_and_fid(self, feats: torch.Tensor):
@@ -267,7 +266,7 @@ class NVAE(L.LightningModule):
         # Discretise probabilistic map then view generations
         generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
         
-        show_samples(generations, rgb=False, nrow=10, figsize=(10, 4), display=False)
+        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
 
         fid_value = fid_manual(

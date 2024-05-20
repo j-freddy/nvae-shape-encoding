@@ -99,7 +99,7 @@ def main(flags: argparse.Namespace):
     # Reseed after preprocessing data
     L.seed_everything(SEED)
     
-    _, num_classes, _, _ = data_module.data_test.shape
+    num_classes = data_module.data_test.num_classes
 
     # Train
     model = NVAE(
