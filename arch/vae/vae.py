@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils import discretise, fid_manual, show_samples
+from utils.utils import discretise, fid_manual, show_samples
 
 class VAE(L.LightningModule):
     """

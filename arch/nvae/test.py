@@ -7,7 +7,7 @@ from arch.nvae.nvae import NVAE
 from arch.vae.train import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils import setup_device
+from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()

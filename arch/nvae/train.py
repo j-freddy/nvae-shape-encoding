@@ -7,7 +7,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from arch.nvae.nvae import NVAE
-from utils import setup_device
+from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()

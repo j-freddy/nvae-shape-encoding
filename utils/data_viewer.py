@@ -5,7 +5,7 @@ import torch
 from const import SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils import setup_device, show_samples
+from utils.utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()

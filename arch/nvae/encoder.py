@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.ops as ops
 
 from arch.nvae.distribution import Normal
-from utils import soft_clamp
+from utils.utils import soft_clamp
 
 class EncoderResidualCell(nn.Module):
     """

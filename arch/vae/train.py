@@ -8,7 +8,7 @@ import torch
 from arch.vae.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils import setup_device, show_samples
+from utils.utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()

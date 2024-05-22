@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils import discretise, fid_manual, show_samples
+from utils.utils import discretise, fid_manual, show_samples
 
 class NVAE(L.LightningModule):
     """

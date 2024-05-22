@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from utils import soft_clamp
+from utils.utils import soft_clamp
 
 class Normal:
     """
