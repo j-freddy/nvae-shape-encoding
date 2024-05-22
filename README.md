@@ -45,7 +45,6 @@ python -m arch.vae.train \
     --beta 0.1 \
     --gamma 1000 \
     --loss_reg info_vae \
-    --register_alignment \
     --augment
 # Train a NVAE model with good configurations (~80 minutes)
 python -m arch.nvae.train \
@@ -57,8 +56,8 @@ python -m arch.nvae.train \
     --beta2 10000
 # Test (~5 minutes)
 # A typical checkpoint path is:
-# logs/vae_acdc/version_0/checkpoints/epoch=35-step=7704.ckpt
-python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --register_alignment
+# logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --augment
 python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
 ```
 

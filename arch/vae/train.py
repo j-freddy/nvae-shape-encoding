@@ -3,12 +3,11 @@ import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
-import torch
 
 from arch.vae.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils.utils import setup_device, show_samples
+from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()

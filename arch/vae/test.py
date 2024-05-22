@@ -31,6 +31,13 @@ def parse_args() -> argparse.Namespace:
         help="If set, use masks that have been rotated such that the right ventricle points upwards.",
         default=False,
     )
+    
+    parser.add_argument(
+        "--augment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, augment training data with small random rotation.",
+        default=False,
+    )
 
     return parser.parse_args()
 
@@ -46,6 +53,7 @@ def main(flags: argparse.Namespace):
     data_module = ACDCMaskDataModule(
         batch_size=20,
         register_alignment=flags.register_alignment,
+        augment_test=flags.augment,
     )
     # TODO Bit hacky but I want to use 1 batch only to calculate FID
     data_module.batch_size = len(data_module.data_test)
