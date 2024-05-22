@@ -29,6 +29,7 @@ class NVAE(L.LightningModule):
         self,
         in_channels: int=4,
         initial_channels: int=64,
+        z_channels: int=20,
         num_latent_scales: int=3,
         # Topmost latent scale has fewest groups (i.e. 1)
         # Shallowest latent scale has most groups (i.e. 4)
@@ -58,16 +59,18 @@ class NVAE(L.LightningModule):
             num_latent_scales=self.hparams.num_latent_scales,
             num_groups_per_scale=self.hparams.num_groups_per_scale,
             initial_channels=self.hparams.initial_channels,
+            z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
         
         top_latent_dim = self._get_latent_dim(self.hparams.num_latent_scales - 1)
 
         self.decoder = Decoder(
-            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
             num_latent_scales=self.hparams.num_latent_scales,
             num_groups_per_scale=self.hparams.num_groups_per_scale[::-1],
+            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
+            z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
         )
         
@@ -118,7 +121,7 @@ class NVAE(L.LightningModule):
     ) -> torch.Tensor:
         # log_p, log_q and kl_diag are for metrics purposes
         
-        kl_div = defaultdict(lambda: [])
+        kl_div_dict = defaultdict(lambda: [])
         kl_diag = []
         
         log_p: float = 0
@@ -127,22 +130,29 @@ class NVAE(L.LightningModule):
         for q, p, log_q_conv, log_p_conv in zip(qs, ps, log_qs, log_ps):
             assert q.mu.shape == p.mu.shape
             
-            _, _, width, height = q.mu.shape
+            _, z_channels, width, height = q.mu.shape
             assert width == height
+            assert z_channels == self.hparams.z_channels
             curr_layer = self._get_layer_index(width)
             
             # TODO Change this for normalising flow
             kl_per_var = q.kl(p)
 
+            kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])
+            # Normalise KL by number of variables
+            kl_div = kl_div / (z_channels * width * height)
+
             kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
-            kl_div[curr_layer].append(torch.sum(kl_per_var, dim=[1, 2, 3]))
+            kl_div_dict[curr_layer].append(kl_div)
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
         weighted_kl_divs = []
         
-        for layer_idx, kl_div_per_layer in kl_div.items():
+        for layer_idx, kl_div_per_layer in kl_div_dict.items():
             kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
+
+            # Weigh KL with beta
             weighted_kl_div = self.hparams.beta_per_scale[layer_idx] * kl_div
             weighted_kl_divs.append(weighted_kl_div)
             
