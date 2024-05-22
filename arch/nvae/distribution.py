@@ -15,7 +15,9 @@ class Normal:
         self.mu = mu
         self.sigma = (torch.exp(logsig) + 1e-2) * temp
 
-    def sample(self):
+    def sample(self, deterministic: bool=False) -> torch.Tensor:
+        if deterministic:
+            return self.mu
         return self.mu + self.sigma * torch.randn_like(self.mu)
 
     def log_p(self, samples: torch.Tensor) -> torch.Tensor:

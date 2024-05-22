@@ -52,8 +52,8 @@ python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 16 \
     --warmup_steps 5350 \
-    --beta0 320000 \
-    --beta1 5120000 \
+    --beta0 5120000 \
+    --beta1 1280000 \
     --beta2 3200000
 # Test (~5 minutes)
 # A typical checkpoint path is:
