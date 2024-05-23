@@ -18,7 +18,7 @@ source activate
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
-# Time taken: unknown
+# Time taken: 5 hr 52 min
 # ==============================================================================
 
 # Using a smaller grid search conditioned on results from slurm-info-vae-tune.sh
