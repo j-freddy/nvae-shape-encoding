@@ -111,7 +111,7 @@ def main(flags: argparse.Namespace):
         batch_size=16,
         filter_empty=flags.filter_empty,
         register_alignment=flags.register_alignment,
-        augment=flags.augment,
+        augment_rotation=flags.augment,
     )
     
     # Reseed after preprocessing data

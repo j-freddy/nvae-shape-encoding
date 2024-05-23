@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
-from dataset.acdc import ACDCMaskDataset
+from datasets.acdc import ACDCMaskDataset
 
 def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     info_file = os.path.join(
@@ -225,18 +225,31 @@ class ACDCMaskDataModule(LightningDataModule):
     Automated Cardiac Diagnosis Challenge (ACDC) dataset.
     
     See ACDCDataModule Docstring. This is a more lightweight version where each
-    data point only consists of the mask tensor values per slice (128x128x1).
+    data point only consists of the one-hot mask tensor values per slice
+    (4x128x128).
+    
+    Rotation augmentation is used for training VAE and NVAE. It acts to
+    diversify the dataset and thus, if applied during training, should also be
+    applied during validation and testing.
+    
+    SimCLR augmentation is used for training SimCLR. It should not be applied
+    during validation and testing. @augment_simclr_test should only be used to
+    preview the data in the data viewer.
     """
     
     def __init__(
         self,
         batch_size: int=32,
         filter_empty: bool=False,
-        one_hot: bool=True,
         register_alignment: bool=False,
-        augment: bool=False,
-        augment_test: bool=False,
+        augment_rotation: bool=False,
+        augment_rotation_test: bool=False,
+        augment_simclr: bool=False,
+        augment_simclr_test: bool=False,
     ):
+        assert not (augment_rotation and augment_simclr)
+        assert not (augment_rotation_test and augment_simclr_test)
+        
         super().__init__()
         
         self.batch_size = batch_size
@@ -257,16 +270,15 @@ class ACDCMaskDataModule(LightningDataModule):
             if register_alignment:
                 torch.save(data_train, ACDC.ALIGNED.TRAIN_PATH)
                 torch.save(data_test, ACDC.ALIGNED.TEST_PATH)
-        
-        if one_hot:
-            data_train = self._one_hot(data_train)
-            data_test = self._one_hot(data_test)
+
+        data_train = self._one_hot(data_train)
+        data_test = self._one_hot(data_test)
 
         data_train, data_val = self._split_train_val(data_train)
         
-        self.data_train = ACDCMaskDataset(data_train, augment)
-        self.data_val = ACDCMaskDataset(data_val, augment=False)
-        self.data_test = ACDCMaskDataset(data_test, augment=augment_test)
+        self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr)
+        self.data_val = ACDCMaskDataset(data_val, augment_rotation)
+        self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test)
     
     def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
         # avg_y is average y-coordinate of right ventricle

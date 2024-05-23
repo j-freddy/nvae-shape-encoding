@@ -53,7 +53,7 @@ def main(flags: argparse.Namespace):
     data_module = ACDCMaskDataModule(
         batch_size=20,
         register_alignment=flags.register_alignment,
-        augment_test=flags.augment,
+        augment_rotation_test=flags.augment,
     )
     # TODO Bit hacky but I want to use 1 batch only to calculate FID
     data_module.batch_size = len(data_module.data_test)
