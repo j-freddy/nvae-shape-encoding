@@ -1,4 +1,4 @@
-model_name,fid_manual,test_recon_loss
+model_name,fid,test_recon_loss
 ld-4-beta-0-gamma-1000,10.99073600769043,7960.18017578125
 ld-4-beta-1-gamma-1000,10.991161346435547,7963.76318359375
 ld-4-beta-0.01-gamma-1000,10.994149208068848,7960.1513671875
