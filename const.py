@@ -18,6 +18,7 @@ class ACDC:
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
+        SIMCLR = "simclr_acdc"
     @dataclass
     class RAW:
         TRAIN_PATH = os.path.join(DATA_PATH, "ACDC", "database", "training")
