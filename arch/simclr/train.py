@@ -50,7 +50,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=64)
+    data_module = ACDCMaskDataModule(batch_size=128, augment_simclr=True)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)

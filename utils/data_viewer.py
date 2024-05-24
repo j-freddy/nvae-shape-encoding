@@ -85,8 +85,7 @@ def view_acdc():
     samples: torch.Tensor = next(iter(loader_test))
     
     if flags.augment_simclr:
-        view1, view2 = samples
-        samples = torch.cat([view1, view2], dim=0)
+        samples = torch.cat(samples, dim=0)
     
     # Uncomment this line to view each channel separately
     # samples = samples[:, 0, :, :].unsqueeze(1)
