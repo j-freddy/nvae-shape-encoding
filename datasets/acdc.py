@@ -60,6 +60,6 @@ class ACDCMaskDataset(Dataset):
         
         if self.augment_simclr:
             assert not self.augment_rotation
-            return [self._augment_mask(mask, self.simclr_pipeline) for _ in range(2)]
+            return [self.simclr_pipeline(mask) for _ in range(2)]
 
         return mask

@@ -69,6 +69,7 @@ def view_acdc():
         batch_size=10 if flags.augment_simclr else 20,
         filter_empty=flags.filter_empty,
         register_alignment=flags.register_alignment,
+        as_image=flags.augment_simclr,
         augment_rotation_test=flags.augment,
         augment_simclr_test=flags.augment_simclr,
     )
@@ -86,17 +87,17 @@ def view_acdc():
     
     if flags.augment_simclr:
         samples = torch.cat(samples, dim=0)
+    else:  
+        # Uncomment this line to view each channel separately
+        # samples = samples[:, 0, :, :].unsqueeze(1)
+        # samples = samples[:, 1, :, :].unsqueeze(1)
+        # samples = samples[:, 2, :, :].unsqueeze(1)
+        # samples = samples[:, 3, :, :].unsqueeze(1)
+        
+        # Or recombine the channels
+        samples = torch.argmax(samples, dim=1).unsqueeze(1)
     
-    # Uncomment this line to view each channel separately
-    # samples = samples[:, 0, :, :].unsqueeze(1)
-    # samples = samples[:, 1, :, :].unsqueeze(1)
-    # samples = samples[:, 2, :, :].unsqueeze(1)
-    # samples = samples[:, 3, :, :].unsqueeze(1)
-    
-    # Or recombine the channels
-    samples = torch.argmax(samples, dim=1).unsqueeze(1)
-    
-    show_samples(samples, rgb=False, ncol=10, figsize=(10, 4))
+    show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 4))
 
 def main(flags: argparse.Namespace):
     # Setup device

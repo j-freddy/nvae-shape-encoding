@@ -242,6 +242,7 @@ class ACDCMaskDataModule(LightningDataModule):
         batch_size: int=32,
         filter_empty: bool=False,
         register_alignment: bool=False,
+        as_image: bool=False,
         augment_rotation: bool=False,
         augment_rotation_test: bool=False,
         augment_simclr: bool=False,
@@ -249,6 +250,9 @@ class ACDCMaskDataModule(LightningDataModule):
     ):
         assert not (augment_rotation and augment_simclr)
         assert not (augment_rotation_test and augment_simclr_test)
+        
+        if augment_simclr:
+            assert as_image
         
         super().__init__()
         
@@ -273,6 +277,11 @@ class ACDCMaskDataModule(LightningDataModule):
 
         data_train = self._one_hot(data_train)
         data_test = self._one_hot(data_test)
+        
+        if as_image:
+            # Remove background class and scale
+            data_train = data_train[:, 1:, :, :].float() * 255
+            data_test = data_test[:, 1:, :, :].float() * 255
 
         data_train, data_val = self._split_train_val(data_train)
         

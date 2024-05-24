@@ -80,7 +80,8 @@ class SimCLR(L.LightningModule):
         cos_sim /= self.temperature
 
         # InfoNCE loss
-        loss = self.loss(cos_sim, pos_mask)
+        nll = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=-1)
+        loss = nll.mean()
         
         if log_rank_metrics:
             # Get ranking position of positive example
@@ -115,6 +116,14 @@ class SimCLR(L.LightningModule):
 
         if torch.isnan(loss):
             raise ValueError("NaN loss")
+
+    def validation_step(self, batch: list[torch.Tensor]) -> torch.Tensor:
+        batch = torch.cat(batch, dim=0)
+
+        z = self(batch)
         
-        import sys
-        sys.exit()
+        # Compute loss
+        loss = self.loss(z)
+        self.log("val_loss", loss)
+
+        print(f"Val loss: {loss}")

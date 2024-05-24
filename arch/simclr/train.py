@@ -20,6 +20,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--batch_size",
+        type=int,
+        help="Batch size as defined by number of pairs.",
+        default=64,
+    )
+    
+    parser.add_argument(
         "--model_name",
         type=str,
         help="Directory name of saved model checkpoints and metadata.",
@@ -50,7 +57,11 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=128, augment_simclr=True)
+    data_module = ACDCMaskDataModule(
+        batch_size=flags.batch_size,
+        as_image=True,
+        augment_simclr=True,
+    )
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
