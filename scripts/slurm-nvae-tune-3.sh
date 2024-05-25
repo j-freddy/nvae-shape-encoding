@@ -18,7 +18,7 @@ source activate
 # NVAE ACDC: See previous tuning scripts for other configurations.
 # z_channels=4
 #
-# Time taken: unknown
+# Time taken: 36 hr 54 min
 # ==============================================================================
 
 # grid size is 54
