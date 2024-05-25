@@ -153,7 +153,7 @@ class NVAE(L.LightningModule):
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
-        return F.binary_cross_entropy_with_logits(x_hat, x, reduction="sum") / batch_size
+        return F.cross_entropy(x_hat, x, reduction="sum") / batch_size
     
     def loss(
         self,
