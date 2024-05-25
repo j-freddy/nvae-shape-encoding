@@ -109,7 +109,7 @@ class SimCLR(L.LightningModule):
         z = self(batch)
         
         # Compute loss
-        loss = self.loss(z)
+        loss = self.loss(z, log_rank_metrics=True)
         self.log("train_loss", loss)
 
         print(f"Train loss: {loss}")
@@ -123,7 +123,7 @@ class SimCLR(L.LightningModule):
         z = self(batch)
         
         # Compute loss
-        loss = self.loss(z)
+        loss = self.loss(z, log_rank_metrics=True)
         self.log("val_loss", loss)
 
         print(f"Val loss: {loss}")

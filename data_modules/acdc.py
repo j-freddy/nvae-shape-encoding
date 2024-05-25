@@ -232,9 +232,10 @@ class ACDCMaskDataModule(LightningDataModule):
     diversify the dataset and thus, if applied during training, should also be
     applied during validation and testing.
     
-    SimCLR augmentation is used for training SimCLR. It should not be applied
-    during validation and testing. @augment_simclr_test should only be used to
-    preview the data in the data viewer.
+    SimCLR augmentation is used for training SimCLR. It should also be applied
+    during validation. Testing does not exist for pretraining and
+    @augment_simclr_test should only be used to preview the data in the data
+    viewer.
     """
     
     def __init__(
@@ -286,7 +287,7 @@ class ACDCMaskDataModule(LightningDataModule):
         data_train, data_val = self._split_train_val(data_train)
         
         self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr)
-        self.data_val = ACDCMaskDataset(data_val, augment_rotation)
+        self.data_val = ACDCMaskDataset(data_val, augment_rotation, augment_simclr)
         self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test)
     
     def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
