@@ -12,6 +12,7 @@ class CIFAR10:
     class DIR:
         VAE = "vae_cifar10"
         NVAE = "nvae_cifar10"
+        SIMCLR = "simclr_cifar10"
 
 @dataclass
 class ACDC:

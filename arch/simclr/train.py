@@ -67,7 +67,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Train
-    model = SimCLR()
+    model = SimCLR(max_epochs=flags.epochs)
     
     trainer = L.Trainer(
         accelerator="auto",
@@ -80,7 +80,7 @@ def main(flags: argparse.Namespace):
             default_hp_metric=False,
         ),
         callbacks=[
-            ModelCheckpoint(monitor="val_loss", mode="min"),
+            ModelCheckpoint(monitor="acc_top5", mode="max"),
             LearningRateMonitor("epoch"),
         ]
     )

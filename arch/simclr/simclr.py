@@ -109,13 +109,15 @@ class SimCLR(L.LightningModule):
         z = self(batch)
         
         # Compute loss
-        loss = self.loss(z, log_rank_metrics=True)
+        loss = self.loss(z)
         self.log("train_loss", loss)
 
         print(f"Train loss: {loss}")
 
         if torch.isnan(loss):
             raise ValueError("NaN loss")
+    
+        return loss
 
     def validation_step(self, batch: list[torch.Tensor]) -> torch.Tensor:
         batch = torch.cat(batch, dim=0)
