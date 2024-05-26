@@ -186,7 +186,7 @@ class VAE(L.LightningModule):
         
         fid_value_resnet = fid_resnet(
             x,
-            discretise(x_fake),
+            discretise(x_fake_logits),
             device=self.device,
         )
 
