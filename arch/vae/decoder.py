@@ -32,7 +32,6 @@ class Decoder(nn.Module):
             nn.ELU(),
             # out_channelsx128x128 -> out_channelsx128x128
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-            nn.Softmax(dim=1),
         )
     
     def forward(self, z: torch.Tensor) -> torch.Tensor:

@@ -67,11 +67,11 @@ class InfoAdversarialVAE(VAE):
         mu: torch.Tensor,
         logvar: torch.Tensor,
         z: torch.Tensor,
-        x_hat: torch.Tensor,
+        x_hat_logits: torch.Tensor,
         log_components: bool=True,
         return_pred: bool=False,
     ) -> torch.Tensor:
-        recon_loss = self.reconstruction_loss(x, x_hat)
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
         # KL divergence between q(z|x) and p(z)
         # Forming part of ELBO
         kl_div = self._kl_divergence(mu, logvar)
@@ -148,8 +148,8 @@ class InfoAdversarialVAE(VAE):
         
         self.toggle_optimizer(opt_vae)
 
-        mu, logvar, z, x_hat = self(x)
-        pred, loss = self.loss(x, mu, logvar, z, x_hat, return_pred=True)
+        mu, logvar, z, x_hat_logits = self(x)
+        pred, loss = self.loss(x, mu, logvar, z, x_hat_logits, return_pred=True)
         self.log("train_loss", loss)
         
         print(f"Train loss: {loss}")

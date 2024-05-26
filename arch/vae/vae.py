@@ -60,9 +60,9 @@ class VAE(L.LightningModule):
             dim=1,
         ).mean()
         
-    def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+    def reconstruction_loss(self, x: torch.Tensor, x_hat_logits: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
-        return F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        return F.cross_entropy(x_hat_logits, x, reduction="sum") / batch_size
     
     def loss(
         self,
@@ -70,10 +70,10 @@ class VAE(L.LightningModule):
         mu: torch.Tensor,
         logvar: torch.Tensor,
         z: torch.Tensor,
-        x_hat: torch.Tensor,
+        x_hat_logits: torch.Tensor,
         log_components: bool=True,
     ) -> torch.Tensor:
-        recon_loss = self.reconstruction_loss(x, x_hat)
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
         kl_div = self._kl_divergence(mu, logvar)
 
         weighted_kl_div = self.hparams.beta * kl_div
@@ -106,14 +106,14 @@ class VAE(L.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         mu, logvar = self.encoder(x)
         z = self._reparameterise(mu, logvar)
-        x_hat = self.decoder(z)
-        return mu, logvar, z, x_hat
+        x_hat_logits = self.decoder(z)
+        return mu, logvar, z, x_hat_logits
     
     def training_step(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar, z, x_hat = self(x)
+        mu, logvar, z, x_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat)
+        loss = self.loss(x, mu, logvar, z, x_hat_logits)
         self.log("train_loss", loss)
         
         print(f"Train loss: {loss}")
@@ -124,10 +124,10 @@ class VAE(L.LightningModule):
         return loss
     
     def validation_step(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar, z, x_hat = self(x)
+        mu, logvar, z, x_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat, log_components=False)
+        loss = self.loss(x, mu, logvar, z, x_hat_logits, log_components=False)
         self.log("val_loss", loss)
         
         print(f"Val loss: {loss}")
@@ -136,8 +136,8 @@ class VAE(L.LightningModule):
         assert batch_idx == 0, "Only 1 batch allowed"
 
         # Compute loss
-        _, _, _, x_hat = self(x)
-        recon_loss = self.reconstruction_loss(x, x_hat)
+        _, _, _, x_hat_logits = self(x)
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
         self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(x[:20])
@@ -145,9 +145,9 @@ class VAE(L.LightningModule):
         self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
-        _, _, _, x_hat = self(x)
+        _, _, _, x_hat_logits = self(x)
 
-        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+        reconstructions = torch.argmax(x_hat_logits, dim=1).unsqueeze(1)
         samples = torch.argmax(x, dim=1).unsqueeze(1)
 
         # Interleave samples and reconstructions
@@ -169,16 +169,16 @@ class VAE(L.LightningModule):
         z = torch.randn(num_samples, self.hparams.latent_dim).to(self.device)
         
         # Generate probabilistic segmentation maps from latent variables
-        x_fake: torch.Tensor = self.decoder.net(z)
+        x_fake_logits: torch.Tensor = self.decoder(z)
 
         # Discretise probabilistic map then view generations
-        generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
+        generations = torch.argmax(x_fake_logits[:40], dim=1).unsqueeze(1)
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
         fid_value = fid_manual(
             x,
-            discretise(x_fake),
+            discretise(x_fake_logits),
             device=self.device,
         )
         
@@ -212,9 +212,9 @@ class VAE(L.LightningModule):
         z_lerps = torch.stack(z_lerps)
         
         # Pass through decoder
-        x_hat: torch.Tensor = self.decoder.net(z_lerps)
+        x_hat_logits: torch.Tensor = self.decoder(z_lerps)
         
-        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+        reconstructions = torch.argmax(x_hat_logits, dim=1).unsqueeze(1)
 
         show_samples(reconstructions, rgb=False, ncol=10, figsize=(10, 1), display=False)
         self.logger.experiment.add_figure("img/lerp", plt.gcf())

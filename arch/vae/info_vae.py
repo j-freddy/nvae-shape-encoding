@@ -61,11 +61,10 @@ class InfoVAE(VAE):
         mu: torch.Tensor,
         logvar: torch.Tensor,
         z: torch.Tensor,
-        x_hat: torch.Tensor,
+        x_hat_logits: torch.Tensor,
         log_components: bool=True,
     ) -> torch.Tensor:
-        batch_size = x.size(0)
-        recon_loss = F.binary_cross_entropy(x_hat, x, reduction="sum") / batch_size
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
         kl_div = self._kl_divergence(mu, logvar)
         kl_qp = self._kl_qp(z, mu, logvar)
         
