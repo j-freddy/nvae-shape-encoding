@@ -11,6 +11,7 @@ from torchvision import transforms
 from torchvision.models import inception_v3
 from torchvision.utils import make_grid
 
+from arch.simclr.simclr import SimCLR
 from const import SEED
 
 def setup_device() -> torch.device:
@@ -81,6 +82,13 @@ def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     
     return x_hat_hard
 
+def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
+    """
+    Given a one-hot encoded segmentation map, return the image representation.
+    The map can either be probabilistic or discrete.
+    """
+    return x[:, 1:, :, :].float() * 255
+
 def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     """
     Deprecated. Use fid_manual instead.
@@ -112,6 +120,7 @@ def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.
     return fid.compute()
 
 # TODO Cite this function
+# TODO Delete if resnet works better
 def fid_manual(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
@@ -160,6 +169,72 @@ def fid_manual(
     for batch in fake_data_split:
         batch = batch * 2 - 1
         fake_feats.append(get_feats(batch, inception_model, device))
+    
+    fake_feats = torch.cat(fake_feats, 0)
+
+    # Calculate mean and covariance
+    mu_real = real_feats.mean(0)
+    sigma_real = np.cov(real_feats.numpy(), rowvar=False)
+
+    mu_fake = fake_feats.mean(0)
+    sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
+
+    # Compute FID score
+    sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
+    covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
+    
+    # Check and correct for imaginary numbers from sqrt
+    if np.iscomplexobj(covm_real_fake):
+        covm_real_fake = covm_real_fake.real
+
+    return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
+
+def fid_resnet(
+    real_data: torch.Tensor,
+    fake_data: torch.Tensor,
+    device: torch.device,
+):
+    def get_feats(x, model, device):
+        with torch.no_grad():
+            x = x.to(device)
+            x = one_hot_to_image(x)
+            feats = model(x)
+
+        return feats.detach().cpu()
+    
+    # TODO Do not hardcode
+    # path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    path = "logs_simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    
+    # Load pretrained SimCLR model
+    resnet_model = SimCLR.load_from_checkpoint(path).net
+    resnet_model = resnet_model.to(device)
+    # Remove projection head
+    resnet_model.fc = nn.Identity()
+    resnet_model.eval()
+
+    # Extract features for real images
+    real_feats = []
+    
+    batch_size = 2
+    real_data_split = torch.split(real_data, batch_size, dim=0)
+
+    for real_data_batch in real_data_split:
+        real_data_batch = real_data_batch * 2 - 1
+        feats = get_feats(real_data_batch, resnet_model, device)
+        real_feats.append(feats)
+        
+    real_feats = torch.cat(real_feats, 0)
+
+    # Extract features for generated images
+    fake_feats = []
+    
+    batch_size = 2
+    fake_data_split = torch.split(fake_data, batch_size, dim=0)
+
+    for batch in fake_data_split:
+        batch = batch * 2 - 1
+        fake_feats.append(get_feats(batch, resnet_model, device))
     
     fake_feats = torch.cat(fake_feats, 0)
 

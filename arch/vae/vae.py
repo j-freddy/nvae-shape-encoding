@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.utils import discretise, fid_manual, show_samples
+from utils.utils import discretise, fid_manual, fid_resnet, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -181,8 +181,16 @@ class VAE(L.LightningModule):
             discretise(x_fake),
             device=self.device,
         )
-
+        
         self.log("fid", fid_value)
+        
+        fid_value_resnet = fid_resnet(
+            x,
+            discretise(x_fake),
+            device=self.device,
+        )
+
+        self.log("fid_resnet", fid_value_resnet)
     
     def log_lerp(self, x: torch.Tensor):
         """

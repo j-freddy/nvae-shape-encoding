@@ -3,7 +3,7 @@ import lightning as L
 import torch
 
 from const import SEED
-from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
+from data_modules.acdc import ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import setup_device, show_samples
 
@@ -15,7 +15,35 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Which dataset to use.",
         choices=["cifar10", "acdc"],
-        required=True,
+        default="acdc",
+    )
+    
+    parser.add_argument(
+        "--filter_empty",
+        action=argparse.BooleanOptionalAction,
+        help="If set, filter out empty masks.",
+        default=False,
+    )
+    
+    parser.add_argument(
+        "--register_alignment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, use masks that have been rotated such that the right ventricle points upwards.",
+        default=False,
+    )
+    
+    parser.add_argument(
+        "--augment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, augment training data with small random rotation.",
+        default=False,
+    )
+    
+    parser.add_argument(
+        "--augment_simclr",
+        action=argparse.BooleanOptionalAction,
+        help="If set, augment training data with SimCLR pipeline.",
+        default=False,
     )
     
     return parser.parse_args()
@@ -38,10 +66,12 @@ def view_acdc():
     L.seed_everything(SEED)
     
     data_module = ACDCMaskDataModule(
-        batch_size=40,
-        one_hot=True,
-        register_alignment=True,
-        augment_test=True,
+        batch_size=10 if flags.augment_simclr else 20,
+        filter_empty=flags.filter_empty,
+        register_alignment=flags.register_alignment,
+        as_image=flags.augment_simclr,
+        augment_rotation_test=flags.augment,
+        augment_simclr_test=flags.augment_simclr,
     )
 
     print(f"Number of train samples: {len(data_module.data_train)}")
@@ -55,16 +85,19 @@ def view_acdc():
     
     samples: torch.Tensor = next(iter(loader_test))
     
-    # If one-hot encoded, uncomment this line to view each channel separately
-    samples = samples[:, 0, :, :].unsqueeze(1)
-    # samples = samples[:, 1, :, :].unsqueeze(1)
-    # samples = samples[:, 2, :, :].unsqueeze(1)
-    # samples = samples[:, 3, :, :].unsqueeze(1)
+    if flags.augment_simclr:
+        samples = torch.cat(samples, dim=0)
+    else:  
+        # Uncomment this line to view each channel separately
+        # samples = samples[:, 0, :, :].unsqueeze(1)
+        # samples = samples[:, 1, :, :].unsqueeze(1)
+        # samples = samples[:, 2, :, :].unsqueeze(1)
+        # samples = samples[:, 3, :, :].unsqueeze(1)
+        
+        # Or recombine the channels
+        samples = torch.argmax(samples, dim=1).unsqueeze(1)
     
-    # Or recombine the channels
-    # samples = torch.argmax(samples, dim=1).unsqueeze(1)
-    
-    show_samples(samples, rgb=False, ncol=10, figsize=(10, 4))
+    show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 4))
 
 def main(flags: argparse.Namespace):
     # Setup device

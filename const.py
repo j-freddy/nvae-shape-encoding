@@ -12,12 +12,14 @@ class CIFAR10:
     class DIR:
         VAE = "vae_cifar10"
         NVAE = "nvae_cifar10"
+        SIMCLR = "simclr_cifar10"
 
 @dataclass
 class ACDC:
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
+        SIMCLR = "simclr_acdc"
     @dataclass
     class RAW:
         TRAIN_PATH = os.path.join(DATA_PATH, "ACDC", "database", "training")
