@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.utils import discretise, fid_manual, show_samples
+from utils.utils import discretise, fid_manual, fid_resnet, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -140,9 +140,9 @@ class VAE(L.LightningModule):
         recon_loss = self.reconstruction_loss(x, x_hat)
         self.log("test_recon_loss", recon_loss)
 
-        self.log_reconstructions(x[:20])
+        # self.log_reconstructions(x[:20])
         self.log_generations_and_fid(x)
-        self.log_lerp(x[:20])
+        # self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
         _, _, _, x_hat = self(x)
@@ -171,18 +171,18 @@ class VAE(L.LightningModule):
         # Generate probabilistic segmentation maps from latent variables
         x_fake: torch.Tensor = self.decoder.net(z)
 
-        # Discretise probabilistic map then view generations
-        generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
-        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/generations", plt.gcf())
+        # # Discretise probabilistic map then view generations
+        # generations = torch.argmax(x_fake[:40], dim=1).unsqueeze(1)
+        # show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        # self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value = fid_manual(
+        fid_value = fid_resnet(
             x,
             discretise(x_fake),
             device=self.device,
         )
 
-        self.log("fid", fid_value)
+        self.log("fid_resnet", fid_value)
     
     def log_lerp(self, x: torch.Tensor):
         """

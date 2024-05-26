@@ -11,6 +11,7 @@ import torchvision.transforms.functional as TF
 
 from const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDCMaskDataset
+from utils.utils import one_hot_to_image
 
 def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     info_file = os.path.join(
@@ -281,8 +282,8 @@ class ACDCMaskDataModule(LightningDataModule):
         
         if as_image:
             # Remove background class and scale
-            data_train = data_train[:, 1:, :, :].float() * 255
-            data_test = data_test[:, 1:, :, :].float() * 255
+            data_train = one_hot_to_image(data_train)
+            data_test = one_hot_to_image(data_test)
 
         data_train, data_val = self._split_train_val(data_train)
         
