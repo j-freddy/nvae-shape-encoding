@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
         "--batch_size",
         type=int,
         help="Batch size as defined by number of pairs.",
-        default=64,
+        default=256,
     )
     
     parser.add_argument(
