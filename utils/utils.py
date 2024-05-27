@@ -204,7 +204,7 @@ def fid_resnet(
     
     # TODO Do not hardcode
     # path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
-    path = "logs_simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    path = "logs-simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
     
     # Load pretrained SimCLR model
     resnet_model = SimCLR.load_from_checkpoint(path).net
