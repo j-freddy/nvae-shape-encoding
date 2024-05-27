@@ -67,5 +67,6 @@ if __name__ == '__main__':
     plt.xlabel("FID")
     plt.ylabel("Reconstruction Loss")
     
+    plt.tight_layout()
     plt.legend()
     plt.show()

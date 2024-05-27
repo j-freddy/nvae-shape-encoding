@@ -12,6 +12,7 @@ from torchvision.models import inception_v3
 from torchvision.utils import make_grid
 
 from arch.simclr.simclr import SimCLR
+from arch.simclr.utils import load_simclr_backbone
 from const import SEED
 
 def setup_device() -> torch.device:
@@ -189,54 +190,44 @@ def fid_manual(
 
     return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
 
-def fid_resnet(
-    real_data: torch.Tensor,
-    fake_data: torch.Tensor,
-    device: torch.device,
-):
-    def get_feats(x, model, device):
+def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
+    def encode(x: torch.Tensor, model: nn.Module, device: torch.device):
         with torch.no_grad():
             x = x.to(device)
             x = one_hot_to_image(x)
             feats = model(x)
 
         return feats.detach().cpu()
+
+    embeddings = []
     
+    batch_size = 2
+    x_split = torch.split(x, batch_size, dim=0)
+
+    for x_batch in x_split:
+        x_batch = x_batch * 2 - 1
+        embeddings.append(encode(x_batch, model, device))
+        
+    return torch.cat(embeddings, dim=0)
+    
+
+def fid_resnet(
+    real_data: torch.Tensor,
+    fake_data: torch.Tensor,
+    device: torch.device,
+):
     # TODO Do not hardcode
-    # path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
-    path = "logs-simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
     
     # Load pretrained SimCLR model
-    resnet_model = SimCLR.load_from_checkpoint(path).net
+    resnet_model = load_simclr_backbone(path)
     resnet_model = resnet_model.to(device)
-    # Remove projection head
-    resnet_model.fc = nn.Identity()
-    resnet_model.eval()
 
     # Extract features for real images
-    real_feats = []
-    
-    batch_size = 2
-    real_data_split = torch.split(real_data, batch_size, dim=0)
-
-    for real_data_batch in real_data_split:
-        real_data_batch = real_data_batch * 2 - 1
-        feats = get_feats(real_data_batch, resnet_model, device)
-        real_feats.append(feats)
-        
-    real_feats = torch.cat(real_feats, 0)
+    real_feats = encode_embeddings(real_data, resnet_model, device)
 
     # Extract features for generated images
-    fake_feats = []
-    
-    batch_size = 2
-    fake_data_split = torch.split(fake_data, batch_size, dim=0)
-
-    for batch in fake_data_split:
-        batch = batch * 2 - 1
-        fake_feats.append(get_feats(batch, resnet_model, device))
-    
-    fake_feats = torch.cat(fake_feats, 0)
+    fake_feats = encode_embeddings(fake_data, resnet_model, device)
 
     # Calculate mean and covariance
     mu_real = real_feats.mean(0)
