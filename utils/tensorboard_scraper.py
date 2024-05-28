@@ -47,15 +47,15 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "info-vae-augment"
-    metrics = ["fid", "test_recon_loss"]
+    log_subdir = "beta-vae"
+    metrics = ["fid", "fid_resnet", "test_recon_loss"]
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),
         metrics=metrics,
     )
 
-    df.sort_values(by="fid", inplace=True, ascending=True)
+    df.sort_values(by="fid_resnet", inplace=True, ascending=True)
 
     print(df.head())
 

@@ -17,14 +17,14 @@ source activate
 # [VAE Tune]
 # VAE ACDC: Grid search on beta (KL) and latent dim hyperparameters.
 #
-# Time taken: 4 hr 2 min
+# Time taken: unknown
 # ==============================================================================
 
-# grid size is 96
-# size=6
-latent_dims=("2 4 8 16 32 64")
-# size=16
-betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000")
+# grid size is 90
+# size=5
+latent_dims=("2 4 6 8 16")
+# size=18
+betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 5 10 20 50 100 200 500 1000 2000 5000")
 
 logdir="logs-beta-vae"
 

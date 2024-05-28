@@ -18,18 +18,16 @@ source activate
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
-# Time taken: 5 hr 52 min
+# Time taken: unknown
 # ==============================================================================
 
-# Using a smaller grid search conditioned on results from slurm-info-vae-tune.sh
-
-# grid size is 64
-# size=4
-latent_dims=("4 8 16 32")
-# size=4
-betas=("0 0.01 0.1 1")
-# size=4
-gammas=("100 500 1000 5000")
+# grid size is 120
+# size=5
+latent_dims=("2 4 6 8 16")
+# size=2
+betas=("0 1")
+# size=12
+gammas=("1 2 5 10 20 50 100 200 500 1000 2000 5000")
 
 logdir="logs-info-vae-augment"
 

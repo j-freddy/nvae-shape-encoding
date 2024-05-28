@@ -18,22 +18,19 @@ source activate
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
-# Time taken: 8 hr 31 min
+# Time taken: unknown
 # ==============================================================================
 
 # Try beta=1 at least, as a beta<1 means the expression is not guaranteed to be
 # a lower bound
 
-# Using a coarser grid search than beta-VAE due to the extra gamma
-# hyperparameter
-
-# grid size is 224
-# size=4
-latent_dims=("4 8 16 32")
-# size=7
-betas=("0 0.01 0.05 0.1 0.5 1 5")
-# size=8
-gammas=("1 5 10 50 100 500 1000 5000")
+# grid size is 120
+# size=5
+latent_dims=("2 4 6 8 16")
+# size=2
+betas=("0 1")
+# size=12
+gammas=("1 2 5 10 20 50 100 200 500 1000 2000 5000")
 
 logdir="logs-info-vae"
 
