@@ -18,6 +18,10 @@ source activate
 # VAE ACDC: Grid search on beta (KL), gamma (KL[q(z) || p(z)]) and latent dim
 # hyperparameters.
 #
+# Note: A larger range of hyperparameters has been previously tuned (e.g. latent
+# dim=32). This is the most recent grid search conditioned on previous optimal
+# results. In particular, beta seems to have little effect.
+#
 # Time taken: unknown
 # ==============================================================================
 

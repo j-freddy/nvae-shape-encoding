@@ -17,6 +17,10 @@ source activate
 # [VAE Tune]
 # VAE ACDC: Grid search on beta (KL) and latent dim hyperparameters.
 #
+# Note: A larger range of hyperparameters has been previously tuned (e.g. latent
+# dim=32). This is the most recent grid search conditioned on previous optimal
+# results.
+#
 # Time taken: unknown
 # ==============================================================================
 

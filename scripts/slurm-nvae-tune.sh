@@ -16,30 +16,28 @@ source activate
 # ==============================================================================
 # [NVAE Tune]
 # NVAE ACDC: Grid search on hyperparameters: project channel size, warmup steps,
-# beta values.
+# beta values. With z_channels=20.
 #
-# Time taken: 44 hr 19 min
+# Note: A larger range of hyperparameters has been previously tuned (e.g. 500,
+# 3210 warmup steps and much lower beta values). This is the most recent grid
+# search conditioned on previous optimal results.
+#
+# Time taken: unknown
 # ==============================================================================
 
-# grid size is 162
+# grid size is 54
 # size=2
 projected_channels_list=("8 16")
+# size=1 (5350 is 214*25 so first 25 epochs)
+warmup_steps_list=("5350")
 # size=3
-warmup_steps_list=("500 1500 5000")
+betas0=("500000 1500000 5000000")
 # size=3
-betas0=("1 10 100")
+betas1=("250000 750000 2500000")
 # size=3
-betas1=("10 100 1000")
-# size=3
-betas2=("200 2000 20000")
+beta2=("500000 1500000 5000000")
 
-# Uncomment for testing
-# warmup_steps_list=("500")
-# betas0=("1")
-# betas1=("10")
-# betas2=("200")
-
-logdir="logs-nvae"
+logdir="logs-nvae-latent-20"
 
 # Train
 
@@ -56,8 +54,9 @@ do
                     model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
                     # Train
                     python -m arch.nvae.train \
-                        --epochs 35 \
+                        --epochs 100 \
                         --projected_channels $projected_channels \
+                        --z_channels 20 \
                         --warmup_steps $warmup_steps \
                         --beta0 $beta0 \
                         --beta1 $beta1 \
