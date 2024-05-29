@@ -262,9 +262,11 @@ class Decoder(nn.Module):
                     latent_repr_p = self.samplers[idx_dec - 1](x)
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    # Distribution
+                    # Generation is conditioned on z drawn from topmost
+                    # (standard Gaussian) prior only
+                    # Subsequent z's are just softclamped mu_p
                     distr = Normal(mu_p, logsig_p)
-                    z = distr.sample()
+                    z = distr.sample(deterministic=False)
 
                 x = cell(x, z)
                 

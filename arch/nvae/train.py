@@ -27,6 +27,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--z_channels",
+        type=int,
+        help="Number of channels in the latent space at every scale.",
+        default=20,
+    )
+    
+    parser.add_argument(
         "--warmup_steps",
         type=int,
         help="Number of steps for KL divergence linear deterministic warmup.",
@@ -105,6 +112,7 @@ def main(flags: argparse.Namespace):
     model = NVAE(
         in_channels=num_classes,
         initial_channels=flags.projected_channels,
+        z_channels=flags.z_channels,
         max_epochs=flags.epochs,
         beta_per_scale=[flags.beta0, flags.beta1, flags.beta2],
         kl_warmup_steps=flags.warmup_steps,
