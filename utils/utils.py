@@ -217,7 +217,7 @@ def fid_resnet(
     device: torch.device,
 ):
     # TODO Do not hardcode
-    path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    path = "logs-simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
     
     # Load pretrained SimCLR model
     resnet_model = load_simclr_backbone(path)
