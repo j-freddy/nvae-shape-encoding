@@ -25,8 +25,6 @@ source activate
 # Time taken: unknown
 # ==============================================================================
 
-echo "Starting NVAE tune..."
-
 # grid size is 54
 # size=2
 projected_channels_list=("8 16")
@@ -37,30 +35,23 @@ betas0=("500000 1500000 5000000")
 # size=3
 betas1=("250000 750000 2500000")
 # size=3
-beta2=("500000 1500000 5000000")
+betas2=("500000 1500000 5000000")
 
 logdir="logs-nvae-latent-20"
-
-echo "Grid search set up."
 
 # Train
 
 for projected_channels in $projected_channels_list
 do
-    echo "Loop 1"
     for warmup_steps in $warmup_steps_list
     do
-        echo "Loop 2"
         for beta0 in $betas0
         do
-            echo "Loop 3"
             for beta1 in $betas1
             do
-                echo "Loop 4"
                 for beta2 in $betas2
                 do
                     model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
-                    echo "Training model: $model_name"
                     # Train
                     python -m arch.nvae.train \
                         --epochs 100 \
