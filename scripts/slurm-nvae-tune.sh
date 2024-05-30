@@ -25,6 +25,8 @@ source activate
 # Time taken: unknown
 # ==============================================================================
 
+echo "Starting NVAE tune..."
+
 # grid size is 54
 # size=2
 projected_channels_list=("8 16")
