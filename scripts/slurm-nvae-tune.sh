@@ -41,19 +41,26 @@ beta2=("500000 1500000 5000000")
 
 logdir="logs-nvae-latent-20"
 
+echo "Grid search set up."
+
 # Train
 
 for projected_channels in $projected_channels_list
 do
+    echo "Loop 1"
     for warmup_steps in $warmup_steps_list
     do
+        echo "Loop 2"
         for beta0 in $betas0
         do
+            echo "Loop 3"
             for beta1 in $betas1
             do
+                echo "Loop 4"
                 for beta2 in $betas2
                 do
                     model_name="pc-${projected_channels}-ws-${warmup_steps}-b0-${beta0}-b1-${beta1}-b2-${beta2}"
+                    echo "Training model: $model_name"
                     # Train
                     python -m arch.nvae.train \
                         --epochs 100 \
