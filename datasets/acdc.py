@@ -28,6 +28,8 @@ class ACDCMaskDataset(Dataset):
                 scale=(0.8, 1.0),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
+            # transforms.ToTensor(),
+            # transforms.Normalize((0.5,), (0.5,)),
         ])
     
     def __len__(self):

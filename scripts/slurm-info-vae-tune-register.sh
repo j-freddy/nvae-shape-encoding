@@ -22,7 +22,7 @@ source activate
 # dim=32). This is the most recent grid search conditioned on previous optimal
 # results. In particular, beta seems to have little effect.
 #
-# Time taken: unknown
+# Time taken: 9 hr 6 min
 # ==============================================================================
 
 # grid size is 120

@@ -59,7 +59,7 @@ def view_cifar10():
 
     samples: tuple[torch.Tensor, torch.Tensor] = next(iter(loader_test))
     images, _ = samples
-    show_samples(images, ncol=8, figsize=(8, 4))
+    show_samples(images, ncol=8, figsize=(8, 2))
 
 def view_acdc():
     # Seed
@@ -97,7 +97,7 @@ def view_acdc():
         # Or recombine the channels
         samples = torch.argmax(samples, dim=1).unsqueeze(1)
     
-    show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 4))
+    show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 2))
 
 def main(flags: argparse.Namespace):
     # Setup device
