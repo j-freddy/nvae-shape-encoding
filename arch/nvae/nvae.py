@@ -9,7 +9,8 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.utils import discretise, fid_manual, fid_resnet, show_samples
+from utils.eval import fid_resnet
+from utils.utils import discretise, show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -278,14 +279,6 @@ class NVAE(L.LightningModule):
         
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
-
-        fid_value = fid_manual(
-            feats,
-            discretise(feats_fake),
-            device=self.device,
-        )
-
-        self.log("fid", fid_value)
         
         fid_value_resnet = fid_resnet(
             feats,

@@ -6,7 +6,8 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.utils import discretise, fid_manual, fid_resnet, show_samples
+from utils.eval import fid_resnet
+from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -175,14 +176,6 @@ class VAE(L.LightningModule):
         generations = torch.argmax(x_fake_logits[:40], dim=1).unsqueeze(1)
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
-        
-        fid_value = fid_manual(
-            x,
-            discretise(x_fake_logits),
-            device=self.device,
-        )
-        
-        self.log("fid", fid_value)
         
         fid_value_resnet = fid_resnet(
             x,
