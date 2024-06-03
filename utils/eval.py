@@ -92,3 +92,18 @@ def fid_resnet(
         covm_real_fake = covm_real_fake.real
 
     return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
+
+def get_samples_and_reconstructions(x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+    reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+    samples = torch.argmax(x, dim=1).unsqueeze(1)
+
+    # Interleave samples and reconstructions
+    batch_size, num_channels, width, height = samples.shape
+    assert width == height
+    samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
+    
+    for i in range(samples.shape[0]):
+        samples_and_reconstructions[i * 2] = samples[i]
+        samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
+    
+    return samples_and_reconstructions

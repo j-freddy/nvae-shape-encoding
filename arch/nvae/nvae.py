@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.eval import fid_resnet
+from utils.eval import fid_resnet, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
 class NVAE(L.LightningModule):
@@ -248,21 +248,9 @@ class NVAE(L.LightningModule):
         self.log_generations_and_fid(feats)
 
     def log_reconstructions(self, x: torch.Tensor):
-        # TODO This is mostly duplicate code from VAE class
-        
         x_hat, _, _, _, _ = self(x)
 
-        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
-        samples = torch.argmax(x, dim=1).unsqueeze(1)
-
-        # Interleave samples and reconstructions
-        batch_size, num_channels, width, height = samples.shape
-        assert width == height
-        samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
-        
-        for i in range(samples.shape[0]):
-            samples_and_reconstructions[i * 2] = samples[i]
-            samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
+        samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat)
         
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
