@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.eval import fid_resnet, get_samples_and_reconstructions
+from utils.eval import frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
 class NVAE(L.LightningModule):
@@ -245,17 +245,16 @@ class NVAE(L.LightningModule):
         self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(feats[:20])
-        self.log_generations_and_fid(feats)
+        self.log_generations_and_frds(feats)
 
     def log_reconstructions(self, x: torch.Tensor):
         x_hat, _, _, _, _ = self(x)
 
         samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat)
-        
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
-    def log_generations_and_fid(self, feats: torch.Tensor):
+    def log_generations_and_frds(self, feats: torch.Tensor):
         num_samples, _, _, _ = feats.shape
         
         # Generate probabilistic segmentation maps
@@ -264,14 +263,13 @@ class NVAE(L.LightningModule):
 
         # Discretise probabilistic map then view generations
         generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
-        
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value_resnet = fid_resnet(
+        frds_value = frds(
             feats,
             discretise(feats_fake),
             device=self.device,
         )
 
-        self.log("fid_resnet", fid_value_resnet)
+        self.log("frds", frds_value)

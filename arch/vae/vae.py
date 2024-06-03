@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.eval import fid_resnet, get_samples_and_reconstructions
+from utils.eval import frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
@@ -142,18 +142,17 @@ class VAE(L.LightningModule):
         self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(x[:20])
-        self.log_generations_and_fid(x)
+        self.log_generations_and_frds(x)
         self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
         _, _, _, x_hat_logits = self(x)
 
         samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat_logits)
-        
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
-    def log_generations_and_fid(self, x: torch.Tensor):
+    def log_generations_and_frds(self, x: torch.Tensor):
         num_samples, _, _, _ = x.shape
 
         # Sample from latent space
@@ -167,13 +166,13 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value_resnet = fid_resnet(
+        frds_value = frds(
             x,
             discretise(x_fake_logits),
             device=self.device,
         )
 
-        self.log("fid_resnet", fid_value_resnet)
+        self.log("frds", frds_value)
     
     def log_lerp(self, x: torch.Tensor):
         """

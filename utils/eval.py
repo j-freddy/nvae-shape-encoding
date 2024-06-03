@@ -9,10 +9,10 @@ from utils.utils import one_hot_to_image
 
 def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     """
-    Deprecated. Use fid_resnet instead.
+    Deprecated. Use frds() instead.
     
     Reason: This pipeline to evaluate generation quality does not align with
-    empirical analysis as well as fid_resnet.
+    empirical analysis as well as FRDS.
     """
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
@@ -58,7 +58,7 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
     return torch.cat(embeddings, dim=0)
     
 
-def fid_resnet(
+def frds(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
     device: torch.device,

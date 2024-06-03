@@ -55,7 +55,7 @@ def main(flags: argparse.Namespace):
         register_alignment=flags.register_alignment,
         augment_rotation_test=flags.augment,
     )
-    # TODO Bit hacky but I want to use 1 batch only to calculate FID
+    # TODO Bit hacky but I want to use 1 batch only to calculate FRDS
     data_module.batch_size = len(data_module.data_test)
     
     # Reseed after preprocessing data
@@ -72,7 +72,7 @@ def main(flags: argparse.Namespace):
     model_name = flags.model_path.split("/")[2]
 
     trainer = L.Trainer(
-        # Using CPU for testing as FID calculation with 1 large batch can give
+        # Using CPU for testing as FRDS calculation with 1 large batch can give
         # OOM error (script runs ~1 min on CPU)
         accelerator="cpu",
         devices="auto",
