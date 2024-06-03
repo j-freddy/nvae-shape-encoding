@@ -41,23 +41,23 @@ python -m utils.data_viewer --dataset acdc
 # Train a VAE model with good configurations (~10 minutes)
 python -m arch.vae.train \
     --epochs 50 \
-    --latent_dim 8 \
-    --beta 0.1 \
-    --gamma 1000 \
+    --latent_dim 6 \
+    --beta 0 \
+    --gamma 200 \
     --loss_reg info_vae \
-    --augment
+    --register_alignment
 # Train a NVAE model with good configurations (~80 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 16 \
     --warmup_steps 5350 \
-    --beta0 5120000 \
-    --beta1 1280000 \
-    --beta2 3200000
+    --beta0 1500000 \
+    --beta1 250000 \
+    --beta2 1500000
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
-python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --augment
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --register_alignment
 python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
 ```
 
