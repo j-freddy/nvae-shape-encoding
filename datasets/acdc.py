@@ -22,17 +22,16 @@ class ACDCMaskDataset(Dataset):
         
         # Colour jitter and Gaussian blur is not sensible for segmentation masks
         self.simclr_pipeline = transforms.Compose([
-            transforms.RandomRotation(degrees=180),
+            transforms.RandomRotation(degrees=30),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
             transforms.RandomResizedCrop(
                 size=ACDC.WIDTH,
                 scale=(0.8, 1.0),
-                ratio=(1, 1),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            # TODO Elastic deformation
-            # Do not normalise as colours are strictly RGB
-            # Normalise means [0, 255] -> [-1, 509]
+            # transforms.ToTensor(),
+            # transforms.Normalize((0.5,), (0.5,)),
         ])
     
     def __len__(self) -> int:
