@@ -38,7 +38,7 @@ def main(flags: argparse.Namespace):
     
     # Load data
     data_module = ACDCMaskDataModule(batch_size=20)
-    # TODO Bit hacky but I want to use 1 batch only to calculate FID
+    # TODO Bit hacky but I want to use 1 batch only to calculate FRDS
     data_module.batch_size = len(data_module.data_test)
     
     # Reseed after preprocessing data
@@ -51,7 +51,7 @@ def main(flags: argparse.Namespace):
     model_name = flags.model_path.split("/")[2]
 
     trainer = L.Trainer(
-        # Using CPU for testing as FID calculation with 1 large batch can give
+        # Using CPU for testing as FRDS calculation with 1 large batch can give
         # OOM error (script runs ~1 min on CPU)
         accelerator="cpu",
         devices="auto",

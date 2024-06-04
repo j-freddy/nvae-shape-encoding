@@ -6,7 +6,8 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.utils import discretise, fid_manual, fid_resnet, show_samples
+from utils.eval import frds, get_samples_and_reconstructions
+from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
     """
@@ -141,28 +142,17 @@ class VAE(L.LightningModule):
         self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(x[:20])
-        self.log_generations_and_fid(x)
+        self.log_generations_and_frds(x)
         self.log_lerp(x[:20])
     
     def log_reconstructions(self, x: torch.Tensor):
         _, _, _, x_hat_logits = self(x)
 
-        reconstructions = torch.argmax(x_hat_logits, dim=1).unsqueeze(1)
-        samples = torch.argmax(x, dim=1).unsqueeze(1)
-
-        # Interleave samples and reconstructions
-        batch_size, num_channels, width, height = samples.shape
-        assert width == height
-        samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
-        
-        for i in range(samples.shape[0]):
-            samples_and_reconstructions[i * 2] = samples[i]
-            samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
-        
+        samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat_logits)
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
-    def log_generations_and_fid(self, x: torch.Tensor):
+    def log_generations_and_frds(self, x: torch.Tensor):
         num_samples, _, _, _ = x.shape
 
         # Sample from latent space
@@ -176,21 +166,13 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value = fid_manual(
-            x,
-            discretise(x_fake_logits),
-            device=self.device,
-        )
-        
-        self.log("fid", fid_value)
-        
-        fid_value_resnet = fid_resnet(
+        frds_value = frds(
             x,
             discretise(x_fake_logits),
             device=self.device,
         )
 
-        self.log("fid_resnet", fid_value_resnet)
+        self.log("frds", frds_value)
     
     def log_lerp(self, x: torch.Tensor):
         """

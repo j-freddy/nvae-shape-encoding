@@ -9,6 +9,12 @@ SEED = 1969
 
 @dataclass
 class CIFAR10:
+    """
+    Deprecated. For initial experimentation / early debugging. Main dataset is
+    ACDC.
+    
+    CIFAR-10 constants.
+    """
     class DIR:
         VAE = "vae_cifar10"
         NVAE = "nvae_cifar10"
@@ -16,6 +22,10 @@ class CIFAR10:
 
 @dataclass
 class ACDC:
+    """
+    ACDC constants.
+    """
+    WIDTH = 128
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"

@@ -59,9 +59,9 @@ if __name__ == '__main__':
     # dfs = filter_entries(dfs)
 
     for label, df in zip(labels, dfs):
-        # Filter all rows with fid_resnet >= 100
-        df = df[df["fid_resnet"] < 100]
-        plt.scatter(df["fid_resnet"], df["test_recon_loss"], alpha=0.5, label=label)
+        # Filter all rows with frds >= 100
+        df = df[df["frds"] < 100]
+        plt.scatter(df["frds"], df["test_recon_loss"], alpha=0.5, label=label)
     
     plt.xlabel("FID ResNet")
     plt.ylabel("Reconstruction Loss")

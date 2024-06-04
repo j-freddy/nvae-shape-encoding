@@ -9,7 +9,9 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.utils import discretise, fid_manual, fid_resnet, show_samples
+from const import ACDC
+from utils.eval import frds, get_samples_and_reconstructions
+from utils.utils import discretise, show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -42,9 +44,7 @@ class NVAE(L.LightningModule):
         super().__init__()
         
         self.save_hyperparameters()
-        
-        # TODO Do not hardcode this
-        self.img_width = 128
+        self.img_width = ACDC.WIDTH
         
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
@@ -244,29 +244,16 @@ class NVAE(L.LightningModule):
         self.log("test_recon_loss", recon_loss)
 
         self.log_reconstructions(feats[:20])
-        self.log_generations_and_fid(feats)
+        self.log_generations_and_frds(feats)
 
     def log_reconstructions(self, x: torch.Tensor):
-        # TODO This is mostly duplicate code from VAE class
-        
         x_hat, _, _, _, _ = self(x)
 
-        reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
-        samples = torch.argmax(x, dim=1).unsqueeze(1)
-
-        # Interleave samples and reconstructions
-        batch_size, num_channels, width, height = samples.shape
-        assert width == height
-        samples_and_reconstructions = torch.empty(batch_size * 2, num_channels, width, height)
-        
-        for i in range(samples.shape[0]):
-            samples_and_reconstructions[i * 2] = samples[i]
-            samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
-        
+        samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat)
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
-    def log_generations_and_fid(self, feats: torch.Tensor):
+    def log_generations_and_frds(self, feats: torch.Tensor):
         num_samples, _, _, _ = feats.shape
         
         # Generate probabilistic segmentation maps
@@ -275,22 +262,13 @@ class NVAE(L.LightningModule):
 
         # Discretise probabilistic map then view generations
         generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
-        
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
-
-        fid_value = fid_manual(
-            feats,
-            discretise(feats_fake),
-            device=self.device,
-        )
-
-        self.log("fid", fid_value)
         
-        fid_value_resnet = fid_resnet(
+        frds_value = frds(
             feats,
             discretise(feats_fake),
             device=self.device,
         )
 
-        self.log("fid_resnet", fid_value_resnet)
+        self.log("frds", frds_value)
