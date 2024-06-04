@@ -2,6 +2,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from const import ACDC
+
 class ACDCMaskDataset(Dataset):
     def __init__(
         self,
@@ -20,22 +22,23 @@ class ACDCMaskDataset(Dataset):
         
         # Colour jitter and Gaussian blur is not sensible for segmentation masks
         self.simclr_pipeline = transforms.Compose([
-            transforms.RandomRotation(degrees=30),
+            transforms.RandomRotation(degrees=180),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
             transforms.RandomResizedCrop(
-                size=128,
+                size=ACDC.WIDTH,
                 scale=(0.8, 1.0),
+                ratio=(1, 1),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            # transforms.ToTensor(),
-            # transforms.Normalize((0.5,), (0.5,)),
+            # TODO Elastic deformation
+            # Do not normalise as colours are strictly RGB
+            # Normalise means [0, 255] -> [-1, 509]
         ])
     
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.masks)
 
-    def _augment_mask(self, mask: torch.Tensor, pipeline: transforms.Compose):
+    def _augment_mask(self, mask: torch.Tensor, pipeline: transforms.Compose) -> torch.Tensor:
         # Do not apply augmentation to background class
         augmented_mask_no_bg = pipeline(mask[1:, :, :])
         
@@ -52,7 +55,7 @@ class ACDCMaskDataset(Dataset):
         
         return mask
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> torch.Tensor:
         # 4x128x128
         mask = self.masks[idx]
 

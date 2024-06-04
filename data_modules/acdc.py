@@ -119,7 +119,7 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
             (width + padding, width + padding, num_slices),
             mask_name="mask",
         ),
-        tio.Resize((128, 128, num_slices)),
+        tio.Resize((ACDC.WIDTH, ACDC.WIDTH, num_slices)),
         tio.RescaleIntensity((0, 1)),
     ])
     

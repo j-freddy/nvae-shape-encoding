@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
+from const import ACDC
 from utils.eval import frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
@@ -43,9 +44,7 @@ class NVAE(L.LightningModule):
         super().__init__()
         
         self.save_hyperparameters()
-        
-        # TODO Do not hardcode this
-        self.img_width = 128
+        self.img_width = ACDC.WIDTH
         
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
