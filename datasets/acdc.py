@@ -29,11 +29,11 @@ class ACDCMaskDataset(Dataset):
                 ratio=(1, 1),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            transforms.ElasticTransform(
-                alpha=300.0,
-                sigma=15.0,
-                interpolation=transforms.InterpolationMode.NEAREST,
-            ),
+            # transforms.ElasticTransform(
+            #     alpha=300.0,
+            #     sigma=15.0,
+            #     interpolation=transforms.InterpolationMode.NEAREST,
+            # ),
             # Do not normalise as colours are strictly RGB
             # Normalise means [0, 255] -> [-1, 509]
         ])
