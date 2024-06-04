@@ -19,7 +19,7 @@ class ACDCMaskDataset(Dataset):
         self.augmentation_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=30),
         ])
-        
+
         self.simclr_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=180),
             transforms.RandomHorizontalFlip(),
@@ -29,7 +29,11 @@ class ACDCMaskDataset(Dataset):
                 ratio=(1, 1),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            # TODO Elastic deformation
+            transforms.ElasticTransform(
+                alpha=300.0,
+                sigma=15.0,
+                interpolation=transforms.InterpolationMode.NEAREST,
+            ),
             # Do not normalise as colours are strictly RGB
             # Normalise means [0, 255] -> [-1, 509]
         ])
