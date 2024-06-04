@@ -80,7 +80,7 @@ def main(flags: argparse.Namespace):
             default_hp_metric=False,
         ),
         callbacks=[
-            ModelCheckpoint(monitor="acc_top5", mode="max"),
+            ModelCheckpoint(monitor="acc_top1", mode="max"),
             LearningRateMonitor("epoch"),
         ]
     )
