@@ -101,11 +101,11 @@ class VAE(L.LightningModule):
         Given an input tensor, return its latent representation z by passing it
         through the encoder.
         """
-        mu, logvar = self.encoder(x)
+        mu, logvar = self.encoder(2 * x - 1.0)
         return self._reparameterise(mu, logvar)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar = self.encoder(x)
+        mu, logvar = self.encoder(2 * x - 1.0)
         z = self._reparameterise(mu, logvar)
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits

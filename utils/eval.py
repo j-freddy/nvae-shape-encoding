@@ -42,7 +42,6 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
     def encode(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
-            # x * 2 - 1 is equivalent to transforms.Normalize((0.5,), (0.5,))
             x = one_hot_to_image(x) * 2 - 1
             print(x.unique())
             # Values should be preprocessed as 0, 1 so after scaling they should

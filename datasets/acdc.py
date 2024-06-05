@@ -5,6 +5,19 @@ from torchvision import transforms
 from const import ACDC
 
 class ACDCMaskDataset(Dataset):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) masks dataset.
+    
+    See ACDCMaskDataModule docstring.
+    
+    Intensity values of unprocessed masks are [0, 1]. This is rescaled to [-1,
+    1] in the SimCLR pipeline only, for stability. In practice, the values will
+    be rescaled to [-1, 1] for training VAEs as well, but it is not done in this
+    preprocessing step as the [0, 1] intensity values are needed in calculating
+    cross-entropy loss. Therefore for VAEs, the rescaling is done in the forward
+    passes instead (i.e. x := 2 * x - 1.0).
+    """
+
     def __init__(
         self,
         masks: torch.Tensor,
@@ -60,6 +73,9 @@ class ACDCMaskDataset(Dataset):
     def __getitem__(self, idx: int) -> torch.Tensor:
         # 4x128x128
         mask = self.masks[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
 
         if self.augment_rotation:
             assert not self.augment_simclr
@@ -67,8 +83,6 @@ class ACDCMaskDataset(Dataset):
         
         if self.augment_simclr:
             assert not self.augment_rotation
-            # Values should be preprocessed as 0, 1 before passing into pipeline
-            assert set(mask.unique().tolist()).issubset({0, 1})
             return [self.simclr_pipeline(mask) for _ in range(2)]
 
         return mask
