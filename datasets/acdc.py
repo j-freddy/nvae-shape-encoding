@@ -34,8 +34,7 @@ class ACDCMaskDataset(Dataset):
             #     sigma=15.0,
             #     interpolation=transforms.InterpolationMode.NEAREST,
             # ),
-            # Do not normalise as colours are strictly RGB
-            # Normalise means [0, 255] -> [-1, 509]
+            transforms.Normalize((0.5,), (0.5,)),
         ])
     
     def __len__(self) -> int:
@@ -68,6 +67,8 @@ class ACDCMaskDataset(Dataset):
         
         if self.augment_simclr:
             assert not self.augment_rotation
+            # Values should be preprocessed as 0, 1 before passing into pipeline
+            assert set(mask.unique().tolist()).issubset({0, 1})
             return [self.simclr_pipeline(mask) for _ in range(2)]
 
         return mask

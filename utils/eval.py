@@ -3,6 +3,7 @@ from scipy.linalg import sqrtm
 import torch
 import torch.nn as nn
 from torchmetrics.image.fid import FrechetInceptionDistance
+from torchvision import transforms
 
 from arch.simclr.utils import load_simclr_backbone
 from utils.utils import one_hot_to_image
@@ -38,10 +39,15 @@ def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.
     return fid.compute()
 
 def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
-    def encode(x: torch.Tensor, model: nn.Module, device: torch.device):
+    def encode(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
-            x = one_hot_to_image(x)
+            # x * 2 - 1 is equivalent to transforms.Normalize((0.5,), (0.5,))
+            x = one_hot_to_image(x) * 2 - 1
+            print(x.unique())
+            # Values should be preprocessed as 0, 1 so after scaling they should
+            # be -1, 1
+            assert set(x.unique().tolist()).issubset({-1, 1})
             feats = model(x)
 
         return feats.detach().cpu()
@@ -52,7 +58,6 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
     x_split = torch.split(x, batch_size, dim=0)
 
     for x_batch in x_split:
-        x_batch = x_batch * 2 - 1
         embeddings.append(encode(x_batch, model, device))
         
     return torch.cat(embeddings, dim=0)
@@ -64,7 +69,7 @@ def frds(
     device: torch.device,
 ):
     # TODO Do not hardcode
-    path = "logs-simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
+    path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
     
     # Load pretrained SimCLR model
     resnet_model = load_simclr_backbone(path)
