@@ -43,7 +43,6 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
         with torch.no_grad():
             x = x.to(device)
             x = one_hot_to_image(x) * 2 - 1
-            print(x.unique())
             # Values should be preprocessed as 0, 1 so after scaling they should
             # be -1, 1
             assert set(x.unique().tolist()).issubset({-1, 1})
