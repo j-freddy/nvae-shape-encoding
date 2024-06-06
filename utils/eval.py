@@ -63,11 +63,11 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
 def frds(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
-    model_path: str,
+    resnet_path: str,
     device: torch.device,
 ):  
     # Load pretrained SimCLR model
-    resnet_model = load_simclr_backbone(model_path)
+    resnet_model = load_simclr_backbone(resnet_path)
     resnet_model = resnet_model.to(device)
 
     # Extract features for real images
@@ -83,7 +83,7 @@ def frds(
     mu_fake = fake_feats.mean(0)
     sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
 
-    # Compute FID score
+    # Compute Frechet score
     sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
     covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
     

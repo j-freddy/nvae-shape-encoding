@@ -173,7 +173,7 @@ class VAE(L.LightningModule):
         frds_value = frds(
             x,
             discretise(x_fake_logits),
-            path=resnet_path_elastic,
+            resnet_path=resnet_path_elastic,
             device=self.device,
         )
 
@@ -182,7 +182,7 @@ class VAE(L.LightningModule):
         frds_value = frds(
             x,
             discretise(x_fake_logits),
-            path=resnet_path,
+            resnet_path=resnet_path,
             device=self.device,
         )
 

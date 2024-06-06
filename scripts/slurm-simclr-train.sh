@@ -20,7 +20,7 @@ source activate
 # Time taken: 10 hr 2 min (33 min without elastic deformation)
 # ==============================================================================
 
-logdir="logs-simclr"
+logdir="logs"
 
 # Train
 python -m arch.simclr.train \

@@ -272,7 +272,7 @@ class NVAE(L.LightningModule):
         frds_value = frds(
             feats,
             discretise(feats_fake),
-            path=resnet_path_elastic,
+            resnet_path=resnet_path_elastic,
             device=self.device,
         )
 
@@ -281,7 +281,7 @@ class NVAE(L.LightningModule):
         frds_value = frds(
             feats,
             discretise(feats_fake),
-            path=resnet_path,
+            resnet_path=resnet_path,
             device=self.device,
         )
 
