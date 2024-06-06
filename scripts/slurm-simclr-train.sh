@@ -17,7 +17,7 @@ source activate
 # [SimCLR Train]
 # Pretrain a SimCLR model for evaluating generation quality.
 #
-# Time taken: 22 min
+# Time taken: 10 hr 2 min (33 min without elastic deformation)
 # ==============================================================================
 
 logdir="logs-simclr"
