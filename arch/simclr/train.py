@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(flags.logs, ACDC.DIR.VAE, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.SIMCLR, flags.model_name)
         
         if os.path.exists(model_dir):
             raise ValueError(f"Model {flags.model_name} already exists.")
@@ -80,7 +80,7 @@ def main(flags: argparse.Namespace):
             default_hp_metric=False,
         ),
         callbacks=[
-            ModelCheckpoint(monitor="acc_top5", mode="max"),
+            ModelCheckpoint(monitor="acc_top1", mode="max"),
             LearningRateMonitor("epoch"),
         ]
     )

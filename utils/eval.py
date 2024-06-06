@@ -38,10 +38,13 @@ def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.
     return fid.compute()
 
 def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
-    def encode(x: torch.Tensor, model: nn.Module, device: torch.device):
+    def encode(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
-            x = one_hot_to_image(x)
+            x = one_hot_to_image(x) * 2 - 1
+            # Values should be preprocessed as 0, 1 so after scaling they should
+            # be -1, 1
+            assert set(x.unique().tolist()).issubset({-1, 1})
             feats = model(x)
 
         return feats.detach().cpu()
@@ -52,7 +55,6 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
     x_split = torch.split(x, batch_size, dim=0)
 
     for x_batch in x_split:
-        x_batch = x_batch * 2 - 1
         embeddings.append(encode(x_batch, model, device))
         
     return torch.cat(embeddings, dim=0)
@@ -61,13 +63,11 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
 def frds(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
+    resnet_path: str,
     device: torch.device,
-):
-    # TODO Do not hardcode
-    path = "logs-simclr/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
-    
+):  
     # Load pretrained SimCLR model
-    resnet_model = load_simclr_backbone(path)
+    resnet_model = load_simclr_backbone(resnet_path)
     resnet_model = resnet_model.to(device)
 
     # Extract features for real images
@@ -83,7 +83,7 @@ def frds(
     mu_fake = fake_feats.mean(0)
     sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
 
-    # Compute FID score
+    # Compute Frechet score
     sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
     covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
     

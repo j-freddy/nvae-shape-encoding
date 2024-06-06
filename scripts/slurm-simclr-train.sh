@@ -17,13 +17,13 @@ source activate
 # [SimCLR Train]
 # Pretrain a SimCLR model for evaluating generation quality.
 #
-# Time taken: 22 min
+# Time taken: 10 hr 2 min (33 min without elastic deformation)
 # ==============================================================================
 
-logdir="logs-simclr"
+logdir="logs"
 
 # Train
 python -m arch.simclr.train \
     --epochs 200 \
-    --model_name resnet-18 \
+    --model_name resnet-18-v2 \
     --logs $logdir

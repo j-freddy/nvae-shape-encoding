@@ -80,7 +80,7 @@ def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
     Given a one-hot encoded segmentation map, return the image representation.
     The map can either be probabilistic or discrete.
     """
-    return x[:, 1:, :, :].float() * 255
+    return x[:, 1:, :, :].float()
 
 def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
     return torch.tanh(x.div(factor)) * factor

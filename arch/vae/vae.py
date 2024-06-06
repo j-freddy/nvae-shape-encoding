@@ -101,11 +101,11 @@ class VAE(L.LightningModule):
         Given an input tensor, return its latent representation z by passing it
         through the encoder.
         """
-        mu, logvar = self.encoder(x)
+        mu, logvar = self.encoder(2 * x - 1.0)
         return self._reparameterise(mu, logvar)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar = self.encoder(x)
+        mu, logvar = self.encoder(2 * x - 1.0)
         z = self._reparameterise(mu, logvar)
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits
@@ -166,9 +166,23 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
+        # TODO Do not hardcode
+        resnet_path_elastic = "logs/simclr_acdc/resnet-18-v2/checkpoints/epoch=199-step=1400.ckpt"
+        resnet_path = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
+        
         frds_value = frds(
             x,
             discretise(x_fake_logits),
+            resnet_path=resnet_path_elastic,
+            device=self.device,
+        )
+
+        self.log("frds-elastic", frds_value)
+        
+        frds_value = frds(
+            x,
+            discretise(x_fake_logits),
+            resnet_path=resnet_path,
             device=self.device,
         )
 

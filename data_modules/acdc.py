@@ -198,7 +198,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
 
 class ACDCDataModule(LightningDataModule):
     """
-    Automated Cardiac Diagnosis Challenge (ACDC) dataset.
+    Automated Cardiac Diagnosis Challenge (ACDC) data module.
     
     Data is preprocessed to crop to the bounding box around the heart and
     resized to 128x128xs where s is the number of slices. Intensity values are
@@ -223,9 +223,9 @@ class ACDCDataModule(LightningDataModule):
 
 class ACDCMaskDataModule(LightningDataModule):
     """
-    Automated Cardiac Diagnosis Challenge (ACDC) dataset.
+    Automated Cardiac Diagnosis Challenge (ACDC) masks data module.
     
-    See ACDCDataModule Docstring. This is a more lightweight version where each
+    See ACDCDataModule docstring. This is a more lightweight version where each
     data point only consists of the one-hot mask tensor values per slice
     (4x128x128).
     
@@ -236,7 +236,9 @@ class ACDCMaskDataModule(LightningDataModule):
     SimCLR augmentation is used for training SimCLR. It should also be applied
     during validation. Testing does not exist for pretraining and
     @augment_simclr_test should only be used to preview the data in the data
-    viewer.
+    viewer. For SimCLR only, intensity values are rescaled to [-1, 1] instead of
+    [0, 1] as per the norm. See ACDCMaskDataset docstring for more details on
+    that regard.
     """
     
     def __init__(
