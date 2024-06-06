@@ -3,7 +3,6 @@ from scipy.linalg import sqrtm
 import torch
 import torch.nn as nn
 from torchmetrics.image.fid import FrechetInceptionDistance
-from torchvision import transforms
 
 from arch.simclr.utils import load_simclr_backbone
 from utils.utils import one_hot_to_image
@@ -64,13 +63,11 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
 def frds(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
+    model_path: str,
     device: torch.device,
-):
-    # TODO Do not hardcode
-    path = "logs/simclr_acdc/resnet-18/checkpoints/epoch=18-step=133.ckpt"
-    
+):  
     # Load pretrained SimCLR model
-    resnet_model = load_simclr_backbone(path)
+    resnet_model = load_simclr_backbone(model_path)
     resnet_model = resnet_model.to(device)
 
     # Extract features for real images
