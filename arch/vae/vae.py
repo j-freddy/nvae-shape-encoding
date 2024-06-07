@@ -1,5 +1,6 @@
 import lightning as L
 from matplotlib import pyplot as plt
+from monai.losses.dice import DiceLoss
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -135,24 +136,30 @@ class VAE(L.LightningModule):
     
     def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-
-        # Compute loss
-        _, _, _, x_hat_logits = self(x)
-        recon_loss = self.reconstruction_loss(x, x_hat_logits)
-        self.log("test_recon_loss", recon_loss)
-
-        self.log_reconstructions(x[:20])
-        self.log_generations_and_frds(x)
+        self.log_reconstruction_metrics(x)
+        self.log_generation_metrics(x)
         self.log_lerp(x[:20])
     
-    def log_reconstructions(self, x: torch.Tensor):
+    def log_reconstruction_metrics(self, x: torch.Tensor):
         _, _, _, x_hat_logits = self(x)
-
-        samples_and_reconstructions = get_samples_and_reconstructions(x, x_hat_logits)
+        
+        # Compute reconstruction loss
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
+        self.log("test_recon_loss", recon_loss)
+        
+        # Compute Dice score
+        x_hat = torch.softmax(x_hat_logits, dim=1)
+        x_hat_onehot = discretise(x_hat)
+        dl = DiceLoss(reduction="mean", include_background=False)
+        dice_score = 1 - dl(input=x_hat_onehot, target=x)
+        self.log("dice_score", dice_score)
+        
+        # Visualise samples and reconstructions
+        samples_and_reconstructions = get_samples_and_reconstructions(x[:20], x_hat_logits[:20])
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
-    def log_generations_and_frds(self, x: torch.Tensor):
+    def log_generation_metrics(self, x: torch.Tensor):
         num_samples, _, _, _ = x.shape
 
         # Sample from latent space
