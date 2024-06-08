@@ -21,7 +21,7 @@ source activate
 # dim=32). This is the most recent grid search conditioned on previous optimal
 # results.
 #
-# Time taken: 7 hr 40 min
+# Time taken: 8 hr 3 min
 # ==============================================================================
 
 # grid size is 90
