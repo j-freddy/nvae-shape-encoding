@@ -47,8 +47,8 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "beta-vae"
-    metrics = ["fid", "frds", "test_recon_loss"]
+    log_subdir = "info-vae"
+    metrics = ["frds", "frds-elastic", "dice_score"]
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),
