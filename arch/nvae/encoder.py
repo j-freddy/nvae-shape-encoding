@@ -67,15 +67,15 @@ class Encoder(nn.Module):
     
     def __init__(
         self,
-        num_latent_scales: int,
-        num_groups_per_scale: list[int],
+        num_latent_layers: int,
+        num_groups_per_layer: list[int],
         initial_channels: int=64,
         z_channels: int=20,
         initial_downsample_factor: int=2,
     ):
         super().__init__()
         
-        assert len(num_groups_per_scale) == num_latent_scales
+        assert len(num_groups_per_layer) == num_latent_layers
         
         # Build preprocessing layers
         
@@ -103,8 +103,8 @@ class Encoder(nn.Module):
         
         num_channels = initial_channels
         
-        for s in range(num_latent_scales):
-            for g in range(num_groups_per_scale[s]):
+        for s in range(num_latent_layers):
+            for g in range(num_groups_per_layer[s]):
                 # Inverted residual cells
                 self.tower.append(EncoderResidualCell(num_channels))
                 self.tower.append(EncoderResidualCell(num_channels))
@@ -119,11 +119,11 @@ class Encoder(nn.Module):
                     )
                 )
                 
-                # Add enc combiner if not last group in last scale
-                if not (s == num_latent_scales - 1 and g == num_groups_per_scale[s] - 1):
+                # Add enc combiner if not last group in last layer
+                if not (s == num_latent_layers - 1 and g == num_groups_per_layer[s] - 1):
                     self.tower.append(EncoderCombinerCell(num_channels, num_channels))
         
-            if s < num_latent_scales - 1:
+            if s < num_latent_layers - 1:
                 # Downsample
                 self.tower.append(
                     nn.Conv2d(
@@ -175,7 +175,7 @@ class Encoder(nn.Module):
 
         x = self.compressor(x)
         
-        # Final x is not added as last group in last scale does not have a
+        # Final x is not added as last group in last layer does not have a
         # combiner cell
         
         if print_logs:

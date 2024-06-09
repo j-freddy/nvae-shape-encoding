@@ -21,8 +21,12 @@ class NVAE(L.LightningModule):
     This is an implementation of the framework proposed in [1], primarily based
     on details described in the paper and the official codebase.
     
-    Indexing of latent groups is as follows: 0 corresponds to the shallowest
-    group and n-1 corresponds to the topmost group, for n latent scales.
+    Note: The paper refers to each latent layer in the VAE as a "latent scale".
+    We will use the word "layer", as it is a more common term in hierarchical
+    model literature (e.g. Ladder VAE).
+    
+    Indexing of n latent layers is as follows: 0 corresponds to the shallowest
+    layer and n-1 corresponds to the topmost layer.
     
     [1]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
     Advances in neural information processing systems. 2020;33:19667-79.
@@ -33,13 +37,13 @@ class NVAE(L.LightningModule):
         in_channels: int=4,
         initial_channels: int=64,
         z_channels: int=20,
-        num_latent_scales: int=3,
-        # Topmost latent scale has fewest groups (i.e. 1)
-        # Shallowest latent scale has most groups (i.e. 4)
-        num_groups_per_scale: list[int]=[4, 2, 1],
+        num_latent_layers: int=3,
+        # Topmost layer has fewest groups (i.e. 1)
+        # Shallowest layer has most groups (i.e. 4)
+        num_groups_per_layer: list[int]=[4, 2, 1],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
-        beta_per_scale: list[float]=[1.0, 1.0, 1.0],
+        beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
     ):
         super().__init__()
@@ -57,19 +61,19 @@ class NVAE(L.LightningModule):
         )
         
         self.encoder = Encoder(
-            num_latent_scales=self.hparams.num_latent_scales,
-            num_groups_per_scale=self.hparams.num_groups_per_scale,
+            num_latent_layers=self.hparams.num_latent_layers,
+            num_groups_per_layer=self.hparams.num_groups_per_layer,
             initial_channels=self.hparams.initial_channels,
             z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
         
-        top_latent_dim = self._get_latent_dim(self.hparams.num_latent_scales - 1)
+        top_latent_dim = self._get_latent_dim(self.hparams.num_latent_layers - 1)
 
         self.decoder = Decoder(
-            num_latent_scales=self.hparams.num_latent_scales,
-            num_groups_per_scale=self.hparams.num_groups_per_scale[::-1],
-            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_scales - 1)),
+            num_latent_layers=self.hparams.num_latent_layers,
+            num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
+            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
@@ -103,7 +107,7 @@ class NVAE(L.LightningModule):
     
     def _get_latent_dim(self, layer: int) -> int:
         # Layer 0 is the shallowest layer
-        # Layer @(num_latent_scales - 1) is the deepest (topmost) layer
+        # Layer @(num_latent_layers - 1) is the deepest (topmost) layer
         return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
 
     def _get_layer_index(self, latent_dim: int) -> int:
@@ -154,7 +158,7 @@ class NVAE(L.LightningModule):
             kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
 
             # Weigh KL with beta
-            weighted_kl_div = self.hparams.beta_per_scale[layer_idx] * kl_div
+            weighted_kl_div = self.hparams.beta_per_layer[layer_idx] * kl_div
             weighted_kl_divs.append(weighted_kl_div)
             
             if log_components:

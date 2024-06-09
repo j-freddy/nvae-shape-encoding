@@ -82,10 +82,10 @@ class Decoder(nn.Module):
     
     def __init__(
         self,
-        num_latent_scales: int,
+        num_latent_layers: int,
         # This must be the reverse of the encoder, otherwise the shapes of
         # samples drawn from the encoder samplers will not match
-        num_groups_per_scale: list[int],
+        num_groups_per_layer: list[int],
         initial_channels: int=256,
         top_latent_shape: tuple[int, int]=(4, 4),
         z_channels: int=20,
@@ -94,7 +94,7 @@ class Decoder(nn.Module):
     ):
         super().__init__()
         
-        assert len(num_groups_per_scale) == num_latent_scales
+        assert len(num_groups_per_layer) == num_latent_layers
         
         self.z_channels = z_channels
         self.top_latent_shape = top_latent_shape
@@ -112,8 +112,8 @@ class Decoder(nn.Module):
         
         num_channels = initial_channels
         
-        for s in range(num_latent_scales):
-            for g in range(num_groups_per_scale[s]):
+        for s in range(num_latent_layers):
+            for g in range(num_groups_per_layer[s]):
                 if not (s == 0 and g == 0):
                     # Residual cells
                     # Official implementation uses mconv_e6k5g0
@@ -141,7 +141,7 @@ class Decoder(nn.Module):
                     ),
                 )
             
-            if s < num_latent_scales - 1:
+            if s < num_latent_layers - 1:
                 # Upsample
                 # Official implementation uses mconv_e6k5g0 with kernel size 5
                 self.tower.append(
@@ -183,7 +183,7 @@ class Decoder(nn.Module):
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         batch_size, _, _, _ = x.shape
         
-        # Sample mu, logsig of the topmost latent scale
+        # Sample mu, logsig of the topmost latent layer
         latent_repr_q = enc_samplers[0](x)
         mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
         # Approximate posterior for top-level
