@@ -44,10 +44,11 @@ if __name__ == '__main__':
     paths = [
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "beta-vae.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-adversarial-vae.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["beta-VAE", "InfoVAE"]
+    labels = ["beta-VAE", "InfoVAE", "InfoAdversarialVAE"]
     
     # Read data
     dfs = []
@@ -59,12 +60,14 @@ if __name__ == '__main__':
     # dfs = filter_entries(dfs)
 
     for label, df in zip(labels, dfs):
-        # Filter all rows with frds >= 100
-        df = df[df["frds"] < 100]
-        plt.scatter(df["frds"], df["test_recon_loss"], alpha=0.5, label=label)
+        # Filter all rows with frds >= 500
+        # df = df[df["frds"] < 500]
+        df.sort_values(by="dice_score", inplace=True, ascending=False)
+        print(df.head())
+        plt.scatter(df["frds"], df["dice_score"], alpha=0.5, label=label)
     
-    plt.xlabel("FID ResNet")
-    plt.ylabel("Reconstruction Loss")
+    plt.xlabel("FRDS")
+    plt.ylabel("Dice score")
     
     plt.tight_layout()
     plt.legend()
