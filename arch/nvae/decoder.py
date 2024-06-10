@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torchvision.ops as ops
@@ -158,21 +159,27 @@ class Decoder(nn.Module):
                 
                 num_channels //= 2
     
-        # Build postprocessing layers
+        # Build postprocessing modules
         
-        self.postprocess = nn.Sequential(
-            DecoderResidualCell(num_channels),
-            nn.ConvTranspose2d(
-                num_channels,
-                num_channels,
-                kernel_size=final_upsample_factor + 1,
-                stride=final_upsample_factor,
-                padding=1,
-                output_padding=1,
-                bias=False,
-            ),
-            DecoderResidualCell(num_channels),
-        )
+        postprocess_modules = []
+        num_postprocess_layers = int(math.log2(final_upsample_factor))
+        
+        for _ in range(num_postprocess_layers):
+            postprocess_modules.append(
+                nn.ConvTranspose2d(
+                    num_channels,
+                    num_channels,
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    output_padding=1,
+                    bias=False,
+                )
+            )
+            postprocess_modules.append(DecoderResidualCell(num_channels))
+            postprocess_modules.append(DecoderResidualCell(num_channels))
+        
+        self.postprocess = nn.Sequential(*postprocess_modules)
 
     def forward(
         self,
