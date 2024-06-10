@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--z_channels",
         type=int,
-        help="Number of channels in the latent space at every scale.",
+        help="Number of channels in the latent space at each layer.",
         default=20,
     )
     
@@ -114,7 +114,7 @@ def main(flags: argparse.Namespace):
         initial_channels=flags.projected_channels,
         z_channels=flags.z_channels,
         max_epochs=flags.epochs,
-        beta_per_scale=[flags.beta0, flags.beta1, flags.beta2],
+        beta_per_layer=[flags.beta0, flags.beta1, flags.beta2],
         kl_warmup_steps=flags.warmup_steps,
     )
     

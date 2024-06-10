@@ -197,7 +197,7 @@ options:
   --projected_channels PROJECTED_CHANNELS
                         Number of channels in the immediate space projected through the stem (and conditional coder).
   --z_channels Z_CHANNELS
-                        Number of channels in the latent space at every scale.
+                        Number of channels in the latent space at each layer.
   --warmup_steps WARMUP_STEPS
                         Number of steps for KL divergence linear deterministic warmup.
   --beta0 BETA0         Beta value for KL divergence corresponding to layer 0 (shallowest layer).
