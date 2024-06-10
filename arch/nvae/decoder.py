@@ -266,7 +266,7 @@ class Decoder(nn.Module):
                     # (standard Gaussian) prior only
                     # Subsequent z's are just softclamped mu_p
                     distr = Normal(mu_p, logsig_p)
-                    z = distr.sample(deterministic=True)
+                    z = distr.sample(deterministic=False)
 
                 x = cell(x, z)
                 
