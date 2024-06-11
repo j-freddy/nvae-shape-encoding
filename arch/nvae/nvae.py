@@ -196,7 +196,11 @@ class NVAE(L.LightningModule):
         
         return recon_loss + weighted_kl_div
     
-    def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+    def forward(
+        self,
+        feats: torch.Tensor,
+        test: bool=False,
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
@@ -208,7 +212,13 @@ class NVAE(L.LightningModule):
         enc_samplers = self.encoder.samplers[::-1]
         
         # Pass through decoder
-        x_hat, qs, ps, log_qs, log_ps = self.decoder(x, xs, enc_combiner_cells, enc_samplers)
+        x_hat, qs, ps, log_qs, log_ps = self.decoder(
+            x,
+            xs,
+            enc_combiner_cells,
+            enc_samplers,
+            test=test,
+        )
         
         # Compute logits
         feats_hat: torch.Tensor = self.conditional_coder(x_hat)
@@ -246,7 +256,7 @@ class NVAE(L.LightningModule):
         self.log_generations_and_frds(feats)
 
     def log_reconstructions(self, x: torch.Tensor):
-        x_hat_logits, _, _, _, _ = self(x)
+        x_hat_logits, _, _, _, _ = self(x, test=True)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(x, x_hat_logits)

@@ -180,6 +180,7 @@ class Decoder(nn.Module):
         xs: torch.Tensor,
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
+        test: bool=False,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         batch_size, _, _, _ = x.shape
         
@@ -219,8 +220,7 @@ class Decoder(nn.Module):
                     mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
                     # Residual distribution
                     distr = Normal(mu_p + mu_q, logsig_p + logsig_q)
-                    z = distr.sample()
-                    
+                    z = distr.sample(deterministic=test)
                     qs.append(distr)
                     log_qs.append(distr.log_p(z))
                     
@@ -266,7 +266,7 @@ class Decoder(nn.Module):
                     # (standard Gaussian) prior only
                     # Subsequent z's are just softclamped mu_p
                     distr = Normal(mu_p, logsig_p)
-                    z = distr.sample(deterministic=False)
+                    z = distr.sample()
 
                 x = cell(x, z)
                 
