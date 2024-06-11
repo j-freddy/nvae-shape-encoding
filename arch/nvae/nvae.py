@@ -277,17 +277,7 @@ class NVAE(L.LightningModule):
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
         # TODO Do not hardcode
-        resnet_path_elastic = "logs/simclr_acdc/resnet-18-v2/checkpoints/epoch=199-step=1400.ckpt"
         resnet_path = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-        
-        frds_value = frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=resnet_path_elastic,
-            device=self.device,
-        )
-
-        self.log("frds-elastic", frds_value)
         
         frds_value = frds(
             feats,
