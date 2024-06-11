@@ -73,7 +73,7 @@ class NVAE(L.LightningModule):
         self.decoder = Decoder(
             num_latent_layers=self.hparams.num_latent_layers,
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
-            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
+            initial_channels=initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,

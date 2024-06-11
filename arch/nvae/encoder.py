@@ -84,19 +84,23 @@ class Encoder(nn.Module):
         preprocess_modules = []
         num_preprocess_layers = int(math.log2(initial_downsample_factor))
         
+        num_channels = initial_channels
+        
         for _ in range(num_preprocess_layers):
-            preprocess_modules.append(EncoderResidualCell(initial_channels))
-            preprocess_modules.append(EncoderResidualCell(initial_channels))
+            preprocess_modules.append(EncoderResidualCell(num_channels))
+            preprocess_modules.append(EncoderResidualCell(num_channels))
             preprocess_modules.append(
                 nn.Conv2d(
-                    initial_channels,
-                    initial_channels,
+                    num_channels,
+                    num_channels * 2,
                     kernel_size=3,
                     stride=2,
                     padding=1,
                     bias=False,
                 )
             )
+            
+            num_channels *= 2
         
         self.preprocess = nn.Sequential(*preprocess_modules)
         
@@ -104,8 +108,6 @@ class Encoder(nn.Module):
         
         self.tower = nn.ModuleList()
         self.samplers = nn.ModuleList()
-        
-        num_channels = initial_channels
         
         for s in range(num_latent_layers):
             for g in range(num_groups_per_layer[s]):

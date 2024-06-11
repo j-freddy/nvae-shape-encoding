@@ -55,7 +55,7 @@ python -m arch.vae.train \
 # Train a NVAE model with good configurations (~80 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
-    --projected_channels 16 \
+    --projected_channels 4 \
     --warmup_steps 5350 \
     --beta0 1500000 \
     --beta1 250000 \

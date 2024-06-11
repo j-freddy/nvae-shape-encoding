@@ -168,7 +168,7 @@ class Decoder(nn.Module):
             postprocess_modules.append(
                 nn.ConvTranspose2d(
                     num_channels,
-                    num_channels,
+                    num_channels // 2,
                     kernel_size=3,
                     stride=2,
                     padding=1,
@@ -176,8 +176,10 @@ class Decoder(nn.Module):
                     bias=False,
                 )
             )
-            postprocess_modules.append(DecoderResidualCell(num_channels))
-            postprocess_modules.append(DecoderResidualCell(num_channels))
+            postprocess_modules.append(DecoderResidualCell(num_channels // 2))
+            postprocess_modules.append(DecoderResidualCell(num_channels // 2))
+            
+            num_channels //= 2
         
         self.postprocess = nn.Sequential(*postprocess_modules)
 
