@@ -25,19 +25,19 @@ source activate
 # Time taken: unknown
 # ==============================================================================
 
-# grid size is 54
-# size=2
-projected_channels_list=("8 16")
+# grid size is 45
+# size=1
+projected_channels_list=("4")
 # size=1 (5350 is 214*25 so first 25 epochs)
 warmup_steps_list=("5350")
 # size=3
 betas0=("500000 1500000 5000000")
 # size=3
 betas1=("250000 750000 2500000")
-# size=3
-betas2=("500000 1500000 5000000")
+# size=5
+betas2=("50000 100000 500000 1500000 5000000")
 
-logdir="logs-nvae-latent-20"
+logdir="logs-nvae-new-arch"
 
 # Train
 
