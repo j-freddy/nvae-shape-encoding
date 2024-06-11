@@ -1,9 +1,7 @@
+import math
 import torch
 import torch.nn as nn
 import torchvision.ops as ops
-
-from arch.nvae.distribution import Normal
-from utils.utils import soft_clamp
 
 class EncoderResidualCell(nn.Module):
     """
@@ -77,24 +75,30 @@ class Encoder(nn.Module):
         
         assert len(num_groups_per_layer) == num_latent_layers
         
-        # Build preprocessing layers
+        # Build preprocessing modules
         
         # In official NVAE implementation, by default arch_type is 'res_mbconv'
         # and so 'down_pre' is ['res_bnswish', 'res_bnswish'] with 2 preprocess
         # cells, 1 preprocess block and channel multiplier of 1.
         
-        self.preprocess = nn.Sequential(
-            EncoderResidualCell(initial_channels),
-            nn.Conv2d(
-                initial_channels,
-                initial_channels,
-                kernel_size=initial_downsample_factor + 1,
-                stride=initial_downsample_factor,
-                padding=initial_downsample_factor // 2,
-                bias=False,
-            ),
-            EncoderResidualCell(initial_channels),
-        )
+        preprocess_modules = []
+        num_preprocess_layers = int(math.log2(initial_downsample_factor))
+        
+        for _ in range(num_preprocess_layers):
+            preprocess_modules.append(EncoderResidualCell(initial_channels))
+            preprocess_modules.append(EncoderResidualCell(initial_channels))
+            preprocess_modules.append(
+                nn.Conv2d(
+                    initial_channels,
+                    initial_channels,
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                )
+            )
+        
+        self.preprocess = nn.Sequential(*preprocess_modules)
         
         # Build tower
         
