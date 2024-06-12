@@ -56,7 +56,7 @@ python -m arch.vae.train \
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
-    --warmup_steps 5350 \
+    --warmup_steps 6420 \
     --beta0 1500000 \
     --beta1 250000 \
     --beta2 1500000

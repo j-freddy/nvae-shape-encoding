@@ -152,15 +152,28 @@ class NVAE(L.LightningModule):
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        weighted_kl_divs = []
+        kl_divs_per_layer = torch.empty(self.hparams.num_latent_layers)
         
         for layer_idx, kl_div_per_layer in kl_div_dict.items():
             kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
+            kl_divs_per_layer[layer_idx] = kl_div
 
-            # Weigh KL with beta
+        # Apply balancing coefficient during warm-up period: for each layer,
+        # gamma is directly proportional to KL
+        if self.global_step < self.hparams.kl_warmup_steps:
+            gammas = kl_divs_per_layer / kl_divs_per_layer.sum()
+            # Ensure that overall KL div sum does not change
+            unweighted_kl_div = kl_divs_per_layer.sum()
+            kl_divs_per_layer = gammas * kl_divs_per_layer
+            kl_divs_per_layer = kl_divs_per_layer / kl_divs_per_layer.sum() * unweighted_kl_div
+
+        # Weigh KL with beta
+        weighted_kl_divs = []
+        
+        for layer_idx, kl_div in enumerate(kl_divs_per_layer):
             weighted_kl_div = self.hparams.beta_per_layer[layer_idx] * kl_div
             weighted_kl_divs.append(weighted_kl_div)
-            
+        
             if log_components:
                 self.log(f"kl_div_{layer_idx}", weighted_kl_div)
         
