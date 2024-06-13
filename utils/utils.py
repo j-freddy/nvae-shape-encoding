@@ -16,10 +16,14 @@ def setup_device() -> torch.device:
         torch.device: Device used for Torch scripts.
     """
     # Use GPU if available
-    device = torch.device("cuda") if torch.cuda.is_available()\
-        else torch.device("cpu")
-
+    device = torch.device("cpu")
+    
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+        torch.mps.manual_seed(SEED)
+    
     if torch.cuda.is_available():
+        device = torch.device("cuda")
         torch.cuda.manual_seed(SEED)
         torch.cuda.manual_seed_all(SEED)
 
