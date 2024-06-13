@@ -219,7 +219,7 @@ class Decoder(nn.Module):
                 approximate posterior. If -1, all layers are shared. Useful for
                 ablation study and checking collapsed layers. Default: -1.
         """
-        if num_shared_layers is None:
+        if num_shared_layers is -1:
             num_shared_layers = self.num_latent_layers
         else:
             assert test
@@ -307,6 +307,11 @@ class Decoder(nn.Module):
                 sampling from it. If -1, sample from all layers. Useful for
                 ablation study and checking collapsed layers. Default: -1.
         """
+        if num_sample_layers is -1:
+            num_sample_layers = self.num_latent_layers
+        else:
+            assert num_sample_layers <= self.num_latent_layers
+        
         # Form posterior for top-level assuming Gaussian prior
         top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
         distr = Normal(
