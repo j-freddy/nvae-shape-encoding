@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.ops as ops
@@ -97,8 +98,12 @@ class Decoder(nn.Module):
         
         assert len(num_groups_per_layer) == num_latent_layers
         
+        self.num_latent_layers = num_latent_layers
         self.z_channels = z_channels
         self.top_latent_shape = top_latent_shape
+        
+        # Get end indices for each latent layer
+        self.cumulative_groups_per_layer = np.array(num_groups_per_layer).cumsum()
 
         # Size of the topmost prior: [top_channels, width, height]
         self.top_prior = nn.Parameter(
@@ -190,7 +195,35 @@ class Decoder(nn.Module):
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
         test: bool=False,
+        num_active_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+        """
+        Forward pass: NVAE Decoder.
+        
+        Args:
+            x (torch.Tensor): Top-level encoding.
+            xs (torch.Tensor): Non-top-level encodings.
+            enc_combiner_cells (list[nn.Module]): Encoder combiner cells.
+            enc_samplers (list[nn.Module]): Encoder samplers.
+            test (bool): Indicates whether test mode is enabled (compared to
+                train or validation mode). If True, use deterministic sampling
+                for all non-topmost latent layers, that is, take the mean of the
+                residual distribution instead of sampling from it. Default:
+                False.
+            num_active_layers (int): Number of active latent layers from the
+                topmost layer. For example, if num_active_layers is 2, only the
+                topmost and its immediate subsequent layer is active. If a layer
+                is not active, the residual distribution only consists of the
+                prior and not the approximate posterior. That is, it does not
+                draw information from the encoder. If -1, all layers are
+                active. Default: -1.
+        """
+        if num_active_layers is None:
+            num_active_layers = self.num_latent_layers
+        else:
+            assert test
+            assert num_active_layers <= self.num_latent_layers
+        
         batch_size, _, _, _ = x.shape
         
         # Sample mu, logsig of the topmost latent layer
@@ -224,9 +257,14 @@ class Decoder(nn.Module):
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
                     # Approximate posterior
-                    comb_feats = enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], x)
-                    latent_repr_q = enc_samplers[idx_dec](comb_feats)
-                    mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
+                    if idx_dec < self.cumulative_groups_per_layer[num_active_layers - 1]:
+                        comb_feats = enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], x)
+                        latent_repr_q = enc_samplers[idx_dec](comb_feats)
+                        mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
+                    else:
+                        mu_q = torch.zeros_like(mu_p)
+                        logsig_q = torch.zeros_like(logsig_p)
+
                     # Residual distribution
                     distr = Normal(mu_p + mu_q, logsig_p + logsig_q)
                     z = distr.sample(deterministic=test)
