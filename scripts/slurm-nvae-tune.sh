@@ -37,7 +37,7 @@ betas1=("25000 75000 250000")
 # size=4
 betas2=("10000 25000 50000 100000")
 
-logdir="logs-nvae-new-arch"
+logdir="logs-nvae-new-arch-2"
 
 # Train
 
