@@ -42,13 +42,12 @@ if __name__ == '__main__':
 
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
-        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "beta-vae.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.NVAE, "decomposed-kernel.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-adversarial-vae.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["beta-VAE", "InfoVAE", "InfoAdversarialVAE"]
+    labels = ["NVAE", "InfoVAE"]
     
     # Read data
     dfs = []
@@ -61,9 +60,12 @@ if __name__ == '__main__':
 
     for label, df in zip(labels, dfs):
         # Filter all rows with frds >= 500
-        # df = df[df["frds"] < 500]
+        df = df[df["frds"] < 500]
+        # df = df[df["dice_score"]] > 0.92
         df.sort_values(by="dice_score", inplace=True, ascending=False)
         print(df.head())
+        import sys
+        sys.exit()
         plt.scatter(df["frds"], df["dice_score"], alpha=0.5, label=label)
     
     plt.xlabel("FRDS")

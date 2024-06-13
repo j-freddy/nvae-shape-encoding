@@ -47,11 +47,11 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "info-vae"
-    metrics = ["frds", "frds-elastic", "dice_score", "test_recon_loss"]
+    log_subdir = "decomposed-kernel"
+    metrics = ["frds", "dice_score", "test_recon_loss"]
 
     df = get_tensorboard_data(
-        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),
+        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.NVAE, log_subdir),
         metrics=metrics,
     )
 
@@ -60,4 +60,4 @@ if __name__ == '__main__':
     print(df.head())
 
     # Save dataframe to a csv file
-    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.VAE, f"{log_subdir}.csv"))
+    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.NVAE, f"{log_subdir}.csv"))

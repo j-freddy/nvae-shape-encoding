@@ -25,17 +25,17 @@ source activate
 # Time taken: unknown
 # ==============================================================================
 
-# grid size is 45
+# grid size is 48
 # size=1
 projected_channels_list=("4")
-# size=1 (5350 is 214*25 so first 25 epochs)
-warmup_steps_list=("5350")
+# size=1 (6420 is 214*30 so first 30 epochs)
+warmup_steps_list=("6420")
+# size=4
+betas0=("50000 150000 500000 1500000")
 # size=3
-betas0=("500000 1500000 5000000")
-# size=3
-betas1=("250000 750000 2500000")
-# size=5
-betas2=("50000 100000 500000 1500000 5000000")
+betas1=("25000 75000 250000")
+# size=4
+betas2=("10000 25000 50000 100000")
 
 logdir="logs-nvae-new-arch"
 
