@@ -213,7 +213,7 @@ class NVAE(L.LightningModule):
         self,
         feats: torch.Tensor,
         test: bool=False,
-        num_active_layers: int=-1,
+        num_shared_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         x = self.stem(2 * feats - 1.0)
         
@@ -232,7 +232,7 @@ class NVAE(L.LightningModule):
             enc_combiner_cells,
             enc_samplers,
             test=test,
-            num_active_layers=num_active_layers,
+            num_shared_layers=num_shared_layers,
         )
         
         # Compute logits

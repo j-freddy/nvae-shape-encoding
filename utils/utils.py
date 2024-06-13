@@ -13,7 +13,7 @@ def setup_device() -> torch.device:
     deterministic.
 
     Returns:
-        torch.device: Device used for Torch scripts.
+        torch.device: Device used for Torch operations.
     """
     # Use GPU if available
     device = torch.device("cpu")

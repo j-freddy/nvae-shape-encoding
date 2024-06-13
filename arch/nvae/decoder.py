@@ -195,7 +195,7 @@ class Decoder(nn.Module):
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
         test: bool=False,
-        num_active_layers: int=-1,
+        num_shared_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         """
         Forward pass: NVAE Decoder.
@@ -210,19 +210,20 @@ class Decoder(nn.Module):
                 for all non-topmost latent layers, that is, take the mean of the
                 residual distribution instead of sampling from it. Default:
                 False.
-            num_active_layers (int): Number of active latent layers from the
-                topmost layer. For example, if num_active_layers is 2, only the
-                topmost and its immediate subsequent layer is active. If a layer
-                is not active, the residual distribution only consists of the
-                prior and not the approximate posterior. That is, it does not
-                draw information from the encoder. If -1, all layers are
-                active. Default: -1.
+            num_shared_layers (int): Number of latent layers shared with the
+                decoder from the topmost layer. For example, if
+                @num_shared_layers is 2, only the topmost and its immediate
+                subsequent layer are shared. If a layer is not shared, the
+                decoder does not draw information from the encoder. That is, the
+                residual distribution only consists of the prior and not the
+                approximate posterior. If -1, all layers are shared. Useful for
+                ablation study and checking collapsed layers. Default: -1.
         """
-        if num_active_layers is None:
-            num_active_layers = self.num_latent_layers
+        if num_shared_layers is None:
+            num_shared_layers = self.num_latent_layers
         else:
             assert test
-            assert num_active_layers <= self.num_latent_layers
+            assert num_shared_layers <= self.num_latent_layers
         
         batch_size, _, _, _ = x.shape
         
@@ -257,7 +258,7 @@ class Decoder(nn.Module):
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
                     # Approximate posterior
-                    if idx_dec < self.cumulative_groups_per_layer[num_active_layers - 1]:
+                    if idx_dec < self.cumulative_groups_per_layer[num_shared_layers - 1]:
                         comb_feats = enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], x)
                         latent_repr_q = enc_samplers[idx_dec](comb_feats)
                         mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
@@ -286,7 +287,26 @@ class Decoder(nn.Module):
         
         return x, qs, ps, log_qs, log_ps
 
-    def generate(self, num_samples: int, device: torch.device) -> torch.Tensor:
+    def generate(
+        self,
+        num_samples: int,
+        device: torch.device,
+        num_sample_layers: int=-1,
+    ) -> torch.Tensor:
+        """
+        Generate samples from a Gaussian prior.
+        
+        Args:
+            num_samples (int): Number of samples to generate.
+            device (torch.device): Device used for Torch operations.
+            num_sample_layers (int): Number of latent layers from the topmost
+                layer to sample from. For example, if @num_sample_layers is 2,
+                only the topmost and its immediate subsequent layer are sampled
+                from. All other subsequent layers use deterministic sampling,
+                that is, take the mean of the prior distribution instead of
+                sampling from it. If -1, sample from all layers. Useful for
+                ablation study and checking collapsed layers. Default: -1.
+        """
         # Form posterior for top-level assuming Gaussian prior
         top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
         distr = Normal(
@@ -309,11 +329,9 @@ class Decoder(nn.Module):
                     latent_repr_p = self.samplers[idx_dec - 1](x)
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    # Generation is conditioned on z drawn from topmost
-                    # (standard Gaussian) prior only
-                    # Subsequent z's are just softclamped mu_p
+                    sample_deterministic = idx_dec >= self.cumulative_groups_per_layer[num_sample_layers - 1]
                     distr = Normal(mu_p, logsig_p)
-                    z = distr.sample()
+                    z = distr.sample(sample_deterministic)
 
                 x = cell(x, z)
                 
