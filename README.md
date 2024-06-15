@@ -52,14 +52,14 @@ python -m arch.vae.train \
     --gamma 200 \
     --loss_reg info_vae \
     --register_alignment
-# Train a NVAE model with good configurations (~80 minutes)
+# Train a NVAE model with good configurations (~120 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
     --warmup_steps 6420 \
-    --beta0 1500000 \
+    --beta0 500000 \
     --beta1 250000 \
-    --beta2 1500000
+    --beta2 50000
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
@@ -224,12 +224,12 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-### SimCLR
+### Frechet ResNet Distance with SimCLR
 
 <!-- TODO -->
 
 Further analysis:
-- `analysis/simclr/visualise_embedding.ipynb`
+- `analysis/frds/visualise_embedding.ipynb`
 
 ### TensorBoard
 
