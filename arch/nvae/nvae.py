@@ -18,8 +18,9 @@ class NVAE(L.LightningModule):
     """
     Nouveau Variational Autoencoder (NVAE) is a deep hierarchical VAE that
     achieves SOTA in image generation tasks among non-autoregressive models.
-    This is an implementation of the framework proposed in [1], primarily based
-    on details described in the paper and the official codebase.
+    This class adapts from the framework proposed in [1], primarily based on
+    details described in the paper and the original codebase
+    (https://github.com/NVlabs/NVAE).
     
     Note: The paper refers to each latent layer in the VAE as a "latent scale".
     We will use the word "layer", as it is a more common term in hierarchical

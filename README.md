@@ -242,7 +242,3 @@ tensorboard --logdir logs/vae_acdc
 # NVAE logs
 tensorboard --logdir logs/nvae_acdc
 ```
-
-<!-- TODO -->
-
-<!-- ## Credits -->

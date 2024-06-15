@@ -14,8 +14,8 @@ class DecoderResidualCell(nn.Module):
     is set to 0.05 in official NVAE implementation. Expand factor for depthwise
     convolution is set to either 6 (MobileNetV2) or 3. The latter reduces
     memory.
-
     """
+
     def __init__(self, num_channels: int, expand_factor: int=6):
         super().__init__()
         
@@ -61,7 +61,7 @@ class DecoderCombinerCell(nn.Module):
     Decoder combiner cell.
     
     Following the official NVAE implementation from class DecCombinerCell in
-    neural_operations.py
+    neural_operations.py.
     """
     
     def __init__(self, in_channels_x1: int, in_channels_x2: int, out_channels: int):
@@ -76,8 +76,8 @@ class Decoder(nn.Module):
     """
     NVAE Decoder.
     
-    Implementation as described by the diagram: -
-    https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    Implementation as described by the diagram:
+    - https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
     
     Also see init_decoder_tower() in official NVAE code.
     """
@@ -218,6 +218,17 @@ class Decoder(nn.Module):
                 residual distribution only consists of the prior and not the
                 approximate posterior. If -1, all layers are shared. Useful for
                 ablation study and checking collapsed layers. Default: -1.
+        
+        Returns:
+            x (torch.Tensor): Output logits before passing through the
+                conditional coder.
+            qs (list[Normal]): Approximate posterior distributions.
+            ps (list[Normal]): Prior distributions.
+            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
+                the residual distribution with respect to the approximate
+                posterior.
+            log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
+                the residual distribution with respect to the prior.
         """
         if num_shared_layers is -1:
             num_shared_layers = self.num_latent_layers
@@ -306,6 +317,9 @@ class Decoder(nn.Module):
                 that is, take the mean of the prior distribution instead of
                 sampling from it. If -1, sample from all layers. Useful for
                 ablation study and checking collapsed layers. Default: -1.
+        
+        Returns:
+            x (torch.Tensor): Generated samples.
         """
         if num_sample_layers is -1:
             num_sample_layers = self.num_latent_layers
