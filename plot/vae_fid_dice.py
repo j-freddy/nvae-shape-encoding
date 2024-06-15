@@ -43,11 +43,12 @@ if __name__ == '__main__':
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
         os.path.join(LOGS_PATH, ACDC.DIR.NVAE, "decomposed-kernel.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.NVAE, "dynamic-warmup.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["NVAE", "InfoVAE"]
+    labels = ["NVAE", "NVAE Dynamic Warmup", "InfoVAE"]
     
     # Read data
     dfs = []
@@ -61,11 +62,7 @@ if __name__ == '__main__':
     for label, df in zip(labels, dfs):
         # Filter all rows with frds >= 500
         df = df[df["frds"] < 500]
-        # df = df[df["dice_score"]] > 0.92
         df.sort_values(by="dice_score", inplace=True, ascending=False)
-        print(df.head())
-        import sys
-        sys.exit()
         plt.scatter(df["frds"], df["dice_score"], alpha=0.5, label=label)
     
     plt.xlabel("FRDS")
