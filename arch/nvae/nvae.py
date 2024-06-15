@@ -18,8 +18,9 @@ class NVAE(L.LightningModule):
     """
     Nouveau Variational Autoencoder (NVAE) is a deep hierarchical VAE that
     achieves SOTA in image generation tasks among non-autoregressive models.
-    This is an implementation of the framework proposed in [1], primarily based
-    on details described in the paper and the official codebase.
+    This class adapts from the framework proposed in [1], primarily based on
+    details described in the paper and the original codebase
+    (https://github.com/NVlabs/NVAE).
     
     Note: The paper refers to each latent layer in the VAE as a "latent scale".
     We will use the word "layer", as it is a more common term in hierarchical
@@ -73,7 +74,7 @@ class NVAE(L.LightningModule):
         self.decoder = Decoder(
             num_latent_layers=self.hparams.num_latent_layers,
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
-            initial_channels=self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
+            initial_channels=initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
@@ -152,15 +153,28 @@ class NVAE(L.LightningModule):
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        weighted_kl_divs = []
+        kl_divs_per_layer = torch.empty(self.hparams.num_latent_layers)
         
         for layer_idx, kl_div_per_layer in kl_div_dict.items():
             kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
+            kl_divs_per_layer[layer_idx] = kl_div
 
-            # Weigh KL with beta
+        # Apply balancing coefficient during warm-up period: for each layer,
+        # gamma is directly proportional to KL
+        if self.global_step < self.hparams.kl_warmup_steps:
+            gammas = kl_divs_per_layer / kl_divs_per_layer.sum()
+            # Ensure that overall KL div sum does not change
+            unweighted_kl_div = kl_divs_per_layer.sum()
+            kl_divs_per_layer = gammas * kl_divs_per_layer
+            kl_divs_per_layer = kl_divs_per_layer / kl_divs_per_layer.sum() * unweighted_kl_div
+
+        # Weigh KL with beta
+        weighted_kl_divs = []
+        
+        for layer_idx, kl_div in enumerate(kl_divs_per_layer):
             weighted_kl_div = self.hparams.beta_per_layer[layer_idx] * kl_div
             weighted_kl_divs.append(weighted_kl_div)
-            
+        
             if log_components:
                 self.log(f"kl_div_{layer_idx}", weighted_kl_div)
         
@@ -196,7 +210,12 @@ class NVAE(L.LightningModule):
         
         return recon_loss + weighted_kl_div
     
-    def forward(self, feats: torch.Tensor) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+    def forward(
+        self,
+        feats: torch.Tensor,
+        test: bool=False,
+        num_shared_layers: int=-1,
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
@@ -208,7 +227,14 @@ class NVAE(L.LightningModule):
         enc_samplers = self.encoder.samplers[::-1]
         
         # Pass through decoder
-        x_hat, qs, ps, log_qs, log_ps = self.decoder(x, xs, enc_combiner_cells, enc_samplers)
+        x_hat, qs, ps, log_qs, log_ps = self.decoder(
+            x,
+            xs,
+            enc_combiner_cells,
+            enc_samplers,
+            test=test,
+            num_shared_layers=num_shared_layers,
+        )
         
         # Compute logits
         feats_hat: torch.Tensor = self.conditional_coder(x_hat)
@@ -246,7 +272,7 @@ class NVAE(L.LightningModule):
         self.log_generations_and_frds(feats)
 
     def log_reconstructions(self, x: torch.Tensor):
-        x_hat_logits, _, _, _, _ = self(x)
+        x_hat_logits, _, _, _, _ = self(x, test=True)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(x, x_hat_logits)

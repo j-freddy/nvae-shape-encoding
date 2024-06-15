@@ -4,7 +4,15 @@ import torch.nn.functional as F
 from arch.vae.vae import VAE
 
 class InfoVAE(VAE):
-    # TODO Write DOCSTRING
+    """
+    Single-layer VAE that implements the InfoVAE loss proposed by [1]. This
+    class estimates KL[q(x) || p(x)] with minibatch sampling. See VAE docstring
+    for more information.
+
+    [1]: Zhao S, Song J, Ermon S. Infovae: Balancing learning and inference in
+    variational autoencoders. InProceedings of the aaai conference on artificial
+    intelligence 2019 Jul 17 (Vol. 33, No. 01, pp. 5885-5892).
+    """
     
     def __init__(
         self,

@@ -1,9 +1,7 @@
+import math
 import torch
 import torch.nn as nn
 import torchvision.ops as ops
-
-from arch.nvae.distribution import Normal
-from utils.utils import soft_clamp
 
 class EncoderResidualCell(nn.Module):
     """
@@ -59,8 +57,8 @@ class Encoder(nn.Module):
     """
     NVAE Encoder.
     
-    Implementation as described by the diagram: -
-    https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    Implementation as described by the diagram:
+    - https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
     
     Also see init_encoder_tower() in official NVAE code.
     """
@@ -77,31 +75,39 @@ class Encoder(nn.Module):
         
         assert len(num_groups_per_layer) == num_latent_layers
         
-        # Build preprocessing layers
+        # Build preprocessing modules
         
         # In official NVAE implementation, by default arch_type is 'res_mbconv'
         # and so 'down_pre' is ['res_bnswish', 'res_bnswish'] with 2 preprocess
         # cells, 1 preprocess block and channel multiplier of 1.
         
-        self.preprocess = nn.Sequential(
-            EncoderResidualCell(initial_channels),
-            nn.Conv2d(
-                initial_channels,
-                initial_channels,
-                kernel_size=initial_downsample_factor + 1,
-                stride=initial_downsample_factor,
-                padding=initial_downsample_factor // 2,
-                bias=False,
-            ),
-            EncoderResidualCell(initial_channels),
-        )
+        preprocess_modules = []
+        num_preprocess_layers = int(math.log2(initial_downsample_factor))
+        
+        num_channels = initial_channels
+        
+        for _ in range(num_preprocess_layers):
+            preprocess_modules.append(EncoderResidualCell(num_channels))
+            preprocess_modules.append(EncoderResidualCell(num_channels))
+            preprocess_modules.append(
+                nn.Conv2d(
+                    num_channels,
+                    num_channels * 2,
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                )
+            )
+            
+            num_channels *= 2
+        
+        self.preprocess = nn.Sequential(*preprocess_modules)
         
         # Build tower
         
         self.tower = nn.ModuleList()
         self.samplers = nn.ModuleList()
-        
-        num_channels = initial_channels
         
         for s in range(num_latent_layers):
             for g in range(num_groups_per_layer[s]):

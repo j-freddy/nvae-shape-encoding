@@ -12,11 +12,9 @@ from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
     """
-    Variational Autoencoder (VAE) for the ACDC dataset. Following the
-    architecture proposed in [1]. Note that [1] uses segmentation maps of size
-    256x256 instead of 128x128 and a 32-dim latent space.
-    
-    This class implements the beta-VAE regulariser term based on [2].
+    Single-layer variational autoencoder (VAE) for the ACDC dataset. Encoder and
+    decoder architecture is adapted from the architecture proposed by [1]. This
+    class implements the beta-VAE regulariser term proposed by [2].
     
     [1]: Painchaud N, Skandarani Y, Judge T, Bernard O, Lalande A, Jodoin PM.
     Cardiac segmentation with strong anatomical guarantees. IEEE transactions on
@@ -26,7 +24,7 @@ class VAE(L.LightningModule):
     Mohamed S, Lerchner A. beta-vae: Learning basic visual concepts with a
     constrained variational framework. ICLR (Poster). 2017 Apr 24;3.
     """
-    
+
     def __init__(
         self,
         in_channels: int=4,
