@@ -230,7 +230,7 @@ class Decoder(nn.Module):
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
                 the residual distribution with respect to the prior.
         """
-        if num_shared_layers is -1:
+        if num_shared_layers == -1:
             num_shared_layers = self.num_latent_layers
         else:
             assert test
@@ -298,11 +298,15 @@ class Decoder(nn.Module):
         
         return x, qs, ps, log_qs, log_ps
 
+    def get_top_latent_shape(self, batch_size: int) -> tuple[int, int, int, int]:
+        return (batch_size, self.z_channels, *self.top_latent_shape)
+
     def generate(
         self,
         num_samples: int,
         device: torch.device,
         num_sample_layers: int=-1,
+        z: torch.Tensor=None,
     ) -> torch.Tensor:
         """
         Generate samples from a Gaussian prior.
@@ -317,22 +321,27 @@ class Decoder(nn.Module):
                 that is, take the mean of the prior distribution instead of
                 sampling from it. If -1, sample from all layers. Useful for
                 ablation study and checking collapsed layers. Default: -1.
+            z (torch.Tensor): Custom fixed latent representation. If provided,
+                the model will use this as the topmost latent variable instead
+                of sampling from a Gaussian prior. Default: None.
         
         Returns:
             x (torch.Tensor): Generated samples.
         """
-        if num_sample_layers is -1:
+        if num_sample_layers == -1:
             num_sample_layers = self.num_latent_layers
         else:
             assert num_sample_layers <= self.num_latent_layers
         
         # Form posterior for top-level assuming Gaussian prior
-        top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
-        distr = Normal(
-            mu=torch.zeros(top_latent_shape).to(device),
-            logsig=torch.zeros(top_latent_shape).to(device),
-        )
-        z = distr.sample()
+        if z is None:
+            top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
+            distr = Normal(
+                mu=torch.zeros(top_latent_shape).to(device),
+                logsig=torch.zeros(top_latent_shape).to(device),
+            )
+
+            z = distr.sample()
         
         idx_dec = 0
         
