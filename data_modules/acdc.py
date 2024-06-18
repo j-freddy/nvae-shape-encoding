@@ -110,7 +110,6 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     # Absolute padding after resizing to 128x128 is 128 - (64 * sqrt(2)) = 37.5
     # padding = math.ceil(width * math.sqrt(2))
     
-    # TODO Revert
     padding = 4
 
     transform = tio.transforms.Compose([

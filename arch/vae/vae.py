@@ -7,6 +7,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
+from const import FRDS_MODEL_PATH
 from utils.eval import frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
@@ -204,13 +205,10 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        # TODO Do not hardcode
-        resnet_path = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-        
         frds_value = frds(
             x,
             discretise(x_fake_logits),
-            resnet_path=resnet_path,
+            resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 

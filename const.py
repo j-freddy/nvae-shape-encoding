@@ -7,6 +7,13 @@ OUT_PATH = "out"
 SCRIPTS_PATH = "scripts"
 SEED = 1969
 
+# TODO Remove once FRDS is finalised
+FRDS_MODEL_PATH_V2 = "logs/simclr_acdc/resnet-18-v2/checkpoints/epoch=199-step=1400.ckpt"
+FRDS_MODEL_PATH_V2_NO_ELASTIC = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
+FRDS_MODEL_PATH_V3 = "logs/simclr_acdc/resnet-18-v3/checkpoints/epoch=29-step=210.ckpt"
+
+FRDS_MODEL_PATH = FRDS_MODEL_PATH_V2_NO_ELASTIC
+
 @dataclass
 class CIFAR10:
     """
