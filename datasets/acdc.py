@@ -41,11 +41,11 @@ class ACDCMaskDataset(Dataset):
                 translate=(0.03, 0.03),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            # transforms.ElasticTransform(
-            #     alpha=300.0,
-            #     sigma=15.0,
-            #     interpolation=transforms.InterpolationMode.NEAREST,
-            # ),
+            transforms.ElasticTransform(
+                alpha=100.0,
+                sigma=10.0,
+                interpolation=transforms.InterpolationMode.NEAREST,
+            ),
             transforms.Normalize((0.5,), (0.5,)),
         ])
     
