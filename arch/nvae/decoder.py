@@ -76,7 +76,7 @@ class Decoder(nn.Module):
     """
     NVAE Decoder.
     
-    Implementation as described by the diagram:
+    Implementation is adapted from this diagram:
     - https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
     
     Also see init_decoder_tower() in official NVAE code.

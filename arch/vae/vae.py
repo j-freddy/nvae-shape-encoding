@@ -14,7 +14,8 @@ class VAE(L.LightningModule):
     """
     Single-layer variational autoencoder (VAE) for the ACDC dataset. Encoder and
     decoder architecture is adapted from the architecture proposed by [1]. This
-    class implements the beta-VAE regulariser term proposed by [2].
+    class implements the beta-VAE regulariser term proposed by [2]. Standard
+    Gaussian prior is assumed.
     
     [1]: Painchaud N, Skandarani Y, Judge T, Bernard O, Lalande A, Jodoin PM.
     Cardiac segmentation with strong anatomical guarantees. IEEE transactions on
@@ -73,6 +74,10 @@ class VAE(L.LightningModule):
         x_hat_logits: torch.Tensor,
         log_components: bool=True,
     ) -> torch.Tensor:
+        """
+        Compute the beta-VAE loss: sum of reconstruction loss and beta-weighted
+        KL divergence regulariser term.
+        """
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
         kl_div = self._kl_divergence(mu, logvar)
 
@@ -103,7 +108,19 @@ class VAE(L.LightningModule):
         mu, logvar = self.encoder(2 * x - 1.0)
         return self._reparameterise(mu, logvar)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Forward pass through the VAE encoder and decoder.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+        
+        Returns:
+            mu (torch.Tensor): Mean of approximate posterior.
+            logvar (torch.Tensor): Log-variance of approximate posterior.
+            z (torch.Tensor): Latent representation of input.
+            x_hat_logits (torch.Tensor): Logits of reconstruction of input.
+        """
         mu, logvar = self.encoder(2 * x - 1.0)
         z = self._reparameterise(mu, logvar)
         x_hat_logits = self.decoder(z)
@@ -139,6 +156,14 @@ class VAE(L.LightningModule):
         self.log_lerp(x[:20])
     
     def log_reconstruction_metrics(self, x: torch.Tensor):
+        """
+        Log reconstruction metrics to TensorBoard. This includes average
+        reconstruction loss and Dice score across the batch. Log visualisations
+        of samples and their reconstructions.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+        """
         _, _, _, x_hat_logits = self(x)
         
         # Compute reconstruction loss
@@ -158,6 +183,14 @@ class VAE(L.LightningModule):
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
     def log_generation_metrics(self, x: torch.Tensor):
+        """
+        Log generation metrics to TensorBoard. This includes the Frechet Resnet
+        Distance with SimCLR (FRDS) metric across the batch. Log visualisations
+        of sample generations.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+        """
         num_samples, _, _, _ = x.shape
 
         # Sample from latent space
@@ -187,6 +220,9 @@ class VAE(L.LightningModule):
         """
         Linearly interpolate between the latent representations of two samples,
         then visualise the reconstructions.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
         """
         z = self.get_latent(x)
         

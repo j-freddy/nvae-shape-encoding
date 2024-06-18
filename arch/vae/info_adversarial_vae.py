@@ -81,6 +81,10 @@ class InfoAdversarialVAE(VAE):
         log_components: bool=True,
         return_pred: bool=False,
     ) -> torch.Tensor:
+        """
+        Compute the InfoVAE loss: sum of reconstruction loss, beta-weighted
+        KL divergence regulariser term and gamma-weighted KL[q(z) || p(z)].
+        """
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
         # KL divergence between q(z|x) and p(z)
         # Forming part of ELBO

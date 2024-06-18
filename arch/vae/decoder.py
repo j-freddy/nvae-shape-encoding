@@ -2,6 +2,12 @@ import torch
 import torch.nn as nn
 
 class Decoder(nn.Module):
+    """
+    VAE Decoder.
+    
+    See VAE docstring.
+    """
+    
     def __init__(self, out_channels: int, latent_dim: int):
         super().__init__()
         

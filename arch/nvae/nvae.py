@@ -74,7 +74,7 @@ class NVAE(L.LightningModule):
         self.decoder = Decoder(
             num_latent_layers=self.hparams.num_latent_layers,
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
-            initial_channels=initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
+            initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
@@ -216,6 +216,29 @@ class NVAE(L.LightningModule):
         test: bool=False,
         num_shared_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+        """
+        Forward pass through the NVAE encoder and decoder.
+        
+        Args:
+            feats (torch.Tensor): One-hot encoded input segmentations.
+            test (bool): Indicates whether test mode is enabled (compared to
+                train or validation mode). Default: False.
+            num_shared_layers (int): Number of latent layers shared with the
+                decoder from the topmost layer. If -1, all layers are shared.
+                See docstring of Decoder forward pass for details. Default: -1.
+        
+        Returns:
+            feats_hat, qs, ps, log_qs, log_ps
+            feats_hat (torch.Tensor): Logits of reconstruction of input.
+            qs (list[Normal]): Approximate posterior distributions.
+            ps (list[Normal]): Prior distributions.
+            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
+                the residual distribution with respect to the approximate
+                posterior.
+            log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
+                the residual distribution with respect to the prior.
+        """
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
@@ -268,10 +291,18 @@ class NVAE(L.LightningModule):
         
     def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-        self.log_reconstructions(feats)
-        self.log_generations_and_frds(feats)
+        self.log_reconstruction_metrics(feats)
+        self.log_generation_metrics(feats)
 
-    def log_reconstructions(self, x: torch.Tensor):
+    def log_reconstruction_metrics(self, x: torch.Tensor):
+        """
+        Log reconstruction metrics to TensorBoard. This includes average
+        reconstruction loss and Dice score across the batch. Log visualisations
+        of samples and their reconstructions.
+        
+        Args:
+            x (torch.Tensor): Batch of input samples.
+        """
         x_hat_logits, _, _, _, _ = self(x, test=True)
         
         # Compute reconstruction loss
@@ -290,7 +321,15 @@ class NVAE(L.LightningModule):
         show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
-    def log_generations_and_frds(self, feats: torch.Tensor):
+    def log_generation_metrics(self, feats: torch.Tensor):
+        """
+        Log generation metrics to TensorBoard. This includes the Frechet Resnet
+        Distance with SimCLR (FRDS) metric across the batch. Log visualisations
+        of sample generations.
+        
+        Args:
+            x (torch.Tensor): Batch of input samples.
+        """
         num_samples, _, _, _ = feats.shape
         
         # Generate probabilistic segmentation maps

@@ -72,6 +72,10 @@ class InfoVAE(VAE):
         x_hat_logits: torch.Tensor,
         log_components: bool=True,
     ) -> torch.Tensor:
+        """
+        Compute the InfoVAE loss: sum of reconstruction loss, beta-weighted
+        KL divergence regulariser term and gamma-weighted KL[q(z) || p(z)].
+        """
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
         kl_div = self._kl_divergence(mu, logvar)
         kl_qp = self._kl_qp(z, mu, logvar)
