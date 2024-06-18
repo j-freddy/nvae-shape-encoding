@@ -243,7 +243,7 @@ class Decoder(nn.Module):
         mu_q, logsig_q = torch.chunk(latent_repr_q, 2, dim=1)
         # Approximate posterior for top-level
         distr = Normal(mu_q, logsig_q)
-        z = distr.sample()
+        z = distr.sample(test)
         
         qs = [distr]
         log_qs = [distr.log_p(z)]

@@ -146,6 +146,7 @@ class NVAE(L.LightningModule):
 
             kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])
             # Normalise KL by number of variables
+            # TODO Maybe kl_div = kl_div * (z_channels * width * height)
             kl_div = kl_div / (z_channels * width * height)
 
             kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
@@ -163,6 +164,7 @@ class NVAE(L.LightningModule):
         # gamma is directly proportional to KL
         if self.global_step < self.hparams.kl_warmup_steps:
             gammas = kl_divs_per_layer / kl_divs_per_layer.sum()
+            # TODO Detach gamma for backpropagation
             # Ensure that overall KL div sum does not change
             unweighted_kl_div = kl_divs_per_layer.sum()
             kl_divs_per_layer = gammas * kl_divs_per_layer
