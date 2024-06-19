@@ -11,8 +11,9 @@ SEED = 1969
 FRDS_MODEL_PATH_V2 = "logs/simclr_acdc/resnet-18-v2/checkpoints/epoch=199-step=1400.ckpt"
 FRDS_MODEL_PATH_V2_NO_ELASTIC = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
 FRDS_MODEL_PATH_V3 = "logs/simclr_acdc/resnet-18-v3/checkpoints/epoch=29-step=210.ckpt"
+FRDS_MODEL_PATH_V3_SMALL_ELASTIC = "logs/simclr_acdc/resnet-18-v3-small-elastic/checkpoints/epoch=160-step=1127.ckpt"
 
-FRDS_MODEL_PATH = FRDS_MODEL_PATH_V2_NO_ELASTIC
+FRDS_MODEL_PATH = FRDS_MODEL_PATH_V2
 
 @dataclass
 class CIFAR10:
