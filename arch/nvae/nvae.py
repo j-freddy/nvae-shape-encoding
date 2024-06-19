@@ -211,10 +211,6 @@ class NVAE(L.LightningModule):
         recon_loss = self.reconstruction_loss(x, x_hat)
         weighted_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         
-        # Linear KL warm-up
-        if self.global_step < self.hparams.kl_warmup_steps:
-            weighted_kl_div *= self.global_step / self.hparams.kl_warmup_steps
-        
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {weighted_kl_div}")
         
