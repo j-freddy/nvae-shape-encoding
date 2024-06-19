@@ -117,6 +117,39 @@ class NVAE(L.LightningModule):
         assert idx.is_integer()
         return int(idx)
     
+    def _kl_coeff(self):
+        constant_steps = 10
+        return max(
+            min(
+                (self.global_step - constant_steps) / self.hparams.kl_warmup_steps,
+                1.0,
+            ),
+            0.0001,
+        )
+        
+    def _kl_per_group(self, kl_all):
+        kl_vals = torch.mean(kl_all, dim=0)
+        kl_coeff_i = torch.abs(kl_all)
+        kl_coeff_i = torch.mean(kl_coeff_i, dim=0, keepdim=True) + 0.01
+
+        return kl_coeff_i, kl_vals
+    
+    def _balance_kl(self, kl_all, kl_coeff=1.0, kl_balance=True):
+        if kl_balance and kl_coeff < 1.0:
+            kl_all = torch.stack(kl_all, dim=1)
+            kl_coeff_i, kl_vals = self._kl_per_group(kl_all)
+            total_kl = torch.sum(kl_coeff_i)
+
+            kl_coeff_i = kl_coeff_i * total_kl
+            kl_coeff_i = kl_coeff_i / torch.mean(kl_coeff_i, dim=1, keepdim=True)
+            kl = torch.sum(kl_all * kl_coeff_i.detach(), dim=1)
+        else:
+            kl_all = torch.stack(kl_all, dim=1)
+            kl_vals = torch.mean(kl_all, dim=0)
+            kl = torch.sum(kl_all, dim=1)
+
+        return kl_coeff * kl
+    
     def _kl_divergence(
         self,
         qs: list[Normal],
@@ -127,7 +160,7 @@ class NVAE(L.LightningModule):
     ) -> torch.Tensor:
         # log_p, log_q and kl_diag are for metrics purposes
         
-        kl_div_dict = defaultdict(lambda: [])
+        kl_divs = []
         kl_diag = []
         
         log_p: float = 0
@@ -139,7 +172,6 @@ class NVAE(L.LightningModule):
             _, z_channels, width, height = q.mu.shape
             assert width == height
             assert z_channels == self.hparams.z_channels
-            curr_layer = self._get_layer_index(width)
             
             # TODO Change this for normalising flow
             kl_per_var = q.kl(p)
@@ -147,40 +179,20 @@ class NVAE(L.LightningModule):
             kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])
             # Normalise KL by number of variables
             # TODO Maybe kl_div = kl_div * (z_channels * width * height)
-            kl_div = kl_div / (z_channels * width * height)
+            # kl_div = kl_div / (z_channels * width * height)
 
             kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
-            kl_div_dict[curr_layer].append(kl_div)
+            kl_divs.append(kl_div)
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        kl_divs_per_layer = torch.empty(self.hparams.num_latent_layers)
+        kl_coeff = self._kl_coeff()
+        print(f"KL coefficient: {kl_coeff}")
         
-        for layer_idx, kl_div_per_layer in kl_div_dict.items():
-            kl_div = torch.sum(torch.stack(kl_div_per_layer, dim=1), dim=1).mean()
-            kl_divs_per_layer[layer_idx] = kl_div
-
-        # Apply balancing coefficient during warm-up period: for each layer,
-        # gamma is directly proportional to KL
-        if self.global_step < self.hparams.kl_warmup_steps:
-            gammas = kl_divs_per_layer / kl_divs_per_layer.sum()
-            # TODO Detach gamma for backpropagation
-            # Ensure that overall KL div sum does not change
-            unweighted_kl_div = kl_divs_per_layer.sum()
-            kl_divs_per_layer = gammas * kl_divs_per_layer
-            kl_divs_per_layer = kl_divs_per_layer / kl_divs_per_layer.sum() * unweighted_kl_div
-
-        # Weigh KL with beta
-        weighted_kl_divs = []
+        balanced_kl_div = self._balance_kl(kl_divs, kl_coeff)
+        print(f"KL divergence: {balanced_kl_div.mean()}")
         
-        for layer_idx, kl_div in enumerate(kl_divs_per_layer):
-            weighted_kl_div = self.hparams.beta_per_layer[layer_idx] * kl_div
-            weighted_kl_divs.append(weighted_kl_div)
-        
-            if log_components:
-                self.log(f"kl_div_{layer_idx}", weighted_kl_div)
-        
-        return sum(weighted_kl_divs) / len(weighted_kl_divs)
+        return balanced_kl_div.mean()
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
