@@ -3,6 +3,7 @@ import lightning as L
 import math
 from matplotlib import pyplot as plt
 from monai.losses.dice import DiceLoss
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -131,7 +132,6 @@ class NVAE(L.LightningModule):
         kl_vals = torch.mean(kl_all, dim=0)
         kl_coeff_i = torch.abs(kl_all)
         kl_coeff_i = torch.mean(kl_coeff_i, dim=0, keepdim=True) + 0.01
-
         return kl_coeff_i, kl_vals
     
     def _balance_kl(self, kl_all, kl_coeff=1.0, kl_balance=True):
@@ -148,7 +148,7 @@ class NVAE(L.LightningModule):
             kl_vals = torch.mean(kl_all, dim=0)
             kl = torch.sum(kl_all, dim=1)
 
-        return kl_coeff * kl
+        return kl_coeff * kl, kl_vals
     
     def _kl_divergence(
         self,
@@ -162,6 +162,7 @@ class NVAE(L.LightningModule):
         
         kl_divs = []
         kl_diag = []
+        kl_layers = []
         
         log_p: float = 0
         log_q: float = 0
@@ -172,6 +173,7 @@ class NVAE(L.LightningModule):
             _, z_channels, width, height = q.mu.shape
             assert width == height
             assert z_channels == self.hparams.z_channels
+            kl_layers.append(self._get_layer_index(width))
             
             # TODO Change this for normalising flow
             kl_per_var = q.kl(p)
@@ -188,9 +190,15 @@ class NVAE(L.LightningModule):
         
         kl_coeff = self._kl_coeff()
         print(f"KL coefficient: {kl_coeff}")
+        balanced_kl_div, kl_vals = self._balance_kl(kl_divs, kl_coeff)
         
-        balanced_kl_div = self._balance_kl(kl_divs, kl_coeff)
-        print(f"KL divergence: {balanced_kl_div.mean()}")
+        # Compute and log KL per layer
+        if log_components:
+            kl_layers = torch.tensor(kl_layers)
+            
+            for layer_idx in range(self.hparams.num_latent_layers):
+                weighted_kl_div = kl_vals[kl_layers == layer_idx].mean()
+                self.log(f"kl_div_{layer_idx}", weighted_kl_div)
         
         return balanced_kl_div.mean()
 
