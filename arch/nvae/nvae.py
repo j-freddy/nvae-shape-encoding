@@ -133,8 +133,21 @@ class NVAE(L.LightningModule):
         return clamp(gamma, 0.0001, 1.0)
     
     def _balance_kl(self, kl_divs, gamma=1.0, balance=True):
+        """
+        Args:
+            kl_divs (torch.Tensor): KL per layer. bxg tensor for batch size b
+                and g groups.
+            gamma (float): KL coefficient for current step. gamma of 1 indicates
+                warm-up is complete and balancing mechanism is not applied.
+                Default: 1.0.
+            balance (bool): Whether to apply the balancing mechanism. This
+                should be on at train time and off at test time. Default: True.
         
-        print(kl_divs.shape)
+        Returns:
+            balanced_kl_divs (torch.Tensor): Balanced KL per group, averaged
+                over the batch. g-dim tensor for g groups.
+        """
+        assert gamma <= 1.0
         
         if balance and gamma < 1.0:
             # Set balancing coefficient proportional to the KL term for each
@@ -148,7 +161,23 @@ class NVAE(L.LightningModule):
             gamma_i = gamma_i / torch.mean(gamma_i, dim=1, keepdim=True)
             kl_divs = kl_divs * gamma_i.detach()
 
-        return gamma * torch.sum(kl_divs, dim=1)
+        return gamma * torch.mean(kl_divs, dim=0)
+    
+    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_layers: torch.Tensor):
+        """
+        Returns:
+            weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
+                n layers.
+        """
+        weighted_kls = torch.empty(self.hparams.num_latent_layers)
+        
+        for layer_idx in range(self.hparams.num_latent_layers):
+            # Sum KL within each layer
+            balanced_kl_div_layer = balanced_kl_divs[kl_layers == layer_idx].sum()
+            # Weight
+            weighted_kls[layer_idx] = self.hparams.beta_per_layer[layer_idx] * balanced_kl_div_layer
+        
+        return weighted_kls
     
     def _kl_divergence(
         self,
@@ -188,26 +217,28 @@ class NVAE(L.LightningModule):
             kl_divs.append(kl_div)
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
+            
+        kl_layers = torch.tensor(kl_layers)
         
         gamma = self._compute_gamma()
-        print(f"KL coefficient: {gamma}")
         
         # Stack list to bxn tensor
         kl_divs = torch.stack(kl_divs, dim=1)
         # Average KL over batch: n-dim tensor
         kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
         
-        balanced_kl_div = self._balance_kl(kl_divs, gamma)
+        balanced_kl_divs_batch_avg = self._balance_kl(kl_divs, gamma)
+        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_layers)
         
         # Compute and log KL per layer
         if log_components:
-            kl_layers = torch.tensor(kl_layers)
-            
             for layer_idx in range(self.hparams.num_latent_layers):
+                # Log the original (unbalanced) KL per layer which indicates
+                # amount of information encoded at each layer
                 kl_div_layer = kl_divs_batch_avg[kl_layers == layer_idx].mean()
                 self.log(f"kl_div_{layer_idx}", kl_div_layer)
         
-        return balanced_kl_div.mean()
+        return weighted_kls.sum()
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)

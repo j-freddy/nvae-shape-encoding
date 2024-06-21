@@ -17,14 +17,14 @@ source activate
 # Temporary script
 # ==============================================================================
 
-logdir="logs-nvae-temp-2"
+logdir="logs-nvae-temp-3"
 
 # Train
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
     --warmup_steps 6420 \
-    --beta0 500000 \
-    --beta1 250000 \
-    --beta2 50000 \
+    --beta0 1 \
+    --beta1 1 \
+    --beta2 1 \
     --logs $logdir
