@@ -118,7 +118,7 @@ class NVAE(L.LightningModule):
         assert idx.is_integer()
         return int(idx)
     
-    def _kl_coeff(self) -> float:
+    def _compute_gamma(self) -> float:
         """
         Perform KL annealing with a linear schedule: 0 for the first 10
         steps, then warm-up to 1 over the next @kl_warmup_steps steps.
@@ -126,27 +126,29 @@ class NVAE(L.LightningModule):
         The coefficient is clamped at >= 0.0001 for stability.
         
         Returns:
-            coeff (float): KL coefficient for the current step.
+            gamma (float): KL coefficient for the current step.
         """
         constant_steps = 10
-        coeff = (self.global_step - constant_steps) / self.hparams.kl_warmup_steps
-        return clamp(coeff, 0.0001, 1.0)
-        
-    def _kl_per_group(self, kl_divs: torch.Tensor):
-        kl_coeff_i = torch.abs(kl_divs)
-        kl_coeff_i = torch.mean(kl_coeff_i, dim=0, keepdim=True) + 0.01
-        return kl_coeff_i
+        gamma = (self.global_step - constant_steps) / self.hparams.kl_warmup_steps
+        return clamp(gamma, 0.0001, 1.0)
     
-    def _balance_kl(self, kl_divs, kl_coeff=1.0, balance=True):
-        if balance and kl_coeff < 1.0:
-            kl_coeff_i = self._kl_per_group(kl_divs)
-            total_kl = torch.sum(kl_coeff_i)
+    def _balance_kl(self, kl_divs, gamma=1.0, balance=True):
+        
+        print(kl_divs.shape)
+        
+        if balance and gamma < 1.0:
+            # Set balancing coefficient proportional to the KL term for each
+            # group
+            gamma_i = torch.abs(kl_divs)
+            gamma_i = torch.mean(gamma_i, dim=0, keepdim=True) + 0.01
+            total_kl = torch.sum(gamma_i)
 
-            kl_coeff_i = kl_coeff_i * total_kl
-            kl_coeff_i = kl_coeff_i / torch.mean(kl_coeff_i, dim=1, keepdim=True)
-            kl_divs = kl_divs * kl_coeff_i.detach()
+            gamma_i = gamma_i * total_kl
+            # Rescale gamma_i to sum to 1
+            gamma_i = gamma_i / torch.mean(gamma_i, dim=1, keepdim=True)
+            kl_divs = kl_divs * gamma_i.detach()
 
-        return kl_coeff * torch.sum(kl_divs, dim=1)
+        return gamma * torch.sum(kl_divs, dim=1)
     
     def _kl_divergence(
         self,
@@ -187,23 +189,23 @@ class NVAE(L.LightningModule):
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
         
-        kl_coeff = self._kl_coeff()
-        print(f"KL coefficient: {kl_coeff}")
+        gamma = self._compute_gamma()
+        print(f"KL coefficient: {gamma}")
         
         # Stack list to bxn tensor
         kl_divs = torch.stack(kl_divs, dim=1)
         # Average KL over batch: n-dim tensor
         kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
         
-        balanced_kl_div = self._balance_kl(kl_divs, kl_coeff)
+        balanced_kl_div = self._balance_kl(kl_divs, gamma)
         
         # Compute and log KL per layer
         if log_components:
             kl_layers = torch.tensor(kl_layers)
             
             for layer_idx in range(self.hparams.num_latent_layers):
-                weighted_kl_div = kl_divs_batch_avg[kl_layers == layer_idx].mean()
-                self.log(f"kl_div_{layer_idx}", weighted_kl_div)
+                kl_div_layer = kl_divs_batch_avg[kl_layers == layer_idx].mean()
+                self.log(f"kl_div_{layer_idx}", kl_div_layer)
         
         return balanced_kl_div.mean()
 
@@ -222,16 +224,16 @@ class NVAE(L.LightningModule):
         log_components: bool=True,
     ) -> torch.Tensor:
         recon_loss = self.reconstruction_loss(x, x_hat)
-        weighted_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
+        balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         
         print(f"Reconstruction loss: {recon_loss}")
-        print(f"Weighted KL divergence: {weighted_kl_div}")
+        print(f"Weighted KL divergence: {balanced_kl_div}")
         
         if log_components:
             self.log("recon_loss", recon_loss)
-            self.log("kl_div", weighted_kl_div)
+            self.log("kl_div", balanced_kl_div)
         
-        return recon_loss + weighted_kl_div
+        return recon_loss + balanced_kl_div
     
     def forward(
         self,

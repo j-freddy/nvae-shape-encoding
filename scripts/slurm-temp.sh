@@ -17,7 +17,7 @@ source activate
 # Temporary script
 # ==============================================================================
 
-logdir="logs-nvae-temp"
+logdir="logs-nvae-temp-2"
 
 # Train
 python -m arch.nvae.train \
