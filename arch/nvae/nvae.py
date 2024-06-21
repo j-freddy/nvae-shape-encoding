@@ -13,7 +13,7 @@ from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 from const import ACDC
 from utils.eval import frds, get_samples_and_reconstructions
-from utils.utils import discretise, show_samples
+from utils.utils import clamp, discretise, show_samples
 
 class NVAE(L.LightningModule):
     """
@@ -118,37 +118,35 @@ class NVAE(L.LightningModule):
         assert idx.is_integer()
         return int(idx)
     
-    def _kl_coeff(self):
-        constant_steps = 10
-        return max(
-            min(
-                (self.global_step - constant_steps) / self.hparams.kl_warmup_steps,
-                1.0,
-            ),
-            0.0001,
-        )
+    def _kl_coeff(self) -> float:
+        """
+        Perform KL annealing with a linear schedule: 0 for the first 10
+        steps, then warm-up to 1 over the next @kl_warmup_steps steps.
         
-    def _kl_per_group(self, kl_all):
-        kl_vals = torch.mean(kl_all, dim=0)
-        kl_coeff_i = torch.abs(kl_all)
+        The coefficient is clamped at >= 0.0001 for stability.
+        
+        Returns:
+            coeff (float): KL coefficient for the current step.
+        """
+        constant_steps = 10
+        coeff = (self.global_step - constant_steps) / self.hparams.kl_warmup_steps
+        return clamp(coeff, 0.0001, 1.0)
+        
+    def _kl_per_group(self, kl_divs: torch.Tensor):
+        kl_coeff_i = torch.abs(kl_divs)
         kl_coeff_i = torch.mean(kl_coeff_i, dim=0, keepdim=True) + 0.01
-        return kl_coeff_i, kl_vals
+        return kl_coeff_i
     
-    def _balance_kl(self, kl_all, kl_coeff=1.0, kl_balance=True):
-        if kl_balance and kl_coeff < 1.0:
-            kl_all = torch.stack(kl_all, dim=1)
-            kl_coeff_i, kl_vals = self._kl_per_group(kl_all)
+    def _balance_kl(self, kl_divs, kl_coeff=1.0, balance=True):
+        if balance and kl_coeff < 1.0:
+            kl_coeff_i = self._kl_per_group(kl_divs)
             total_kl = torch.sum(kl_coeff_i)
 
             kl_coeff_i = kl_coeff_i * total_kl
             kl_coeff_i = kl_coeff_i / torch.mean(kl_coeff_i, dim=1, keepdim=True)
-            kl = torch.sum(kl_all * kl_coeff_i.detach(), dim=1)
-        else:
-            kl_all = torch.stack(kl_all, dim=1)
-            kl_vals = torch.mean(kl_all, dim=0)
-            kl = torch.sum(kl_all, dim=1)
+            kl_divs = kl_divs * kl_coeff_i.detach()
 
-        return kl_coeff * kl, kl_vals
+        return kl_coeff * torch.sum(kl_divs, dim=1)
     
     def _kl_divergence(
         self,
@@ -160,8 +158,12 @@ class NVAE(L.LightningModule):
     ) -> torch.Tensor:
         # log_p, log_q and kl_diag are for metrics purposes
         
+        # For each group, compute KL of batch
+        # For n groups, this is a n-list of b-dim tensors (b=batch size)
         kl_divs = []
+        # Logging
         kl_diag = []
+        # Record which layer each KL corresponds to (for logging marginal KL)
         kl_layers = []
         
         log_p: float = 0
@@ -179,9 +181,6 @@ class NVAE(L.LightningModule):
             kl_per_var = q.kl(p)
 
             kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])
-            # Normalise KL by number of variables
-            # TODO Maybe kl_div = kl_div * (z_channels * width * height)
-            # kl_div = kl_div / (z_channels * width * height)
 
             kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
             kl_divs.append(kl_div)
@@ -190,14 +189,20 @@ class NVAE(L.LightningModule):
         
         kl_coeff = self._kl_coeff()
         print(f"KL coefficient: {kl_coeff}")
-        balanced_kl_div, kl_vals = self._balance_kl(kl_divs, kl_coeff)
+        
+        # Stack list to bxn tensor
+        kl_divs = torch.stack(kl_divs, dim=1)
+        # Average KL over batch: n-dim tensor
+        kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
+        
+        balanced_kl_div = self._balance_kl(kl_divs, kl_coeff)
         
         # Compute and log KL per layer
         if log_components:
             kl_layers = torch.tensor(kl_layers)
             
             for layer_idx in range(self.hparams.num_latent_layers):
-                weighted_kl_div = kl_vals[kl_layers == layer_idx].mean()
+                weighted_kl_div = kl_divs_batch_avg[kl_layers == layer_idx].mean()
                 self.log(f"kl_div_{layer_idx}", weighted_kl_div)
         
         return balanced_kl_div.mean()

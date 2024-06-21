@@ -26,4 +26,5 @@ python -m arch.nvae.train \
     --warmup_steps 6420 \
     --beta0 500000 \
     --beta1 250000 \
-    --beta2 50000
+    --beta2 50000 \
+    --logs $logdir
