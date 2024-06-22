@@ -2,7 +2,6 @@ import lightning as L
 import math
 from matplotlib import pyplot as plt
 from monai.losses.dice import DiceLoss
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

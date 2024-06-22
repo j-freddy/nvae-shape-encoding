@@ -1,5 +1,4 @@
 import csv
-import math
 import os
 from lightning import LightningDataModule
 import subprocess
