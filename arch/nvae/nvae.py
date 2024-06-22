@@ -1,4 +1,3 @@
-from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
@@ -134,8 +133,19 @@ class NVAE(L.LightningModule):
     
     def _balance_kl(self, kl_divs, gamma=1.0, balance=True):
         """
+        Perform the balancing mechanism on KL divergence terms as described in
+        the appendix of the NVAE paper. This consists of (1) scale all KL values
+        by the coefficient @gamma and (2) rescale KL values over all groups by
+        their magnitude.
+        
+        The balancing mechanism is applied only during the warm-up period. After
+        the warm-up period, gamma is 1 and the method simply returns the average
+        over all groups.
+        
+        noqa: This method should only be called during training.
+        
         Args:
-            kl_divs (torch.Tensor): KL per layer. bxg tensor for batch size b
+            kl_divs (torch.Tensor): KL per group. bxg tensor for batch size b
                 and g groups.
             gamma (float): KL coefficient for current step. gamma of 1 indicates
                 warm-up is complete and balancing mechanism is not applied.
@@ -165,6 +175,15 @@ class NVAE(L.LightningModule):
     
     def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_layers: torch.Tensor):
         """
+        For each layer, weight the KL divergence by the corresponding beta.
+        Equivalent to beta-VAE but applied to each layer.
+        
+        Args:
+            balanced_kl_divs (torch.Tensor): KL per group after balancing,
+                averaged over the batch. g-dim tensor for g groups.
+            kl_layers (torch.Tensor): Layer index for each KL term in
+                balanced_kl_divs.
+        
         Returns:
             weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
                 n layers.
@@ -187,6 +206,11 @@ class NVAE(L.LightningModule):
         log_ps: list[torch.Tensor],
         log_components: bool=True,
     ) -> torch.Tensor:
+        """
+        Compute the weighted and balanced KL divergence between the approximate
+        posterior and prior, summed over all latent layers. The KL divergence
+        of each layer is the sum over all groups within the layer.
+        """
         # log_p, log_q and kl_diag are for metrics purposes
         
         # For each group, compute KL of batch
@@ -241,6 +265,16 @@ class NVAE(L.LightningModule):
         return weighted_kls.sum()
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the reconstruction loss using cross-entropy.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+            x_hat_logits (torch.Tensor): Logits of reconstruction of input.
+        
+        Returns:
+            recon_loss (torch.Tensor): Reconstruction loss.
+        """
         batch_size = x.size(0)
         return F.cross_entropy(x_hat, x, reduction="sum") / batch_size
     
@@ -254,6 +288,10 @@ class NVAE(L.LightningModule):
         log_ps: list[torch.Tensor],
         log_components: bool=True,
     ) -> torch.Tensor:
+        """
+        Compute the NVAE loss: sum of reconstruction loss and beta-weighted
+        balanced KL divergence regulariser term.
+        """
         recon_loss = self.reconstruction_loss(x, x_hat)
         balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         

@@ -62,6 +62,17 @@ class VAE(L.LightningModule):
         ).mean()
         
     def reconstruction_loss(self, x: torch.Tensor, x_hat_logits: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the reconstruction loss using cross-entropy.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+            x_hat_logits (torch.Tensor): Logits of reconstruction of input
+                (output of decoder).
+        
+        Returns:
+            recon_loss (torch.Tensor): Reconstruction loss.
+        """
         batch_size = x.size(0)
         return F.cross_entropy(x_hat_logits, x, reduction="sum") / batch_size
     

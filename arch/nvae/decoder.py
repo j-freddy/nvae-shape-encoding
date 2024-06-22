@@ -187,6 +187,9 @@ class Decoder(nn.Module):
             num_channels //= 2
         
         self.postprocess = nn.Sequential(*postprocess_modules)
+    
+    def get_top_latent_shape(self, batch_size: int) -> tuple[int, int, int, int]:
+        return (batch_size, self.z_channels, *self.top_latent_shape)
 
     def forward(
         self,
@@ -297,9 +300,6 @@ class Decoder(nn.Module):
         x = self.postprocess(x)
         
         return x, qs, ps, log_qs, log_ps
-
-    def get_top_latent_shape(self, batch_size: int) -> tuple[int, int, int, int]:
-        return (batch_size, self.z_channels, *self.top_latent_shape)
 
     def generate(
         self,

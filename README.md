@@ -1,5 +1,7 @@
 # Nouveau-VAE for Anatomical Shape Encoding
 
+<!-- This is a very rough draft. Go through this again towards the end. -->
+
 To set up this repository for usage, go through [Quick Start](#quick-start) up
 to (and including) the Install dependencies step.
 
@@ -40,30 +42,29 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If everything has been set up correctly, the commands below should work.
+If everything has been set up correctly, the commands below should work. Time estimations are based on a 16GB RAM, 8-core CPU powered laptop. Running on an A30 GPU with 24GB RAM is ~6 times faster.
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc
 # Train a VAE model with good configurations (~10 minutes)
 python -m arch.vae.train \
     --epochs 50 \
-    --latent_dim 6 \
+    --latent_dim 8 \
     --beta 0 \
     --gamma 200 \
-    --loss_reg info_vae \
-    --register_alignment
+    --loss_reg info_vae
 # Train a NVAE model with good configurations (~120 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
     --warmup_steps 6420 \
-    --beta0 500000 \
-    --beta1 250000 \
-    --beta2 50000
+    --beta0 1 \
+    --beta1 1 \
+    --beta2 1
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
-python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt --register_alignment
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
 python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
 ```
 
@@ -233,7 +234,7 @@ Further analysis:
 
 ### TensorBoard
 
-TensorBoard allows you to visualise graphs and metrics from the train/test
+TensorBoard allows visualisation of graphs and metrics from the train/test
 process.
 
 ```sh
