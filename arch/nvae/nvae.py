@@ -147,7 +147,7 @@ class NVAE(L.LightningModule):
             kl_divs (torch.Tensor): KL per group. bxg tensor for batch size b
                 and g groups.
             gamma (float): KL coefficient for current step. gamma of 1 indicates
-                warm-up is complete and balancing mechanism is not applied.
+                warm-up is complete and balancing mechanism is not applied.
                 Default: 1.0.
             balance (bool): Whether to apply the balancing mechanism. This
                 should be on at train time and off at test time. Default: True.
