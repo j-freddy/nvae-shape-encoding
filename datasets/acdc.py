@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.transforms import v2
 
 from const import ACDC
 
@@ -36,17 +37,18 @@ class ACDCMaskDataset(Dataset):
         self.simclr_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=180),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomResizedCrop(
-                size=ACDC.WIDTH,
-                scale=(0.8, 1.0),
-                ratio=(1, 1),
+            v2.RandomZoomOut(
+                side_range=(1.0, 3.0),
+            ),
+            transforms.Resize(
+                (ACDC.WIDTH, ACDC.WIDTH),
                 interpolation=transforms.InterpolationMode.NEAREST,
             ),
-            transforms.ElasticTransform(
-                alpha=300.0,
-                sigma=15.0,
-                interpolation=transforms.InterpolationMode.NEAREST,
-            ),
+            # transforms.ElasticTransform(
+            #     alpha=100.0,
+            #     sigma=10.0,
+            #     interpolation=transforms.InterpolationMode.NEAREST,
+            # ),
             transforms.Normalize((0.5,), (0.5,)),
         ])
     

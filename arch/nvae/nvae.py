@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from const import ACDC
+from const import ACDC, FRDS_MODEL_PATH
 from utils.eval import frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
@@ -343,13 +343,10 @@ class NVAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        # TODO Do not hardcode
-        resnet_path = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-        
         frds_value = frds(
             feats,
             discretise(feats_fake),
-            resnet_path=resnet_path,
+            resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
