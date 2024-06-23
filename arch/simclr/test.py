@@ -50,17 +50,17 @@ disturbances = {
         "30-70%": RandomBlackBoxCrop(size_range=(0.3, 0.7)),
         "40-90%": RandomBlackBoxCrop(size_range=(0.4, 0.9)),
     },
-    "Pepper Noise": {
-        "p=0.0005": RandomPepperNoise(p=0.0005),
-        "p=0.005": RandomPepperNoise(p=0.005),
-        "p=0.05": RandomPepperNoise(p=0.05),
-        "p=0.5": RandomPepperNoise(p=0.5),
-    },
     "Elastic Deformation": {
         "sigma=8": ElasticTransform(alpha=300.0, sigma=8.0, interpolation=InterpolationMode.NEAREST),
         "sigma=6": ElasticTransform(alpha=300.0, sigma=6.0, interpolation=InterpolationMode.NEAREST),
         "sigma=4": ElasticTransform(alpha=300.0, sigma=4.0, interpolation=InterpolationMode.NEAREST),
         "sigma=2": ElasticTransform(alpha=300.0, sigma=2.0, interpolation=InterpolationMode.NEAREST),
+    },
+    "Pepper Noise": {
+        "p=0.0005": RandomPepperNoise(p=0.0005),
+        "p=0.005": RandomPepperNoise(p=0.005),
+        "p=0.05": RandomPepperNoise(p=0.05),
+        "p=0.5": RandomPepperNoise(p=0.5),
     },
 }
 
