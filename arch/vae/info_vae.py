@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 
 from arch.vae.vae import VAE
 

@@ -7,6 +7,9 @@ from torchvision.utils import make_grid
 
 from const import SEED
 
+def clamp(x: float, low: float, high: float) -> float:
+    return max(low, min(x, high))
+
 def setup_device() -> torch.device:
     """
     Set up Torch device and set seed. Enforce all operations to be

@@ -31,13 +31,13 @@ projected_channels_list=("4")
 # size=1 (6420 is 214*30 so first 30 epochs)
 warmup_steps_list=("6420")
 # size=4
-betas0=("50000 150000 500000 1500000")
+betas0=("1 2 5 10")
 # size=3
-betas1=("25000 75000 250000")
+betas1=("1 2 5 10")
 # size=4
-betas2=("10000 25000 50000 100000")
+betas2=("1 2 5 10")
 
-logdir="logs-nvae-new-arch-2"
+logdir="logs-nvae-official-warmup"
 
 # Train
 
