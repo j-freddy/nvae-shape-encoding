@@ -8,7 +8,7 @@ import torch.optim as optim
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
 from const import FRDS_MODEL_PATH
-from utils.eval import compute_fid_manual, compute_frds, get_samples_and_reconstructions
+from utils.eval import compute_frds, get_samples_and_reconstructions
 from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):

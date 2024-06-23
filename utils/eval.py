@@ -44,8 +44,14 @@ def encode_embeddings(
     model: nn.Module,
     device: torch.device,
     resnet: bool = False,
+    is_x_onehot: bool = True,
 ) -> torch.Tensor:
-    def encode_inception(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
+    def encode_inception(
+        x: torch.Tensor,
+        model: nn.Module,
+        device: torch.device,
+        is_x_onehot: bool,
+    ) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
             # Discard background dimension
@@ -61,10 +67,17 @@ def encode_embeddings(
 
         return feats.detach().cpu()
     
-    def encode_resnet(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
+    def encode_resnet(
+        x: torch.Tensor,
+        model: nn.Module,
+        device: torch.device,
+        is_x_onehot: bool,
+    ) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
-            x = one_hot_to_image(x) * 2 - 1
+            if is_x_onehot:
+                x = one_hot_to_image(x)
+            x = x * 2 - 1
             # Values should be preprocessed as 0, 1 so after scaling they should
             # be -1, 1
             assert set(x.unique().tolist()).issubset({-1, 1})
@@ -80,7 +93,7 @@ def encode_embeddings(
     f = encode_resnet if resnet else encode_inception
 
     for x_batch in x_split:
-        embeddings.append(f(x_batch, model, device))
+        embeddings.append(f(x_batch, model, device, is_x_onehot))
         
     return torch.cat(embeddings, dim=0)
 
@@ -106,6 +119,7 @@ def compute_fid_manual(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
     device: torch.device,
+    is_data_onehot: bool = True,
 ):  
     # Load inception model
     inception_model = inception_v3(weights="DEFAULT", transform_input=False).to(device)
@@ -114,10 +128,10 @@ def compute_fid_manual(
     inception_model.eval()
 
     # Extract features for real images
-    real_feats = encode_embeddings(real_data, inception_model, device)
+    real_feats = encode_embeddings(real_data, inception_model, device, is_x_onehot=is_data_onehot)
 
     # Extract features for generated images
-    fake_feats = encode_embeddings(fake_data, inception_model, device)
+    fake_feats = encode_embeddings(fake_data, inception_model, device, is_x_onehot=is_data_onehot)
 
     return compute_frechet_distance(real_feats, fake_feats)
 
@@ -126,16 +140,17 @@ def compute_frds(
     fake_data: torch.Tensor,
     resnet_path: str,
     device: torch.device,
+    is_data_onehot: bool = True,
 ):  
     # Load pretrained SimCLR model
     resnet_model = load_simclr_backbone(resnet_path)
     resnet_model = resnet_model.to(device)
 
     # Extract features for real images
-    real_feats = encode_embeddings(real_data, resnet_model, device, resnet=True)
+    real_feats = encode_embeddings(real_data, resnet_model, device, resnet=True, is_x_onehot=is_data_onehot)
 
     # Extract features for generated images
-    fake_feats = encode_embeddings(fake_data, resnet_model, device, resnet=True)
+    fake_feats = encode_embeddings(fake_data, resnet_model, device, resnet=True, is_x_onehot=is_data_onehot)
 
     return compute_frechet_distance(real_feats, fake_feats)
 

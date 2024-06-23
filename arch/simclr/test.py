@@ -1,11 +1,12 @@
 import argparse
 import lightning as L
-from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
-from arch.simclr.simclr import SimCLR
-from const import ACDC, LOGS_PATH, SEED
+from const import LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils.utils import setup_device
+from utils.custom_augmentations import GaussianBlur, RandomBlackBoxCrop
+from utils.eval import compute_frds
+from utils.utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -26,6 +27,45 @@ def parse_args() -> argparse.Namespace:
     
     return parser.parse_args()
 
+def test(x: torch.Tensor, model_path: str, device: torch.device):
+    """
+    Evaluate how robust the FRDS metric is for the pretrained model, by
+    computing it between the test set and a modified test set. The modified
+    test set is subject to different types and levels of noise, such as
+    Gaussian noise, smoothing and cropping.
+    """
+    # Evaluation protocol for FRDS
+    disturbances = [
+        RandomBlackBoxCrop(size_range=(0.1, 0.3)),
+        RandomBlackBoxCrop(size_range=(0.2, 0.5)),
+        RandomBlackBoxCrop(size_range=(0.3, 0.7)),
+        RandomBlackBoxCrop(size_range=(0.4, 0.9)),
+    ]
+        
+    for disturbance in disturbances:
+        x_aug = disturbance(x)
+    
+        print(x_aug.unique())
+
+        show_samples(
+            torch.cat([x[:10], x_aug[:10]], dim=0),
+            ncol=10,
+            figsize=(10, 2),
+        )
+        
+        import sys
+        sys.exit()
+        
+        frds_value = compute_frds(
+            x,
+            x_aug,
+            resnet_path=model_path,
+            device=device,
+            is_data_onehot=False,
+        )
+        
+        print(f"FRDS: {frds_value}")
+
 def main(flags: argparse.Namespace):
     # Setup device
     device = setup_device()
@@ -36,32 +76,22 @@ def main(flags: argparse.Namespace):
     
     # Load data
     data_module = ACDCMaskDataModule(batch_size=20, as_image=True)
-    # TODO Bit hacky but I want to use 1 batch only to calculate FRDS
-    data_module.batch_size = len(data_module.data_test)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
+
+    # Stack each batch    
+    loader_test = data_module.test_dataloader()
+
+    data_test = []
+
+    for batch in loader_test:
+        data_test.append(batch)
+
+    data_test = torch.cat(data_test, dim=0)
     
-    # Load model
-    model = SimCLR.load_from_checkpoint(flags.model_path)
-
-    # TODO noqa
-    model_name = flags.model_path.split("/")[2]
-
-    trainer = L.Trainer(
-        # Using CPU for testing as FRDS calculation with 1 large batch can give
-        # OOM error
-        accelerator="cpu",
-        devices="auto",
-        logger=TensorBoardLogger(
-            save_dir=flags.logs,
-            name=ACDC.DIR.SIMCLR,
-            version=model_name,
-            default_hp_metric=False,
-        ),
-    )
-
-    trainer.test(model, data_module)
+    # Perform test
+    test(data_test, flags.model_path, device)
 
 if __name__ == "__main__":
     flags = parse_args()

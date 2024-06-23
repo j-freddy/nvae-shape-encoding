@@ -4,9 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
-from torchvision import transforms
-
-from utils.utils import show_samples
 
 class SimCLR(L.LightningModule):
     """
@@ -132,20 +129,3 @@ class SimCLR(L.LightningModule):
         self.log("val_loss", loss)
 
         print(f"Val loss: {loss}")
-    
-    def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        """
-        Evaluate how robust the FRDS metric is for the pretrained model, by
-        computing it between the test set and a modified test set. The modified
-        test set is subject to different types and levels of noise, such as
-        Gaussian noise, smoothing and cropping.
-        """
-        assert batch_idx == 0, "Only 1 batch allowed"
-        x = 2 * x - 1.0
-        assert set(x.unique().tolist()).issubset({-1, 1})
-
-        # TODO Experiments
-        x = x[:20]
-        show_samples(x, ncol=10, figsize=(10, 2))
-        import sys
-        sys.exit()
