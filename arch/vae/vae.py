@@ -216,14 +216,6 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        fid_value = compute_fid_manual(
-            x,
-            discretise(x_fake_logits),
-            device=self.device,
-        )
-    
-        self.log("fid", fid_value)
-        
         frds_value = compute_frds(
             x,
             discretise(x_fake_logits),
