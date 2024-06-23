@@ -10,7 +10,7 @@ from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 from const import ACDC, FRDS_MODEL_PATH
-from utils.eval import frds, get_samples_and_reconstructions
+from utils.eval import compute_frds, get_samples_and_reconstructions
 from utils.utils import clamp, discretise, show_samples
 
 class NVAE(L.LightningModule):
@@ -434,7 +434,7 @@ class NVAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
-        frds_value = frds(
+        frds_value = compute_frds(
             feats,
             discretise(feats_fake),
             resnet_path=FRDS_MODEL_PATH,

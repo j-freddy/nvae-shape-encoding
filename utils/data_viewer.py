@@ -83,10 +83,10 @@ def view_acdc():
     # View samples
     loader_test = data_module.test_dataloader()
     
-    samples: torch.Tensor = next(iter(loader_test))
+    samples: list[torch.Tensor] = next(iter(loader_test))
     
     if flags.augment_simclr:
-        samples = torch.cat(samples, dim=0)
+        samples: torch.Tensor = torch.cat(samples, dim=0)
     else:  
         # Uncomment this line to view each channel separately
         # samples = samples[:, 0, :, :].unsqueeze(1)
@@ -95,7 +95,7 @@ def view_acdc():
         # samples = samples[:, 3, :, :].unsqueeze(1)
         
         # Or recombine the channels
-        samples = torch.argmax(samples, dim=1).unsqueeze(1)
+        samples: torch.Tensor = torch.argmax(samples, dim=1).unsqueeze(1)
     
     show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 2))
 

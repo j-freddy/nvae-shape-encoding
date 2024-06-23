@@ -25,7 +25,7 @@ source activate
 # Time taken: unknown
 # ==============================================================================
 
-# grid size is 48
+# grid size is 64
 # size=1
 projected_channels_list=("4")
 # size=1 (6420 is 214*30 so first 30 epochs)
