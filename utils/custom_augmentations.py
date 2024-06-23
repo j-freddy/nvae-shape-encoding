@@ -34,3 +34,17 @@ class AverageSmoothing:
         # Majority vote: Perform average pooling
         img_aug = self.net(img)
         return torch.round(img_aug)
+
+class RandomPepperNoise:
+    def __init__(self, p: float):
+        self.p = p
+
+    def __call__(self, img):
+        batch_size, _, width, height = img.shape
+
+        mask = torch.empty_like(img)
+        
+        for i in range(batch_size):
+            mask[i] = torch.rand(width, height) > self.p
+
+        return img * mask
