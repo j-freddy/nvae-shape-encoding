@@ -3,16 +3,18 @@ from scipy.linalg import sqrtm
 import torch
 import torch.nn as nn
 from torchmetrics.image.fid import FrechetInceptionDistance
+from torchvision import transforms
+from torchvision.models import inception_v3
 
 from arch.simclr.utils import load_simclr_backbone
 from utils.utils import one_hot_to_image
 
-def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
+def compute_fid(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
     """
-    Deprecated. Use frds() instead.
+    Deprecated. Use compute_fid_manual instead.
     
     Reason: This pipeline to evaluate generation quality does not align with
-    empirical analysis as well as FRDS.
+    empirical analysis as well as compute_fid_manual.
     """
     # Pre: Data is ACDC one-hot, discretised encoded masks
     _, num_channels, _, _ = real_data.shape
@@ -37,8 +39,29 @@ def fid_torchmetrics(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.
     fid.update(fake_data, real=False)
     return fid.compute()
 
-def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
-    def encode(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
+def encode_embeddings(
+    x: torch.Tensor,
+    model: nn.Module,
+    device: torch.device,
+    resnet: bool = False,
+) -> torch.Tensor:
+    def encode_inception(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
+        with torch.no_grad():
+            x = x.to(device)
+            # Discard background dimension
+            x = x[:, 1:, :, :].float()
+            x = x * 2 - 1
+
+            transform = transforms.Compose([
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                nn.Upsample(size=(299, 299), mode="bilinear", align_corners=True),
+            ])
+
+            feats = model(transform(x))
+
+        return feats.detach().cpu()
+    
+    def encode_resnet(x: torch.Tensor, model: nn.Module, device: torch.device) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
             x = one_hot_to_image(x) * 2 - 1
@@ -53,14 +76,52 @@ def encode_embeddings(x: torch.Tensor, model: nn.Module, device: torch.device) -
     
     batch_size = 2
     x_split = torch.split(x, batch_size, dim=0)
+    
+    f = encode_resnet if resnet else encode_inception
 
     for x_batch in x_split:
-        embeddings.append(encode(x_batch, model, device))
+        embeddings.append(f(x_batch, model, device))
         
     return torch.cat(embeddings, dim=0)
-    
 
-def frds(
+def compute_frechet_distance(real_feats: torch.Tensor, fake_feats: torch.Tensor) -> torch.Tensor:
+    # Calculate mean and covariance
+    mu_real = real_feats.mean(0)
+    sigma_real = np.cov(real_feats.numpy(), rowvar=False)
+
+    mu_fake = fake_feats.mean(0)
+    sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
+
+    # Compute Frechet distance
+    sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
+    covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
+    
+    # Check and correct for imaginary numbers from sqrt
+    if np.iscomplexobj(covm_real_fake):
+        covm_real_fake = covm_real_fake.real
+
+    return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
+
+def compute_fid_manual(
+    real_data: torch.Tensor,
+    fake_data: torch.Tensor,
+    device: torch.device,
+):  
+    # Load inception model
+    inception_model = inception_v3(weights="DEFAULT", transform_input=False).to(device)
+    
+    inception_model.fc = nn.Identity()
+    inception_model.eval()
+
+    # Extract features for real images
+    real_feats = encode_embeddings(real_data, inception_model, device)
+
+    # Extract features for generated images
+    fake_feats = encode_embeddings(fake_data, inception_model, device)
+
+    return compute_frechet_distance(real_feats, fake_feats)
+
+def compute_frds(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
     resnet_path: str,
@@ -71,27 +132,12 @@ def frds(
     resnet_model = resnet_model.to(device)
 
     # Extract features for real images
-    real_feats = encode_embeddings(real_data, resnet_model, device)
+    real_feats = encode_embeddings(real_data, resnet_model, device, resnet=True)
 
     # Extract features for generated images
-    fake_feats = encode_embeddings(fake_data, resnet_model, device)
+    fake_feats = encode_embeddings(fake_data, resnet_model, device, resnet=True)
 
-    # Calculate mean and covariance
-    mu_real = real_feats.mean(0)
-    sigma_real = np.cov(real_feats.numpy(), rowvar=False)
-
-    mu_fake = fake_feats.mean(0)
-    sigma_fake = np.cov(fake_feats.numpy(), rowvar=False)
-
-    # Compute Frechet score
-    sum_sq_diff = torch.sum((mu_real - mu_fake) ** 2).item()
-    covm_real_fake = sqrtm(sigma_real.dot(sigma_fake))
-    
-    # Check and correct for imaginary numbers from sqrt
-    if np.iscomplexobj(covm_real_fake):
-        covm_real_fake = covm_real_fake.real
-
-    return sum_sq_diff + np.trace(sigma_real + sigma_fake - 2.0 * covm_real_fake)
+    return compute_frechet_distance(real_feats, fake_feats)
 
 def get_samples_and_reconstructions(x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
     reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
