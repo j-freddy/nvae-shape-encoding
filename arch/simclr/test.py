@@ -1,13 +1,12 @@
 import argparse
 import lightning as L
 import torch
-from torchvision.transforms import ElasticTransform, InterpolationMode
 
 from const import LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils.custom_augmentations import AverageSmoothing, RandomBlackBoxCrop
+from utils.custom_augmentations import AverageSmoothing
 from utils.eval import compute_frds
-from utils.utils import setup_device, show_samples
+from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -28,7 +27,11 @@ def parse_args() -> argparse.Namespace:
     
     return parser.parse_args()
 
-def test(x: torch.Tensor, model_path: str, device: torch.device):
+def test(
+    datasets: tuple[torch.Tensor, torch.Tensor],
+    model_path: str,
+    device: torch.device,
+):
     """
     Evaluate how robust the FRDS metric is for the pretrained model, by
     computing it between the test set and a modified test set. The modified
@@ -51,6 +54,8 @@ def test(x: torch.Tensor, model_path: str, device: torch.device):
         # RandomBlackBoxCrop(size_range=(0.4, 0.9)),
     ]
 
+    x, y = datasets
+
     for disturbance in disturbances:
         x_aug = disturbance(x)
 
@@ -61,7 +66,7 @@ def test(x: torch.Tensor, model_path: str, device: torch.device):
         # )
         
         frds_value = compute_frds(
-            x,
+            y,
             x_aug,
             resnet_path=model_path,
             device=device,
@@ -84,18 +89,23 @@ def main(flags: argparse.Namespace):
     # Reseed after preprocessing data
     L.seed_everything(SEED)
 
-    # Stack each batch
-    loader_test = data_module.test_dataloader()
-
-    data_test = []
-
-    for batch in loader_test:
-        data_test.append(batch)
-
-    data_test = torch.cat(data_test, dim=0)
+    data_train = data_module.data_train.masks
+    data_test = data_module.data_test.masks
+    
+    num_samples = min(data_train.shape[0], data_test.shape[0])
+    
+    # Shuffle and select subset
+    data_train = data_train[torch.randperm(data_train.shape[0])]
+    data_test = data_test[torch.randperm(data_test.shape[0])]
+    data_train = data_train[:num_samples]
+    data_test = data_test[:num_samples]
     
     # Perform test
-    test(data_test, flags.model_path, device)
+    test(
+        (data_train, data_test),
+        flags.model_path,
+        device,
+    )
 
 if __name__ == "__main__":
     flags = parse_args()
