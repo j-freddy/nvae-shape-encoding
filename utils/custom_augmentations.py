@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torchvision import transforms
+import torch.nn as nn
 
 class RandomBlackBoxCrop:
     def __init__(self, size_range: tuple[int, int]):
@@ -24,3 +24,13 @@ class RandomBlackBoxCrop:
             mask[i, :, x:x + crop_width, y:y + crop_height] = 0
 
         return img * mask
+
+class AverageSmoothing:
+    def __init__(self, kernel_size: int):
+        self.kernel_size = kernel_size
+        self.net = nn.AvgPool2d(self.kernel_size, stride=1, padding=self.kernel_size // 2)
+
+    def __call__(self, img):
+        # Majority vote: Perform average pooling
+        img_aug = self.net(img)
+        return torch.round(img_aug)

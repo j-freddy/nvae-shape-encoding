@@ -1,10 +1,11 @@
 import argparse
 import lightning as L
 import torch
+from torchvision.transforms import ElasticTransform, InterpolationMode
 
 from const import LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
-from utils.custom_augmentations import GaussianBlur, RandomBlackBoxCrop
+from utils.custom_augmentations import AverageSmoothing, RandomBlackBoxCrop
 from utils.eval import compute_frds
 from utils.utils import setup_device, show_samples
 
@@ -36,25 +37,28 @@ def test(x: torch.Tensor, model_path: str, device: torch.device):
     """
     # Evaluation protocol for FRDS
     disturbances = [
-        RandomBlackBoxCrop(size_range=(0.1, 0.3)),
-        RandomBlackBoxCrop(size_range=(0.2, 0.5)),
-        RandomBlackBoxCrop(size_range=(0.3, 0.7)),
-        RandomBlackBoxCrop(size_range=(0.4, 0.9)),
+        AverageSmoothing(kernel_size=3),
+        AverageSmoothing(kernel_size=5),
+        AverageSmoothing(kernel_size=7),
+        AverageSmoothing(kernel_size=9),
+        # ElasticTransform(alpha=300.0, sigma=8.0, interpolation=InterpolationMode.NEAREST),
+        # ElasticTransform(alpha=300.0, sigma=6.0, interpolation=InterpolationMode.NEAREST),
+        # ElasticTransform(alpha=300.0, sigma=4.0, interpolation=InterpolationMode.NEAREST),
+        # ElasticTransform(alpha=300.0, sigma=2.0, interpolation=InterpolationMode.NEAREST),
+        # RandomBlackBoxCrop(size_range=(0.1, 0.3)),
+        # RandomBlackBoxCrop(size_range=(0.2, 0.5)),
+        # RandomBlackBoxCrop(size_range=(0.3, 0.7)),
+        # RandomBlackBoxCrop(size_range=(0.4, 0.9)),
     ]
-        
+
     for disturbance in disturbances:
         x_aug = disturbance(x)
-    
-        print(x_aug.unique())
 
-        show_samples(
-            torch.cat([x[:10], x_aug[:10]], dim=0),
-            ncol=10,
-            figsize=(10, 2),
-        )
-        
-        import sys
-        sys.exit()
+        # show_samples(
+        #     torch.cat([x[:10], x_aug[:10]], dim=0),
+        #     ncol=10,
+        #     figsize=(10, 2),
+        # )
         
         frds_value = compute_frds(
             x,
@@ -80,7 +84,7 @@ def main(flags: argparse.Namespace):
     # Reseed after preprocessing data
     L.seed_everything(SEED)
 
-    # Stack each batch    
+    # Stack each batch
     loader_test = data_module.test_dataloader()
 
     data_test = []
