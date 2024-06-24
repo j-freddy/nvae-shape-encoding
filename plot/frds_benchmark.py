@@ -53,10 +53,9 @@ if __name__ == '__main__':
     model_labels = benchmark_data["labels"]
     
     # For specific model
-    for model_idx, model_label in enumerate(model_labels):
+    for model_idx, model_name in enumerate(model_labels):
         fig, axs = plt.subplots(2, 2)
         fig_idx = 0
-        model_name = benchmark_data['labels'][model_idx]
         
         # For each disturbance
         for disturbance_label, disturbance_data in benchmark_data["disturbances"].items():
