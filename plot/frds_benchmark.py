@@ -50,25 +50,31 @@ benchmark_data = {
 if __name__ == '__main__':
     plt.style.use("ggplot")
     
-    fig, axs = plt.subplots(2, 2)
+    model_labels = benchmark_data["disturbances"].keys()
     
-    fig_idx = 0
-    
-    # For each disturbance
-    for disturbance_label, disturbance_data in benchmark_data["disturbances"].items():
-        ax = axs[fig_idx // 2, fig_idx % 2]
+    # For specific model
+    for model_idx, model_label in enumerate(model_labels):
+        fig, axs = plt.subplots(2, 2)
+        fig_idx = 0
+        model_name = benchmark_data['labels'][model_idx]
         
-        # For each model
-        for i, values in enumerate(disturbance_data["data"]):
+        # For each disturbance
+        for disturbance_label, disturbance_data in benchmark_data["disturbances"].items():
+            ax = axs[fig_idx // 2, fig_idx % 2]
+            
+            values = disturbance_data["data"][model_idx]
+            
             # Plot ideal value with other values
-            agg_values = [benchmark_data["ideal"][i]] + values
+            agg_values = [benchmark_data["ideal"][model_idx]] + values
             labels = ["none"] + disturbance_data["labels"]
             ax.plot(labels, agg_values)
+            
+            metric = "FID" if model_name == "Inception" else "FRDS"
+            
+            ax.set(xlabel=disturbance_label, ylabel=metric)
+            
+            fig_idx += 1
         
-        ax.set(xlabel=disturbance_label, ylabel="FRDS / FID")
-        ax.legend(benchmark_data["labels"])
-        
-        fig_idx += 1
-    
-    fig.tight_layout()
-    plt.show()
+        fig.suptitle(f"Model: {model_name}")
+        fig.tight_layout()
+        plt.show()
