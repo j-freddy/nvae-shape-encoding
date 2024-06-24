@@ -7,7 +7,7 @@ from torchvision.transforms import ElasticTransform, InterpolationMode
 from const import FRDS_MODEL_PATH, LOGS_PATH, OUT_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils.custom_augmentations import AverageSmoothing, RandomBlackBoxCrop, RandomPepperNoise
-from utils.eval import compute_frds
+from utils.eval import compute_fid_manual, compute_frds
 from utils.utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
@@ -18,6 +18,13 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Path to model checkpoint.",
         default=FRDS_MODEL_PATH,
+    )
+    
+    parser.add_argument(
+        "--use_inception",
+        action=argparse.BooleanOptionalAction,
+        help="If set, use Inception-v3 and compute FID.",
+        default=False,
     )
     
     parser.add_argument(
@@ -86,6 +93,7 @@ def show_preview(data: torch.Tensor):
 def test(
     datasets: tuple[torch.Tensor, torch.Tensor],
     model_path: str,
+    use_inception: bool,
     device: torch.device,
 ):
     """
@@ -96,31 +104,35 @@ def test(
     """
     x, y = datasets
     
-    # Ideal FRDS: No disturbance
-    frds_value = compute_frds(
-        y,
-        x,
-        resnet_path=model_path,
-        device=device,
-        is_data_onehot=False,
-    )
+    metric_label = "FID" if use_inception else "FRDS"
     
-    print(f"Ideal FRDS (no disturbance): {frds_value}")
+    # Ideal FRDS/FID: No disturbance
+    if use_inception:
+        frechet_value = compute_fid_manual(
+            y, x, device=device, is_data_onehot=False
+        )
+    else:
+        frechet_value = compute_frds(
+            y, x, resnet_path=model_path, device=device, is_data_onehot=False
+        )
+    
+    print(f"Ideal {metric_label} (no disturbance): {frechet_value}")
     
     # Disturbances
     for disturbance_type, specific_disturbances in disturbances.items():
         for intensity, disturbance in specific_disturbances.items():
             x_aug = disturbance(x)
             
-            frds_value = compute_frds(
-                y,
-                x_aug,
-                resnet_path=model_path,
-                device=device,
-                is_data_onehot=False,
-            )
+            if use_inception:
+                frechet_value = compute_fid_manual(
+                    y, x_aug, device=device, is_data_onehot=False
+                )
+            else:
+                frechet_value = compute_frds(
+                    y, x_aug, resnet_path=model_path, device=device, is_data_onehot=False
+                )
             
-            print(f"FRDS for {disturbance_type} ({intensity}): {frds_value}")
+            print(f"{metric_label} for {disturbance_type} ({intensity}): {frechet_value}")
 
 def main(flags: argparse.Namespace):
     # Setup device
@@ -154,6 +166,7 @@ def main(flags: argparse.Namespace):
         test(
             (data_train, data_test),
             flags.model_path,
+            flags.use_inception,
             device,
         )
 

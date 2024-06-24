@@ -54,8 +54,9 @@ def encode_embeddings(
     ) -> torch.Tensor:
         with torch.no_grad():
             x = x.to(device)
-            # Discard background dimension
-            x = x[:, 1:, :, :].float()
+            if is_x_onehot:
+                # Discard background dimension
+                x = x[:, 1:, :, :].float()
             x = x * 2 - 1
 
             transform = transforms.Compose([
@@ -119,7 +120,7 @@ def compute_fid_manual(
     real_data: torch.Tensor,
     fake_data: torch.Tensor,
     device: torch.device,
-    is_data_onehot: bool = True,
+    is_data_onehot: bool=True,
 ):  
     # Load inception model
     inception_model = inception_v3(weights="DEFAULT", transform_input=False).to(device)
@@ -140,7 +141,7 @@ def compute_frds(
     fake_data: torch.Tensor,
     resnet_path: str,
     device: torch.device,
-    is_data_onehot: bool = True,
+    is_data_onehot: bool=True,
 ):  
     # Load pretrained SimCLR model
     resnet_model = load_simclr_backbone(resnet_path)
