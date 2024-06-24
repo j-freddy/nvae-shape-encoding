@@ -22,7 +22,7 @@ source activate
 # 3210 warmup steps and much lower beta values). This is the most recent grid
 # search conditioned on previous optimal results.
 #
-# Time taken: unknown
+# Time taken: 58 hr 26 min
 # ==============================================================================
 
 # grid size is 64

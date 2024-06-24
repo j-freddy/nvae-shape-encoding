@@ -50,7 +50,7 @@ benchmark_data = {
 if __name__ == '__main__':
     plt.style.use("ggplot")
     
-    model_labels = benchmark_data["disturbances"].keys()
+    model_labels = benchmark_data["labels"]
     
     # For specific model
     for model_idx, model_label in enumerate(model_labels):
@@ -74,6 +74,8 @@ if __name__ == '__main__':
             ax.set(xlabel=disturbance_label, ylabel=metric)
             
             fig_idx += 1
+        
+        print(f"Showing {model_name}")
         
         fig.suptitle(f"Model: {model_name}")
         fig.tight_layout()
