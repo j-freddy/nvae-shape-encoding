@@ -283,7 +283,7 @@ class ACDCMaskDataModule(LightningDataModule):
         data_test = self._one_hot(data_test)
         
         if as_image:
-            # Remove background class and scale
+            # Remove background class
             data_train = one_hot_to_image(data_train)
             data_test = one_hot_to_image(data_test)
 

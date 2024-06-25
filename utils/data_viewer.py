@@ -79,7 +79,7 @@ def view_acdc():
     
     # Reseed
     L.seed_everything(SEED)
-            
+
     # View samples
     loader_test = data_module.test_dataloader()
     
