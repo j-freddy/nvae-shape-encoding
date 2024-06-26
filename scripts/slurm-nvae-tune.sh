@@ -18,9 +18,8 @@ source activate
 # NVAE ACDC: Grid search on hyperparameters: project channel size, warmup steps,
 # beta values. With z_channels=20.
 #
-# Note: A larger range of hyperparameters has been previously tuned (e.g. 500,
-# 3210 warmup steps and much lower beta values). This is the most recent grid
-# search conditioned on previous optimal results.
+# Note: A larger range of hyperparameters has been previously tuned. This is the
+# most recent grid search conditioned on previous optimal results.
 #
 # Time taken: 58 hr 26 min
 # ==============================================================================
