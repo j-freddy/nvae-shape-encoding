@@ -25,5 +25,5 @@ logdir="logs"
 # Train
 python -m arch.simclr.train \
     --epochs 200 \
-    --model_name resnet-18-v4 \
+    --model_name resnet-18-v4-2 \
     --logs $logdir
