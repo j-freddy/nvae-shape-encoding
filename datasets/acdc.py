@@ -37,7 +37,7 @@ class ACDCMaskDataset(Dataset):
         self.simclr_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=180),
             transforms.RandomHorizontalFlip(),
-            v2.RandomZoomOut(side_range=(1.0, 1.5)),
+            v2.RandomZoomOut(side_range=(1.0, 1.25)),
             transforms.Resize(
                 (ACDC.WIDTH, ACDC.WIDTH),
                 interpolation=transforms.InterpolationMode.NEAREST,
