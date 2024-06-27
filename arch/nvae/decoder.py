@@ -84,10 +84,11 @@ class Decoder(nn.Module):
     
     def __init__(
         self,
-        num_latent_layers: int,
         # This must be the reverse of the encoder, otherwise the shapes of
         # samples drawn from the encoder samplers will not match
         num_groups_per_layer: list[int],
+        # 1-to-1 map with num_groups_per_layer
+        is_layer_shared: list[bool],
         initial_channels: int=256,
         top_latent_shape: tuple[int, int]=(4, 4),
         z_channels: int=20,
@@ -96,9 +97,9 @@ class Decoder(nn.Module):
     ):
         super().__init__()
         
-        assert len(num_groups_per_layer) == num_latent_layers
+        assert len(num_groups_per_layer) == len(is_layer_shared)
         
-        self.num_latent_layers = num_latent_layers
+        self.num_latent_layers = len(num_groups_per_layer)
         self.z_channels = z_channels
         self.top_latent_shape = top_latent_shape
         
@@ -118,7 +119,7 @@ class Decoder(nn.Module):
         
         num_channels = initial_channels
         
-        for s in range(num_latent_layers):
+        for s in range(self.num_latent_layers):
             for g in range(num_groups_per_layer[s]):
                 if not (s == 0 and g == 0):
                     # Residual cells
@@ -126,28 +127,30 @@ class Decoder(nn.Module):
                     self.tower.append(DecoderResidualCell(num_channels))
                     self.tower.append(DecoderResidualCell(num_channels))
                     
-                    # Add sampler
-                    self.samplers.append(
-                        nn.Sequential(
-                            nn.ELU(),
-                            nn.Conv2d(
-                                num_channels,
-                                2 * z_channels,
-                                kernel_size=1,
+                    if is_layer_shared[s]:
+                        # Add sampler
+                        self.samplers.append(
+                            nn.Sequential(
+                                nn.ELU(),
+                                nn.Conv2d(
+                                    num_channels,
+                                    2 * z_channels,
+                                    kernel_size=1,
+                                ),
                             ),
+                        )
+
+                if is_layer_shared[s]:
+                    # Add dec combiner
+                    self.tower.append(
+                        DecoderCombinerCell(
+                            num_channels,
+                            z_channels,
+                            num_channels,
                         ),
                     )
-
-                # Add dec combiner
-                self.tower.append(
-                    DecoderCombinerCell(
-                        num_channels,
-                        z_channels,
-                        num_channels,
-                    ),
-                )
             
-            if s < num_latent_layers - 1:
+            if s < self.num_latent_layers - 1:
                 # Upsample
                 # Official implementation uses mconv_e6k5g0 with kernel size 5
                 self.tower.append(
@@ -258,6 +261,7 @@ class Decoder(nn.Module):
         ps = [distr]
         log_ps = [distr.log_p(z)]
         
+        # Latent group index
         idx_dec = 0
         # [1, top_channels, width, height]
         x = self.top_prior.unsqueeze(0)
@@ -343,6 +347,7 @@ class Decoder(nn.Module):
 
             z = distr.sample()
         
+        # Latent group index
         idx_dec = 0
         
         # [1, top_channels, width, height]

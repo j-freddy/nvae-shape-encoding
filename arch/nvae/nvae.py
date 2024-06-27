@@ -37,19 +37,27 @@ class NVAE(L.LightningModule):
         in_channels: int=4,
         initial_channels: int=64,
         z_channels: int=20,
-        num_latent_layers: int=3,
         # Topmost layer has fewest groups (i.e. 1)
         # Shallowest layer has most groups (i.e. 4)
-        num_groups_per_layer: list[int]=[4, 2, 1],
-        initial_downsample_factor: int=8,
+        num_groups_per_layer: list[int]=[4, 2, 2, 1, 1],
+        is_layer_shared: list[bool]=[True, False, True, False, True],
+        initial_downsample_factor: int=2,
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
     ):
         super().__init__()
         
+        assert len(num_groups_per_layer) == len(is_layer_shared)
+        assert sum(is_layer_shared) == len(beta_per_layer)
+        
         self.save_hyperparameters()
+        
         self.img_width = ACDC.WIDTH
+        self.num_layers = len(self.hparams.num_groups_per_layer)
+        self.num_latent_layers = len(self.hparams.beta_per_layer)
+        
+        self.layer_idx_to_latent_idx = self._get_layer_idx_to_latent_idx_map()
         
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
@@ -61,19 +69,19 @@ class NVAE(L.LightningModule):
         )
         
         self.encoder = Encoder(
-            num_latent_layers=self.hparams.num_latent_layers,
             num_groups_per_layer=self.hparams.num_groups_per_layer,
+            is_layer_shared=self.hparams.is_layer_shared,
             initial_channels=self.hparams.initial_channels,
             z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
         
-        top_latent_dim = self._get_latent_dim(self.hparams.num_latent_layers - 1)
+        top_latent_dim = self._get_latent_dim(self.num_layers - 1)
 
         self.decoder = Decoder(
-            num_latent_layers=self.hparams.num_latent_layers,
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
-            initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.hparams.num_latent_layers - 1)),
+            is_layer_shared=self.hparams.is_layer_shared[::-1],
+            initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.num_layers - 1)),
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
@@ -105,9 +113,21 @@ class NVAE(L.LightningModule):
         
         return [optimiser], [lr_scheduler]
     
+    def _get_layer_idx_to_latent_idx_map(self) -> dict[int, int]:
+        latent_idx_to_layer_idx = [
+            i for i, is_latent in enumerate(self.hparams.is_layer_shared)
+            if is_latent
+        ]
+        
+        mapping = {
+            layer_idx: latent_idx for latent_idx, layer_idx in enumerate(latent_idx_to_layer_idx)
+        }
+        
+        return mapping
+    
     def _get_latent_dim(self, layer: int) -> int:
         # Layer 0 is the shallowest layer
-        # Layer @(num_latent_layers - 1) is the deepest (topmost) layer
+        # Layer @(num_layers - 1) is the deepest (topmost) layer
         return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
 
     def _get_layer_index(self, latent_dim: int) -> int:
@@ -172,7 +192,7 @@ class NVAE(L.LightningModule):
 
         return gamma * torch.mean(kl_divs, dim=0)
     
-    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_layers: torch.Tensor):
+    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_latent_layers: torch.Tensor):
         """
         For each layer, weight the KL divergence by the corresponding beta.
         Equivalent to beta-VAE but applied to each layer.
@@ -180,20 +200,20 @@ class NVAE(L.LightningModule):
         Args:
             balanced_kl_divs (torch.Tensor): KL per group after balancing,
                 averaged over the batch. g-dim tensor for g groups.
-            kl_layers (torch.Tensor): Layer index for each KL term in
+            kl_latent_layers (torch.Tensor): Layer index for each KL term in
                 balanced_kl_divs.
         
         Returns:
             weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
                 n layers.
         """
-        weighted_kls = torch.empty(self.hparams.num_latent_layers)
+        weighted_kls = torch.empty(self.num_latent_layers)
         
-        for layer_idx in range(self.hparams.num_latent_layers):
+        for latent_idx in range(self.num_latent_layers):
             # Sum KL within each layer
-            balanced_kl_div_layer = balanced_kl_divs[kl_layers == layer_idx].sum()
+            balanced_kl_div_layer = balanced_kl_divs[kl_latent_layers == latent_idx].sum()
             # Weight
-            weighted_kls[layer_idx] = self.hparams.beta_per_layer[layer_idx] * balanced_kl_div_layer
+            weighted_kls[latent_idx] = self.hparams.beta_per_layer[latent_idx] * balanced_kl_div_layer
         
         return weighted_kls
     
@@ -240,8 +260,9 @@ class NVAE(L.LightningModule):
             kl_divs.append(kl_div)
             log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
             log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
-            
-        kl_layers = torch.tensor(kl_layers)
+        
+        kl_latent_layers = [self.layer_idx_to_latent_idx[layer_idx] for layer_idx in kl_layers]
+        kl_latent_layers = torch.tensor(kl_latent_layers)
         
         gamma = self._compute_gamma()
         
@@ -251,15 +272,15 @@ class NVAE(L.LightningModule):
         kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
         
         balanced_kl_divs_batch_avg = self._balance_kl(kl_divs, gamma)
-        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_layers)
+        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_latent_layers)
         
         # Compute and log KL per layer
         if log_components:
-            for layer_idx in range(self.hparams.num_latent_layers):
+            for latent_idx in range(self.num_latent_layers):
                 # Log the original (unbalanced) KL per layer which indicates
                 # amount of information encoded at each layer
-                kl_div_layer = kl_divs_batch_avg[kl_layers == layer_idx].mean()
-                self.log(f"kl_div_{layer_idx}", kl_div_layer)
+                kl_div_layer = kl_divs_batch_avg[kl_latent_layers == latent_idx].mean()
+                self.log(f"kl_div_{latent_idx}", kl_div_layer)
         
         return weighted_kls.sum()
 
