@@ -7,7 +7,7 @@ class EncoderResidualCell(nn.Module):
     """
     Encoder residual cell.
     
-    Implementation as described by Fig. 3b in the NVAE paper. InstanceNorm
+    Implementation as described by Fig. 3b in the NVAE paper. BatchNorm
     momentum is set to 0.05 in official NVAE implementation.
     """
     
@@ -15,13 +15,13 @@ class EncoderResidualCell(nn.Module):
         super().__init__()
         
         self.net = nn.Sequential(
-            # IN + Swish
-            nn.InstanceNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
+            # BN + Swish
+            nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
             # Conv 3x3
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
-            # IN + Swish
-            nn.InstanceNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
+            # BN + Swish
+            nn.BatchNorm2d(num_features=num_channels, eps=1e-5, momentum=0.05),
             nn.SiLU(),
             # Conv 3x3
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=False),
