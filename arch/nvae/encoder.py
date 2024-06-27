@@ -7,8 +7,8 @@ class EncoderResidualCell(nn.Module):
     """
     Encoder residual cell.
     
-    Implementation as described by Fig. 3b in the NVAE paper. BatchNorm momentum
-    is set to 0.05 in official NVAE implementation.
+    Implementation as described by Fig. 3b in the NVAE paper. BatchNorm
+    momentum is set to 0.05 in official NVAE implementation.
     """
     
     def __init__(self, num_channels: int):
