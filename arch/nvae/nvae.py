@@ -463,42 +463,15 @@ class NVAE(L.LightningModule):
         feats_fake = self.conditional_coder(x_fake)
 
         # Discretise probabilistic map then view generations
-        # generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
-        # show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        # self.logger.experiment.add_figure("img/generations", plt.gcf())
-        
-        # frds_value = compute_frds(
-        #     feats,
-        #     discretise(feats_fake),
-        #     resnet_path=FRDS_MODEL_PATH,
-        #     device=self.device,
-        # )
-
-        # self.log("frds", frds_value)
+        generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
         
         frds_value = compute_frds(
             feats,
             discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH_V4,
+            resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
-        self.log("frds-v4", frds_value)
-        
-        frds_value = compute_frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH_V4_2,
-            device=self.device,
-        )
-
-        self.log("frds-v4-2", frds_value)
-        
-        frds_value = compute_frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH_V4_3,
-            device=self.device,
-        )
-
-        self.log("frds-v4-3", frds_value)
+        self.log("frds", frds_value)

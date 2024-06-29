@@ -309,6 +309,7 @@ class Decoder(nn.Module):
         self,
         num_samples: int,
         device: torch.device,
+        temp: float=1.0,
         num_sample_layers: int=-1,
         z: torch.Tensor=None,
     ) -> torch.Tensor:
@@ -318,6 +319,10 @@ class Decoder(nn.Module):
         Args:
             num_samples (int): Number of samples to generate.
             device (torch.device): Device used for Torch operations.
+            temp (float): Sample temperature, i.e. standard deviation of the
+                prior. A lower temperature is often used for generations as it
+                allows the model to focus on the high probability region[1]. It
+                results in less diverse samples. Default: 1.0.
             num_sample_layers (int): Number of latent layers from the topmost
                 layer to sample from. For example, if @num_sample_layers is 2,
                 only the topmost and its immediate subsequent layer are sampled
@@ -331,6 +336,10 @@ class Decoder(nn.Module):
         
         Returns:
             x (torch.Tensor): Generated samples.
+            
+        [1]: Kingma DP, Dhariwal P. Glow: Generative flow with invertible 1x1
+        convolutions. Advances in neural information processing systems.
+        2018;31.
         """
         if num_sample_layers == -1:
             num_sample_layers = self.num_latent_layers
@@ -343,6 +352,7 @@ class Decoder(nn.Module):
             distr = Normal(
                 mu=torch.zeros(top_latent_shape).to(device),
                 logsig=torch.zeros(top_latent_shape).to(device),
+                temp=temp,
             )
 
             z = distr.sample()
@@ -363,7 +373,7 @@ class Decoder(nn.Module):
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
                     sample_deterministic = idx_dec >= self.cumulative_groups_per_layer[num_sample_layers - 1]
-                    distr = Normal(mu_p, logsig_p)
+                    distr = Normal(mu_p, logsig_p, temp=temp)
                     z = distr.sample(sample_deterministic)
 
                 x = cell(x, z)
