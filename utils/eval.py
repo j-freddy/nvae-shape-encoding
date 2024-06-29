@@ -121,7 +121,14 @@ def compute_fid_manual(
     fake_data: torch.Tensor,
     device: torch.device,
     is_data_onehot: bool=True,
-):  
+):
+    """
+    Code adapted from Priya Jain. Original code[1] has been modularised to
+    compute_frechet_distance and encode_inception functions, and modified for
+    code efficiency.
+
+    [1]: https://github.com/pj2222/Deep_Learning_To_Match_Cardiac_Shapes_With_Images
+    """
     # Load inception model
     inception_model = inception_v3(weights="DEFAULT", transform_input=False).to(device)
     
