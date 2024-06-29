@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from const import ACDC, FRDS_MODEL_PATH
+from const import ACDC, FRDS_MODEL_PATH, FRDS_MODEL_PATH_V4, FRDS_MODEL_PATH_V4_2, FRDS_MODEL_PATH_V4_3
 from utils.eval import compute_frds, get_samples_and_reconstructions
 from utils.utils import clamp, discretise, show_samples
 
@@ -417,7 +417,7 @@ class NVAE(L.LightningModule):
         
     def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-        self.log_reconstruction_metrics(feats)
+        # self.log_reconstruction_metrics(feats)
         self.log_generation_metrics(feats)
 
     def log_reconstruction_metrics(self, x: torch.Tensor):
@@ -463,15 +463,42 @@ class NVAE(L.LightningModule):
         feats_fake = self.conditional_coder(x_fake)
 
         # Discretise probabilistic map then view generations
-        generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
-        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/generations", plt.gcf())
+        # generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
+        # show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        # self.logger.experiment.add_figure("img/generations", plt.gcf())
+        
+        # frds_value = compute_frds(
+        #     feats,
+        #     discretise(feats_fake),
+        #     resnet_path=FRDS_MODEL_PATH,
+        #     device=self.device,
+        # )
+
+        # self.log("frds", frds_value)
         
         frds_value = compute_frds(
             feats,
             discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH,
+            resnet_path=FRDS_MODEL_PATH_V4,
             device=self.device,
         )
 
-        self.log("frds", frds_value)
+        self.log("frds-v4", frds_value)
+        
+        frds_value = compute_frds(
+            feats,
+            discretise(feats_fake),
+            resnet_path=FRDS_MODEL_PATH_V4_2,
+            device=self.device,
+        )
+
+        self.log("frds-v4-2", frds_value)
+        
+        frds_value = compute_frds(
+            feats,
+            discretise(feats_fake),
+            resnet_path=FRDS_MODEL_PATH_V4_3,
+            device=self.device,
+        )
+
+        self.log("frds-v4-3", frds_value)

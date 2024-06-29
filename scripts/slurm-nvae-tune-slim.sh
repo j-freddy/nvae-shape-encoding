@@ -32,27 +32,27 @@ logdir="logs-nvae-big-latent-space"
 
 # Train
 
-for projected_channels in $projected_channels_list
-do
-    for warmup_steps in $warmup_steps_list
-    do
-        for beta in $betas
-        do
-            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
-            # Train
-            python -m arch.nvae.train \
-                --epochs 100 \
-                --projected_channels $projected_channels \
-                --z_channels 20 \
-                --warmup_steps $warmup_steps \
-                --beta0 $beta \
-                --beta1 $beta \
-                --beta2 $beta \
-                --model_name $model_name \
-                --logs $logdir
-        done
-    done
-done
+# for projected_channels in $projected_channels_list
+# do
+#     for warmup_steps in $warmup_steps_list
+#     do
+#         for beta in $betas
+#         do
+#             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
+#             # Train
+#             python -m arch.nvae.train \
+#                 --epochs 100 \
+#                 --projected_channels $projected_channels \
+#                 --z_channels 20 \
+#                 --warmup_steps $warmup_steps \
+#                 --beta0 $beta \
+#                 --beta1 $beta \
+#                 --beta2 $beta \
+#                 --model_name $model_name \
+#                 --logs $logdir
+#         done
+#     done
+# done
 
 # Evaluate
 
