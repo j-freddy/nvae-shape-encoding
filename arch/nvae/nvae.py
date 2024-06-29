@@ -28,6 +28,18 @@ class NVAE(L.LightningModule):
     Indexing of n latent layers is as follows: 0 corresponds to the shallowest
     layer and n-1 corresponds to the topmost layer.
     
+    We have extended the framework such that some layers do not encode shared
+    latent variables. Such a layer only consists of residual cells and does not
+    have a combiner nor sampler. For ease of reference, we introduce 2 indices:
+    (1) layer index, and (2) latent index.
+    
+    Example:
+        Layer 0: Shared (latent index 0)    (64x64 latent space)
+        Layer 1: Not shared                 (32x32 feature space)
+        Layer 2: Shared (latent index 1)    (16x16 latent space)
+        Layer 3: Not shared                 (8x8 feature space)
+        Layer 4: Shared (latent index 2)    (4x4 latent space)
+    
     [1]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
     Advances in neural information processing systems. 2020;33:19667-79.
     """
@@ -200,8 +212,8 @@ class NVAE(L.LightningModule):
         Args:
             balanced_kl_divs (torch.Tensor): KL per group after balancing,
                 averaged over the batch. g-dim tensor for g groups.
-            kl_latent_layers (torch.Tensor): Layer index for each KL term in
-                balanced_kl_divs.
+            kl_latent_layers (torch.Tensor): Latent layer index for each KL term
+                in balanced_kl_divs.
         
         Returns:
             weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
