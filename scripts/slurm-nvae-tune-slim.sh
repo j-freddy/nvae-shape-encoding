@@ -18,17 +18,17 @@ source activate
 # NVAE ACDC: It seems that beta0=beta1=beta2 works best. This is a smaller grid
 # where this constraint is met.
 #
-# Time taken: unknown
+# Time taken: 19 hr 57 min
 # ==============================================================================
 
-# Grid size is 10
+# Grid size is 20
 projected_channels_list=("4")
 # Size=1 (6420 is 214*30 so first 30 epochs)
 warmup_steps_list=("6420")
-# Size=10
-betas=("1 2 3 4 5 6 7 8 9 10")
+# Size=20
+betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
 
-logdir="logs-nvae-instance-norm"
+logdir="logs-nvae-big-latent-space"
 
 # Train
 
