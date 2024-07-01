@@ -8,7 +8,7 @@ import torch.optim as optim
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
 from const import FRDS_MODEL_PATH
-from utils.eval import compute_frds, get_samples_and_reconstructions
+from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
@@ -189,9 +189,14 @@ class VAE(L.LightningModule):
         dice_score = 1 - dl(input=x_hat_onehot, target=x)
         self.log("dice_score", dice_score)
         
-        # Visualise samples and reconstructions
-        samples_and_reconstructions = get_samples_and_reconstructions(x[:20], x_hat_logits[:20])
-        show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        # Visualise 40 samples and reconstructions
+        num_data = x.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        x = x[samples_idx]
+        x_hat_logits = x_hat_logits[samples_idx]
+        
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
     def log_generation_metrics(self, x: torch.Tensor):

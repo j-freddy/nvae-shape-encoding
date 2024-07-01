@@ -9,8 +9,8 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from const import ACDC, FRDS_MODEL_PATH, FRDS_MODEL_PATH_V4, FRDS_MODEL_PATH_V4_2, FRDS_MODEL_PATH_V4_3
-from utils.eval import compute_frds, get_samples_and_reconstructions
+from const import ACDC, FRDS_MODEL_PATH
+from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
 class NVAE(L.LightningModule):
@@ -442,9 +442,14 @@ class NVAE(L.LightningModule):
         dice_score = 1 - dl(input=x_hat_onehot, target=x)
         self.log("dice_score", dice_score)
 
-        # Visualise samples and reconstructions
-        samples_and_reconstructions = get_samples_and_reconstructions(x[:20], x_hat_logits[:20])
-        show_samples(samples_and_reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        # Visualise 40 samples and reconstructions
+        num_data = x.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        x = x[samples_idx]
+        x_hat_logits = x_hat_logits[samples_idx]
+        
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
     def log_generation_metrics(self, feats: torch.Tensor):

@@ -176,3 +176,13 @@ def get_samples_and_reconstructions(x: torch.Tensor, x_hat: torch.Tensor) -> tor
         samples_and_reconstructions[i * 2 + 1] = reconstructions[i]
     
     return samples_and_reconstructions
+
+def get_samples_and_reconstructions_pixel_diff(
+    x: torch.Tensor,
+    x_hat: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
+    samples = torch.argmax(x, dim=1).unsqueeze(1)
+    diff = torch.abs(samples - reconstructions)
+    
+    return samples, diff

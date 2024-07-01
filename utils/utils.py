@@ -38,6 +38,7 @@ def setup_device() -> torch.device:
 
 def show_samples(
     images: torch.Tensor,
+    overlay_mask: torch.Tensor=None,
     rgb: bool=True,
     ncol: int=8,
     figsize: tuple[int, int]=(6,6),
@@ -52,10 +53,28 @@ def show_samples(
         images = images[0]
     else:
         images = np.transpose(images.numpy(), (1, 2, 0))
+
+    if overlay_mask is not None:
+        assert torch.min(overlay_mask) >= 0
+        
+        # Binarise mask: set all values > 0 to 1
+        overlay_mask = overlay_mask > 0
+        
+        overlay_mask = overlay_mask.cpu().float()
+        overlay_mask = make_grid(overlay_mask, nrow=ncol, padding=2, normalize=True)
+        overlay_mask = overlay_mask[0]
+    
+        overlay_rgba = torch.zeros(overlay_mask.shape + (4,))
+        # Red overlay
+        overlay_rgba[:, :, 0] = 1
+        # Make everything else transparent
+        overlay_rgba[:, :, 3] = overlay_mask
     
     plt.figure(figsize=figsize)
     plt.axis("off")
     plt.imshow(images)
+    if overlay_mask is not None:
+        plt.imshow(overlay_rgba)
     plt.tight_layout()
     
     if save_path:
