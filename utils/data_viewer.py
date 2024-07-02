@@ -66,7 +66,7 @@ def view_acdc():
     L.seed_everything(SEED)
     
     data_module = ACDCMaskDataModule(
-        batch_size=10 if flags.augment_simclr else 20,
+        batch_size=12 if flags.augment_simclr else 24,
         filter_empty=flags.filter_empty,
         register_alignment=flags.register_alignment,
         as_image=flags.augment_simclr,
@@ -80,14 +80,13 @@ def view_acdc():
     # Reseed
     L.seed_everything(SEED)
 
-    # View samples
-    loader_test = data_module.test_dataloader()
+    data_test = data_module.data_test.masks
     
-    samples: list[torch.Tensor] = next(iter(loader_test))
+    # Shuffle and select subset
+    samples_idx = torch.randperm(data_test.shape[0])[:24]
+    samples = data_test[samples_idx]
     
-    if flags.augment_simclr:
-        samples: torch.Tensor = torch.cat(samples, dim=0)
-    else:  
+    if not flags.augment_simclr:
         # Uncomment this line to view each channel separately
         # samples = samples[:, 0, :, :].unsqueeze(1)
         # samples = samples[:, 1, :, :].unsqueeze(1)
@@ -97,7 +96,7 @@ def view_acdc():
         # Or recombine the channels
         samples: torch.Tensor = torch.argmax(samples, dim=1).unsqueeze(1)
     
-    show_samples(samples, rgb=flags.augment_simclr, ncol=10, figsize=(10, 2))
+    show_samples(samples, rgb=flags.augment_simclr, ncol=6, figsize=(6, 4))
 
 def main(flags: argparse.Namespace):
     # Setup device

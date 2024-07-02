@@ -154,10 +154,11 @@ def main(flags: argparse.Namespace):
     num_samples = min(data_train.shape[0], data_test.shape[0])
     
     # Shuffle and select subset
-    data_train = data_train[torch.randperm(data_train.shape[0])]
-    data_test = data_test[torch.randperm(data_test.shape[0])]
-    data_train = data_train[:num_samples]
-    data_test = data_test[:num_samples]
+    train_samples_idx = torch.randperm(data_train.shape[0])[:num_samples]
+    test_samples_idx = torch.randperm(data_test.shape[0])[:num_samples]
+    
+    data_train = data_train[train_samples_idx]
+    data_test = data_test[test_samples_idx]
     
     if flags.show_preview:
         show_preview(data_test)
