@@ -81,8 +81,13 @@ class AnatomicalValidity:
             ACDC.ClassLabel.MYO,
         ])
         
+        # Valid: 0
         print(f"Number of holes: {num_holes}")
+        # Valid: 1
         print(f"Number of RV: {num_rv}")
+        # Valid: 1
         print(f"Number of MYO: {num_myo}")
+        # Valid: 1
         print(f"Number of LV: {num_lv}")
+        # Valid: 1
         print(f"Number of RV and MYO combined together: {num_rv_myo}")
