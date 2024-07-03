@@ -27,18 +27,7 @@ class AnatomicalValidity:
         
         self.mask = mask
     
-    def count_holes(self, class_id: ACDC.ClassLabel):
-        # Mask for the specified class
-        struct_mask = self.mask[acdc_class_id_to_idx(class_id), :, :]
-        
-        # If class is MYO, also include LV
-        # This also detects holes between LV and MYO
-        if class_id == ACDC.ClassLabel.MYO:
-            struct_mask += self.mask[acdc_class_id_to_idx(ACDC.ClassLabel.LV), :, :]
-
-        # Invert and pad mask
-        struct_mask = np.pad(1 - struct_mask, (1, 1), "constant", constant_values=1)
-        
+    def _count_holes(self, struct_mask: np.ndarray) -> int:
         # Extract continuous regions of 1
         props = measure.regionprops(measure.label(struct_mask, connectivity=2))
 
@@ -50,8 +39,26 @@ class AnatomicalValidity:
                 num_holes += 1
 
         return num_holes
+    
+    def count_holes(self, class_ids_to_merge: list[ACDC.ClassLabel]) -> int:
+        struct_mask = torch.zeros_like(self.mask[0, :, :])
+        
+        # Mask for the specified aggregate class
+        for class_id in class_ids_to_merge:
+            struct_mask += self.mask[acdc_class_id_to_idx(class_id), :, :]
+
+        # Invert and pad mask
+        struct_mask = np.pad(1 - struct_mask, (1, 1), "constant", constant_values=1)
+        
+        return self._count_holes(struct_mask)
 
     def perform_all(self):
-        print(self.count_holes(ACDC.ClassLabel.RV))
-        print(self.count_holes(ACDC.ClassLabel.MYO))
-        print(self.count_holes(ACDC.ClassLabel.LV))
+        # Check for any presence of holes: in LV, RV, MYO, between LV and MYO,
+        # between RV and MYO
+        num_holes = self.count_holes([
+            ACDC.ClassLabel.RV,
+            ACDC.ClassLabel.MYO,
+            ACDC.ClassLabel.LV,
+        ])
+        
+        print(f"Number of holes: {num_holes}")
