@@ -2,10 +2,10 @@ import argparse
 import lightning as L
 import torch
 
-from const import SEED
+from const import ACDC, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import setup_device, show_samples
+from utils.utils import acdc_class_id_to_idx, setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -87,11 +87,9 @@ def view_acdc():
     samples = data_test[samples_idx]
     
     if not flags.augment_simclr:
-        # Uncomment this line to view each channel separately
-        # samples = samples[:, 0, :, :].unsqueeze(1)
-        # samples = samples[:, 1, :, :].unsqueeze(1)
-        # samples = samples[:, 2, :, :].unsqueeze(1)
-        # samples = samples[:, 3, :, :].unsqueeze(1)
+        # Uncomment this to view each channel separately
+        # class_idx = acdc_class_to_idx(ACDC.CardiacClass.RV)
+        # samples = samples[:, class_idx, :, :].unsqueeze(1)
         
         # Or recombine the channels
         samples: torch.Tensor = torch.argmax(samples, dim=1).unsqueeze(1)

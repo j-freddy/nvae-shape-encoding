@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 import os
 
 DATA_PATH = "data"
@@ -34,10 +35,19 @@ class ACDC:
     ACDC constants.
     """
     WIDTH = 128
+    NUM_CLASSES = 4
+
+    class ClassLabel(Enum):
+        BG = 0
+        RV = 1
+        MYO = 2
+        LV = 3
+
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
         SIMCLR = "simclr_acdc"
+
     @dataclass
     class RAW:
         TRAIN_PATH = os.path.join(DATA_PATH, "ACDC", "database", "training")

@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from const import SEED
+from const import ACDC, SEED
 
 def clamp(x: float, low: float, high: float) -> float:
     return max(low, min(x, high))
@@ -35,6 +35,9 @@ def setup_device() -> torch.device:
         torch.backends.cudnn.benchmark = False
 
     return device
+
+def acdc_class_id_to_idx(class_id: ACDC.ClassLabel) -> int:
+    return class_id.value
 
 def show_samples(
     images: torch.Tensor,
@@ -96,7 +99,7 @@ def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     x_hat_argmax = torch.argmax(x_hat, dim=1)
     x_hat_hard = F.one_hot(
         x_hat_argmax.long(),
-        num_classes=len(x_hat_argmax.unique())
+        num_classes=ACDC.NUM_CLASSES,
     ).permute(0, 3, 1, 2)
     
     return x_hat_hard
