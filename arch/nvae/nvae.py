@@ -48,6 +48,7 @@ class NVAE(L.LightningModule):
         self,
         in_channels: int=4,
         initial_channels: int=64,
+        min_channels: int=0,
         z_channels: int=20,
         # Topmost layer has fewest groups (i.e. 1)
         # Shallowest layer has most groups (i.e. 4)
@@ -58,6 +59,23 @@ class NVAE(L.LightningModule):
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
     ):
+        """
+        Args:
+            in_channels (int): Number of input channels. Corresponds to number
+                of classes in segmentation mask. Default: 4.
+            initial_channels (int): Number of channels @in_channels gets
+                projected to. This is done immediately in the stem, then
+                reverted at the very end of the pass in the conditional coder.
+                Default: 64.
+            min_channels (int): Minimum number of channels anywhere. By default,
+                the number of channels is doubled at each deeper layer. For
+                example, if @initial_channels is 16 and there are 3 layers, it
+                goes 16 -> 32 -> 64 -> 128. But if @initial_channels is 4 and
+                @min_channels is 16, it goes 16 -> 16 -> 16 -> 32 instead of 4
+                -> 8 -> 16 -> 32. The idea is to not have an initial bottleneck,
+                which may be caused by limited capacity from the small number of
+                channels. Default: 16.
+        """
         super().__init__()
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
@@ -74,7 +92,7 @@ class NVAE(L.LightningModule):
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
             self.hparams.in_channels,
-            self.hparams.initial_channels,
+            max(self.hparams.initial_channels, self.hparams.min_channels),
             kernel_size=3,
             padding=1,
             bias=True,
@@ -84,6 +102,7 @@ class NVAE(L.LightningModule):
             num_groups_per_layer=self.hparams.num_groups_per_layer,
             is_layer_shared=self.hparams.is_layer_shared,
             initial_channels=self.hparams.initial_channels,
+            min_channels=self.hparams.min_channels,
             z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
@@ -103,7 +122,7 @@ class NVAE(L.LightningModule):
         self.conditional_coder = nn.Sequential(
             nn.ELU(),
             nn.Conv2d(
-                self.hparams.initial_channels,
+                max(self.hparams.initial_channels, self.hparams.min_channels),
                 self.hparams.in_channels,
                 kernel_size=3,
                 padding=1,
@@ -365,7 +384,7 @@ class NVAE(L.LightningModule):
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
-        x, xs, enc_combiner_cells = self.encoder(x)
+        x, xs, enc_combiner_cells = self.encoder(x, print_logs=True)
         
         # Reverse buffers and modules for decoder
         xs = xs[::-1]

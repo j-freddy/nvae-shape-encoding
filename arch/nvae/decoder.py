@@ -90,6 +90,7 @@ class Decoder(nn.Module):
         # 1-to-1 map with num_groups_per_layer
         is_layer_shared: list[bool],
         initial_channels: int=256,
+        min_channels: int=16,
         top_latent_shape: tuple[int, int]=(4, 4),
         z_channels: int=20,
         # This must match initial_downsample_factor of Encoder
@@ -99,6 +100,7 @@ class Decoder(nn.Module):
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
         
+        self.min_channels = min_channels
         self.num_latent_layers = len(num_groups_per_layer)
         self.z_channels = z_channels
         self.top_latent_shape = top_latent_shape
@@ -108,7 +110,7 @@ class Decoder(nn.Module):
 
         # Size of the topmost prior: [top_channels, width, height]
         self.top_prior = nn.Parameter(
-            torch.rand(size=(initial_channels, *self.top_latent_shape)),
+            torch.rand(size=(self._num_channels(initial_channels), *self.top_latent_shape)),
             requires_grad=True,
         )
         
@@ -121,11 +123,13 @@ class Decoder(nn.Module):
         
         for s in range(self.num_latent_layers):
             for g in range(num_groups_per_layer[s]):
+                true_num_channels = self._num_channels(num_channels)
+                
                 if not (s == 0 and g == 0):
                     # Residual cells
                     # Official implementation uses mconv_e6k5g0
-                    self.tower.append(DecoderResidualCell(num_channels))
-                    self.tower.append(DecoderResidualCell(num_channels))
+                    self.tower.append(DecoderResidualCell(true_num_channels))
+                    self.tower.append(DecoderResidualCell(true_num_channels))
                     
                     if is_layer_shared[s]:
                         # Add sampler
@@ -133,7 +137,7 @@ class Decoder(nn.Module):
                             nn.Sequential(
                                 nn.ELU(),
                                 nn.Conv2d(
-                                    num_channels,
+                                    true_num_channels,
                                     2 * z_channels,
                                     kernel_size=1,
                                 ),
@@ -144,9 +148,9 @@ class Decoder(nn.Module):
                     # Add dec combiner
                     self.tower.append(
                         DecoderCombinerCell(
-                            num_channels,
+                            true_num_channels,
                             z_channels,
-                            num_channels,
+                            true_num_channels,
                         ),
                     )
             
@@ -155,8 +159,8 @@ class Decoder(nn.Module):
                 # Official implementation uses mconv_e6k5g0 with kernel size 5
                 self.tower.append(
                     nn.ConvTranspose2d(
-                        num_channels,
-                        num_channels // 2,
+                        true_num_channels,
+                        self._num_channels(num_channels // 2),
                         kernel_size=5,
                         stride=2,
                         padding=2,
@@ -173,10 +177,12 @@ class Decoder(nn.Module):
         num_postprocess_layers = int(math.log2(final_upsample_factor))
         
         for _ in range(num_postprocess_layers):
+            true_num_channels_halved = self._num_channels(num_channels // 2)
+            
             postprocess_modules.append(
                 nn.ConvTranspose2d(
-                    num_channels,
-                    num_channels // 2,
+                    self._num_channels(num_channels),
+                    true_num_channels_halved,
                     kernel_size=3,
                     stride=2,
                     padding=1,
@@ -184,12 +190,15 @@ class Decoder(nn.Module):
                     bias=False,
                 )
             )
-            postprocess_modules.append(DecoderResidualCell(num_channels // 2))
-            postprocess_modules.append(DecoderResidualCell(num_channels // 2))
+            postprocess_modules.append(DecoderResidualCell(true_num_channels_halved))
+            postprocess_modules.append(DecoderResidualCell(true_num_channels_halved))
             
             num_channels //= 2
         
         self.postprocess = nn.Sequential(*postprocess_modules)
+    
+    def _num_channels(self, num_channels: int) -> int:
+        return max(num_channels, self.min_channels)
     
     def get_top_latent_shape(self, batch_size: int) -> tuple[int, int, int, int]:
         return (batch_size, self.z_channels, *self.top_latent_shape)

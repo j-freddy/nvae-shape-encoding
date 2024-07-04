@@ -35,7 +35,14 @@ def parse_args() -> argparse.Namespace:
         "--projected_channels",
         type=int,
         help="Number of channels in the immediate space projected through the stem (and conditional coder).",
-        default=64,
+        default=4,
+    )
+    
+    parser.add_argument(
+        "--min_channels",
+        type=int,
+        help="If set, set a lower clamp to the number of channels anywhere in the model.",
+        default=0,
     )
     
     parser.add_argument(
@@ -111,6 +118,7 @@ def main(flags: argparse.Namespace):
     model = NVAE(
         in_channels=num_classes,
         initial_channels=flags.projected_channels,
+        min_channels=flags.min_channels,
         z_channels=flags.z_channels,
         num_groups_per_layer=arch_config["num_groups_per_layer"],
         is_layer_shared=arch_config["is_layer_shared"],

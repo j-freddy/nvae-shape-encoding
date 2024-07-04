@@ -57,6 +57,7 @@ python -m arch.vae.train \
 python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
+    --min_channels 16 \
     --warmup_steps 6420 \
     --betas 1,1,1
 # Test (~5 minutes)

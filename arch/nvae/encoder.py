@@ -69,6 +69,7 @@ class Encoder(nn.Module):
         # 1-to-1 map with num_groups_per_layer
         is_layer_shared: list[bool],
         initial_channels: int=64,
+        min_channels: int=16,
         z_channels: int=20,
         initial_downsample_factor: int=2,
     ):
@@ -76,6 +77,7 @@ class Encoder(nn.Module):
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
         
+        self.min_channels = min_channels
         self.num_latent_layers = len(num_groups_per_layer)
         
         # Build preprocessing modules
@@ -90,12 +92,17 @@ class Encoder(nn.Module):
         num_channels = initial_channels
         
         for _ in range(num_preprocess_layers):
-            preprocess_modules.append(EncoderResidualCell(num_channels))
-            preprocess_modules.append(EncoderResidualCell(num_channels))
+            true_num_channels = self._num_channels(num_channels)
+            
+            # Inverted residual cells
+            preprocess_modules.append(EncoderResidualCell(true_num_channels))
+            preprocess_modules.append(EncoderResidualCell(true_num_channels))
+            
+            # Downsample
             preprocess_modules.append(
                 nn.Conv2d(
-                    num_channels,
-                    num_channels * 2,
+                    true_num_channels,
+                    self._num_channels(num_channels * 2),
                     kernel_size=3,
                     stride=2,
                     padding=1,
@@ -114,15 +121,17 @@ class Encoder(nn.Module):
         
         for s in range(self.num_latent_layers):
             for g in range(num_groups_per_layer[s]):
+                true_num_channels = self._num_channels(num_channels)
+                
                 # Inverted residual cells
-                self.tower.append(EncoderResidualCell(num_channels))
-                self.tower.append(EncoderResidualCell(num_channels))
+                self.tower.append(EncoderResidualCell(true_num_channels))
+                self.tower.append(EncoderResidualCell(true_num_channels))
                 
                 if is_layer_shared[s]:
                     # Add sampler
                     self.samplers.append(
                         nn.Conv2d(
-                            num_channels,
+                            true_num_channels,
                             2 * z_channels,
                             kernel_size=3,
                             padding=1,
@@ -131,14 +140,14 @@ class Encoder(nn.Module):
                     
                     # Add enc combiner if not last group in last layer
                     if not (s == self.num_latent_layers - 1 and g == num_groups_per_layer[s] - 1):
-                        self.tower.append(EncoderCombinerCell(num_channels, num_channels))
+                        self.tower.append(EncoderCombinerCell(true_num_channels, true_num_channels))
         
             if s < self.num_latent_layers - 1:
                 # Downsample
                 self.tower.append(
                     nn.Conv2d(
-                        num_channels,
-                        num_channels * 2,
+                        true_num_channels,
+                        self._num_channels(num_channels * 2),
                         kernel_size=3,
                         stride=2,
                         padding=1,
@@ -152,12 +161,16 @@ class Encoder(nn.Module):
         # TODO I don't know this purpose (init_encoder0 in official
         # implementation), it doesn't even change the number of channels so
         # technically it's not a compressor
+        true_num_channels = self._num_channels(num_channels)
         
         self.compressor = nn.Sequential(
             nn.ELU(),
-            nn.Conv2d(num_channels, num_channels, kernel_size=1, bias=True),
+            nn.Conv2d(true_num_channels, true_num_channels, kernel_size=1, bias=True),
             nn.ELU(),
         )
+    
+    def _num_channels(self, num_channels: int) -> int:
+        return max(num_channels, self.min_channels)
     
     def forward(
         self,

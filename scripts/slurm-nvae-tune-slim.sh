@@ -15,7 +15,7 @@ source activate
 
 # ==============================================================================
 # [NVAE Tune Slim]
-# NVAE ACDC: It seems that beta0=beta1=beta2 works best. This is a smaller grid
+# NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
 # where this constraint is met.
 #
 # Time taken: 19 hr 57 min
