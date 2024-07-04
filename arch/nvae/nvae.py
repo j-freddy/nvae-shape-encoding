@@ -384,7 +384,7 @@ class NVAE(L.LightningModule):
         x = self.stem(2 * feats - 1.0)
         
         # Pass through encoder
-        x, xs, enc_combiner_cells = self.encoder(x, print_logs=True)
+        x, xs, enc_combiner_cells = self.encoder(x)
         
         # Reverse buffers and modules for decoder
         xs = xs[::-1]
