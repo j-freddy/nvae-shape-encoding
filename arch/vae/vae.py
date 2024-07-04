@@ -239,8 +239,7 @@ class VAE(L.LightningModule):
             x (torch.Tensor): One-hot encoded input segmentations.
         """
         z = self.get_latent(x)
-        
-        # TODO noqa
+
         # Hand pick 2 masks that look different
         z1, z2 = z[1], z[19]
         
