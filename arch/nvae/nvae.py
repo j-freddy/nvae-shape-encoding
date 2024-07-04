@@ -109,6 +109,12 @@ class NVAE(L.LightningModule):
                 padding=1,
             ),
         )
+        
+        # Print number of parameters in encoder, decoder, stem and conditional
+        # coder
+        
+        num_params = sum(p.numel() for p in self.parameters())
+        print(f"Number of parameters: {num_params}")
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
@@ -329,6 +335,9 @@ class NVAE(L.LightningModule):
         
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {balanced_kl_div}")
+        
+        import sys
+        sys.exit()
         
         if log_components:
             self.log("recon_loss", recon_loss)
