@@ -417,7 +417,7 @@ class NVAE(L.LightningModule):
         
     def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-        # self.log_reconstruction_metrics(feats)
+        self.log_reconstruction_metrics(feats)
         self.log_generation_metrics(feats)
 
     def log_reconstruction_metrics(self, x: torch.Tensor):
