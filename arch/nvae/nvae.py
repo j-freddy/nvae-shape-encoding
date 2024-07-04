@@ -417,38 +417,38 @@ class NVAE(L.LightningModule):
         
     def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
         assert batch_idx == 0, "Only 1 batch allowed"
-        # self.log_reconstruction_metrics(feats)
+        self.log_reconstruction_metrics(feats)
         self.log_generation_metrics(feats)
 
-    def log_reconstruction_metrics(self, x: torch.Tensor):
+    def log_reconstruction_metrics(self, feats: torch.Tensor):
         """
         Log reconstruction metrics to TensorBoard. This includes average
         reconstruction loss and Dice score across the batch. Log visualisations
         of samples and their reconstructions.
         
         Args:
-            x (torch.Tensor): Batch of input samples.
+            feats (torch.Tensor): Batch of input samples.
         """
-        x_hat_logits, _, _, _, _ = self(x, test=True)
+        feats_hat_logits, _, _, _, _ = self(feats, test=True)
         
         # Compute reconstruction loss
-        recon_loss = self.reconstruction_loss(x, x_hat_logits)
+        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
         self.log("test_recon_loss", recon_loss)
         
         # Compute Dice score
-        x_hat = torch.softmax(x_hat_logits, dim=1)
-        x_hat_onehot = discretise(x_hat)
+        feats_hat = torch.softmax(feats_hat_logits, dim=1)
+        feats_hat_onehot = discretise(feats_hat)
         dl = DiceLoss(reduction="mean", include_background=False)
-        dice_score = 1 - dl(input=x_hat_onehot, target=x)
+        dice_score = 1 - dl(input=feats_hat_onehot, target=feats)
         self.log("dice_score", dice_score)
 
         # Visualise 40 samples and reconstructions
-        num_data = x.shape[0]
+        num_data = feats.shape[0]
         samples_idx = torch.randperm(num_data)[:40]
-        x = x[samples_idx]
-        x_hat_logits = x_hat_logits[samples_idx]
+        feats = feats[samples_idx]
+        feats_hat_logits = feats_hat_logits[samples_idx]
         
-        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits)
         show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
 
@@ -459,7 +459,7 @@ class NVAE(L.LightningModule):
         of sample generations.
         
         Args:
-            x (torch.Tensor): Batch of input samples.
+            feats (torch.Tensor): Batch of input samples.
         """
         num_samples, _, _, _ = feats.shape
         
