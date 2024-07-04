@@ -28,7 +28,7 @@ warmup_steps_list=("6420")
 # Size=20
 betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
 
-logdir="logs-nvae-big-latent-space"
+logdir="logs-nvae-clamp"
 
 # Train
 
@@ -39,15 +39,15 @@ do
         for beta in $betas
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
+            betas_str="${beta},${beta},${beta}"
             # Train
             python -m arch.nvae.train \
                 --epochs 100 \
+                --arch "default" \
                 --projected_channels $projected_channels \
                 --z_channels 20 \
                 --warmup_steps $warmup_steps \
-                --beta0 $beta \
-                --beta1 $beta \
-                --beta2 $beta \
+                --betas $betas_str \
                 --model_name $model_name \
                 --logs $logdir
         done
