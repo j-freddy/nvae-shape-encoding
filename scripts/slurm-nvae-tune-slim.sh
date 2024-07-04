@@ -45,7 +45,7 @@ do
                 --epochs 100 \
                 --arch "default" \
                 --projected_channels $projected_channels \
-                --z_channels 20 \
+                --min_channels 16 \
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \

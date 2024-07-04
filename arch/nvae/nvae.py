@@ -113,6 +113,7 @@ class NVAE(L.LightningModule):
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
             is_layer_shared=self.hparams.is_layer_shared[::-1],
             initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.num_layers - 1)),
+            min_channels=self.hparams.min_channels,
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
