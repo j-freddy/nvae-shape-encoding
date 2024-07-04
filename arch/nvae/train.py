@@ -4,12 +4,16 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from arch.nvae.utils import ID_TO_ARCH
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from arch.nvae.nvae import NVAE
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
+    def list_float(arg: str) -> list[float]:
+        return list(map(float, arg.split(",")))
+    
     parser = argparse.ArgumentParser()
     
     parser.add_argument(
@@ -17,6 +21,14 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Max number of epochs.",
         default=100,
+    )
+    
+    parser.add_argument(
+        "--arch",
+        type=str,
+        help="Architecture configuration. See ID_TO_ARCH in arch/nvae/utils.py.",
+        choices=ID_TO_ARCH.keys(),
+        default="default",
     )
     
     parser.add_argument(
@@ -43,24 +55,10 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--beta0",
-        type=float,
-        help="Beta value for KL divergence corresponding to layer 0 (shallowest layer).",
-        default=1.0,
-    )
-    
-    parser.add_argument(
-        "--beta1",
-        type=float,
-        help="Beta value for KL divergence corresponding to layer 1.",
-        default=1.0,
-    )
-    
-    parser.add_argument(
-        "--beta2",
-        type=float,
-        help="Beta value for KL divergence corresponding to layer 2 (topmost layer).",
-        default=1.0,
+        "--betas",
+        type=list_float,
+        help="Beta values for KL divergence for each layer. First layer is shallowest; last entry is topmost layer.",
+        default=[1.0, 1.0, 1.0],
     )
     
     parser.add_argument(
@@ -107,14 +105,17 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     num_classes = data_module.data_test.num_classes
+    arch_config = ID_TO_ARCH[flags.arch]
 
     # Train
     model = NVAE(
         in_channels=num_classes,
         initial_channels=flags.projected_channels,
         z_channels=flags.z_channels,
+        num_groups_per_layer=arch_config["num_groups_per_layer"],
+        is_layer_shared=arch_config["is_layer_shared"],
         max_epochs=flags.epochs,
-        beta_per_layer=[flags.beta0, flags.beta1, flags.beta2],
+        beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
     )
     

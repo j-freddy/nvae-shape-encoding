@@ -58,9 +58,7 @@ python -m arch.nvae.train \
     --epochs 100 \
     --projected_channels 4 \
     --warmup_steps 6420 \
-    --beta0 1 \
-    --beta1 1 \
-    --beta2 1
+    --betas 1,1,1
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt

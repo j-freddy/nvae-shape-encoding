@@ -21,7 +21,7 @@ class AnatomicalValidity:
     """
 
     def __init__(self, mask: torch.Tensor):
-        # TODO I try 1 mask at a time for now
+        # Taking 1 mask at a time instead of a batch
         num_classes, _, _ = mask.shape
         assert num_classes == ACDC.NUM_CLASSES
         

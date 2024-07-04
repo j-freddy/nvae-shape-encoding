@@ -51,8 +51,8 @@ class NVAE(L.LightningModule):
         z_channels: int=20,
         # Topmost layer has fewest groups (i.e. 1)
         # Shallowest layer has most groups (i.e. 4)
-        num_groups_per_layer: list[int]=[4, 2, 2, 1, 1],
-        is_layer_shared: list[bool]=[True, False, True, False, True],
+        num_groups_per_layer: list[int]=[4, 2, 1],
+        is_layer_shared: list[bool]=[True, True, True],
         initial_downsample_factor: int=2,
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
