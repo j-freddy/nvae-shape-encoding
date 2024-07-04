@@ -346,6 +346,9 @@ class NVAE(L.LightningModule):
         recon_loss = self.reconstruction_loss(x, x_hat)
         balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         
+        print(f"Reconstruction loss: {recon_loss}")
+        print(f"Weighted KL divergence: {balanced_kl_div}")
+        
         if log_components:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", balanced_kl_div)
