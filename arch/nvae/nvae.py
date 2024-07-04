@@ -53,7 +53,7 @@ class NVAE(L.LightningModule):
         # Shallowest layer has most groups (i.e. 4)
         num_groups_per_layer: list[int]=[4, 2, 1],
         is_layer_shared: list[bool]=[True, True, True],
-        initial_downsample_factor: int=2,
+        initial_downsample_factor: int=8,
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
@@ -110,6 +110,14 @@ class NVAE(L.LightningModule):
             ),
         )
         
+        
+        # Print number of parameters in encoder, decoder, stem and conditional
+        # coder
+        
+        num_params = sum(p.numel() for p in self.parameters())
+        print(f"Number of parameters: {num_params}")
+
+
         # Print number of parameters in encoder, decoder, stem and conditional
         # coder
         
@@ -332,12 +340,6 @@ class NVAE(L.LightningModule):
         """
         recon_loss = self.reconstruction_loss(x, x_hat)
         balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
-        
-        print(f"Reconstruction loss: {recon_loss}")
-        print(f"Weighted KL divergence: {balanced_kl_div}")
-        
-        import sys
-        sys.exit()
         
         if log_components:
             self.log("recon_loss", recon_loss)

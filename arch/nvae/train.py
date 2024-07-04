@@ -114,6 +114,7 @@ def main(flags: argparse.Namespace):
         z_channels=flags.z_channels,
         num_groups_per_layer=arch_config["num_groups_per_layer"],
         is_layer_shared=arch_config["is_layer_shared"],
+        initial_downsample_factor=arch_config["initial_downsample_factor"],
         max_epochs=flags.epochs,
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
