@@ -5,7 +5,7 @@ import torch
 from const import ACDC
 from utils.utils import acdc_class_id_to_idx
 
-class AnatomicalValidity:
+class AnatomicalValidityChecker:
     """
     The code for counting holes is adapted from Segmentation2DMetrics in Vital.
     See repo[1] and paper[2].
