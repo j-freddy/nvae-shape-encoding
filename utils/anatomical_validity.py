@@ -1,5 +1,5 @@
 import numpy as np
-from skimage import measure
+from skimage import measure, morphology
 import torch
 
 from const import ACDC
@@ -11,8 +11,8 @@ from utils.utils import acdc_class_id_to_idx
 
 class AnatomicalValidity:
     """
-    Some of the code is adapted from Segmentation2DMetrics in Vital. See repo[1]
-    and paper[2].
+    The code for counting holes is adapted from Segmentation2DMetrics in Vital.
+    See repo[1] and paper[2].
     
     [1]: https://github.com/vitalab/vital [2]: Painchaud N, Skandarani Y, Judge
     T, Bernard O, Lalande A, Jodoin PM. Cardiac segmentation with strong
@@ -26,13 +26,16 @@ class AnatomicalValidity:
         assert num_classes == ACDC.NUM_CLASSES
         
         self.mask = mask
+
+    def _get_struct_mask(self, class_id: ACDC.ClassLabel) -> torch.Tensor:
+        return self.mask[acdc_class_id_to_idx(class_id), :, :]
     
     def _merge_classes(self, merged_class_ids: list[ACDC.ClassLabel]) -> np.ndarray:
         struct_mask = torch.zeros_like(self.mask[0, :, :])
         
         # Mask for the specified aggregate class
         for class_id in merged_class_ids:
-            struct_mask += self.mask[acdc_class_id_to_idx(class_id), :, :]
+            struct_mask += self._get_struct_mask(class_id)
         
         return struct_mask
 
@@ -61,7 +64,16 @@ class AnatomicalValidity:
         struct_mask = self._merge_classes(merged_class_ids)
         return measure.label(struct_mask, connectivity=2).max()
 
-    def perform_all(self):
+    def do_classes_touch(self, class_id1: ACDC.ClassLabel, class_id2: ACDC.ClassLabel) -> bool:
+        mask1 = self._get_struct_mask(class_id1)
+        mask2 = self._get_struct_mask(class_id2).numpy()
+        # Pad 1px around one mask
+        mask1_dilated = morphology.binary_dilation(mask1).astype(np.uint8)
+        
+        # If classes originally touch, the padded masks will overlap
+        return np.any(mask1_dilated & mask2)
+
+    def summarise_conditions(self) -> int:
         # Check for any presence of holes: in LV, RV, MYO, between LV and MYO,
         # between RV and MYO
         num_holes = self.count_holes([
@@ -81,13 +93,31 @@ class AnatomicalValidity:
             ACDC.ClassLabel.MYO,
         ])
         
-        # Valid: 0
-        print(f"Number of holes: {num_holes}")
-        # Valid: 1
-        print(f"Number of RV: {num_rv}")
-        # Valid: 1
-        print(f"Number of MYO: {num_myo}")
-        # Valid: 1
-        print(f"Number of LV: {num_lv}")
-        # Valid: 1
-        print(f"Number of RV and MYO combined together: {num_rv_myo}")
+        # Check if LV touches RV or background
+        touch_lv_rv = self.do_classes_touch(ACDC.ClassLabel.LV, ACDC.ClassLabel.RV)
+        touch_lv_bg = self.do_classes_touch(ACDC.ClassLabel.LV, ACDC.ClassLabel.BG)
+        
+        return {
+            "num_holes": num_holes,
+            "num_rv": num_rv,
+            "num_myo": num_myo,
+            "num_lv": num_lv,
+            # TODO This is only guaranteed to work if there is only 1 RV and 1
+            # MYO
+            "rv_disconnected_from_myo": num_rv_myo > 1,
+            "lv_touches_rv": touch_lv_rv,
+            "lv_touches_bg": touch_lv_bg,
+        }
+
+    def count_violations(self) -> float:
+        conditions = self.summarise_conditions()
+        violations = [
+            conditions["num_holes"] > 0,
+            conditions["num_rv"] > 1,
+            conditions["num_myo"] > 1,
+            conditions["num_lv"] > 1,
+            conditions["rv_disconnected_from_myo"],
+            conditions["lv_touches_rv"],
+            conditions["lv_touches_bg"],
+        ]
+        return sum(violations)
