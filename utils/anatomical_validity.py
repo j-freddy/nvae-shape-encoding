@@ -5,10 +5,6 @@ import torch
 from const import ACDC
 from utils.utils import acdc_class_id_to_idx
 
-# TODO Write some tests for this
-# ./test/test_anatomical_validity.ipynb
-# Maybe in a notebook: Take a test image, create a hole, etc.
-
 class AnatomicalValidity:
     """
     The code for counting holes is adapted from Segmentation2DMetrics in Vital.
@@ -21,11 +17,10 @@ class AnatomicalValidity:
     """
 
     def __init__(self, mask: torch.Tensor):
-        # TODO I try 1 mask at a time for now
         num_classes, _, _ = mask.shape
         assert num_classes == ACDC.NUM_CLASSES
-        
-        self.mask = mask
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        self.mask = mask.int()
 
     def _get_struct_mask(self, class_id: ACDC.ClassLabel) -> torch.Tensor:
         return self.mask[acdc_class_id_to_idx(class_id), :, :]
@@ -109,7 +104,7 @@ class AnatomicalValidity:
             "lv_touches_bg": touch_lv_bg,
         }
 
-    def count_violations(self) -> float:
+    def count_violations(self) -> int:
         conditions = self.summarise_conditions()
         violations = [
             conditions["num_holes"] > 0,
