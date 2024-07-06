@@ -16,9 +16,10 @@ source activate
 # ==============================================================================
 # [NVAE Tune Slim]
 # NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
-# where this constraint is met.
+# where this constraint is met. For the latent skip architecture with minimum
+# channels=16.
 #
-# Time taken: 19 hr 57 min
+# Time taken: unknown
 # ==============================================================================
 
 # Grid size is 20
@@ -28,7 +29,7 @@ warmup_steps_list=("6420")
 # Size=20
 betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
 
-logdir="logs-nvae-clamp"
+logdir="logs-nvae-latent-skip-clamp"
 
 # Train
 
@@ -43,7 +44,7 @@ do
             # Train
             python -m arch.nvae.train \
                 --epochs 100 \
-                --arch "default" \
+                --arch "latent-skip" \
                 --projected_channels $projected_channels \
                 --min_channels 16 \
                 --warmup_steps $warmup_steps \
