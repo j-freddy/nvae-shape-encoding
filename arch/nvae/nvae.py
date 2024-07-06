@@ -1,3 +1,4 @@
+from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
@@ -58,6 +59,7 @@ class NVAE(L.LightningModule):
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
+        use_sr: bool=False,
     ):
         """
         Args:
@@ -129,6 +131,18 @@ class NVAE(L.LightningModule):
                 padding=1,
             ),
         )
+        
+        # Convolutional layers are used for spectral regularisation
+        self.conv_layers = self._get_conv_layers()
+    
+    def _get_conv_layers(self) -> list[nn.Conv2d]:
+        conv_layers = []
+        
+        for _, layer in self.named_modules():
+            if isinstance(layer, nn.Conv2d):
+                conv_layers.append(layer)
+        
+        return conv_layers
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
@@ -316,6 +330,68 @@ class NVAE(L.LightningModule):
         
         return weighted_kls.sum()
 
+    def _spectral_norm(self) -> torch.Tensor:
+        # Dictionary: weight shape -> weight matrix
+        # So we can later stack weight matrices of the same shape and compute in
+        # parallel
+        weights = defaultdict(lambda: [])
+
+        for layer in self.conv_layers:
+            # TODO See weight_normalized in Conv2D official code
+            weight = layer.weight
+            weight_matrix = weight.view(weight.size(0), -1)
+            weights[weight_matrix.shape].append(weight_matrix)
+
+        loss = 0
+        
+        # U and V matrices of singular value decomposition
+        sr_u = {}
+        sr_v = {}
+
+        for shape in weights.keys():
+            weights[shape] = torch.stack(weights[shape], dim=0)
+
+            with torch.no_grad():
+                num_iter = 4
+
+                if shape not in sr_u:
+                    n, row, col = weights[shape].shape
+                    sr_u[shape] = F.normalize(
+                        torch.ones(n, row).normal_(0, 1).to(self.device),
+                        dim=1,
+                        eps=1e-3,
+                    )
+                    sr_v[shape] = F.normalize(
+                        torch.ones(n, col).normal_(0, 1).to(self.device),
+                        dim=1,
+                        eps=1e-3,
+                    )
+
+                    # First occurance: increase number of iterations
+                    num_iter = 40
+
+                # SVD: u^T W v
+                # Approximate u, v via power iteration
+                for _ in range(num_iter):
+                    sr_v[shape] = F.normalize(
+                        torch.matmul(sr_u[shape].unsqueeze(1),weights[shape]).squeeze(1),
+                        dim=1,
+                        eps=1e-3,
+                    )
+                    sr_u[shape] = F.normalize(
+                        torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)).squeeze(2),
+                        dim=1,
+                        eps=1e-3,
+                    )
+
+            sigma = torch.matmul(
+                sr_u[shape].unsqueeze(1),
+                torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)),
+            )
+            loss += torch.sum(sigma)
+
+        return loss
+
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         """
         Compute the reconstruction loss using cross-entropy.
@@ -353,6 +429,16 @@ class NVAE(L.LightningModule):
         if log_components:
             self.log("recon_loss", recon_loss)
             self.log("kl_div", balanced_kl_div)
+        
+        # Spectral regularisation
+        if self.hparams.use_sr:
+            weighted_sr_loss = 0.1 * self._spectral_norm()
+            print(f"Spectral regularisation loss: {weighted_sr_loss}")
+            
+            if log_components:
+                self.log("sr_loss", weighted_sr_loss)
+            
+            return recon_loss + balanced_kl_div + weighted_sr_loss
         
         return recon_loss + balanced_kl_div
     
@@ -484,7 +570,7 @@ class NVAE(L.LightningModule):
         num_samples, _, _, _ = feats.shape
         
         # Generate probabilistic segmentation maps
-        x_fake = self.decoder.generate(num_samples, device=feats.device)
+        x_fake = self.decoder.generate(num_samples, device=self.device)
         feats_fake = self.conditional_coder(x_fake)
 
         # Discretise probabilistic map then view generations
