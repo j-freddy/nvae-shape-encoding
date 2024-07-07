@@ -8,6 +8,7 @@ import torch.optim as optim
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
 from const import FRDS_MODEL_PATH
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
@@ -98,10 +99,10 @@ class VAE(L.LightningModule):
         if log_components:
             marginal_kl_div = self._kl_divergence(mu, logvar, marginal=True)
             
-            self.log("recon_loss", recon_loss)
-            self.log("kl_div", weighted_kl_div)
+            self.log("loss/recon", recon_loss)
+            self.log("loss/kl_div", weighted_kl_div)
             for i, marginal_kl in enumerate(marginal_kl_div):
-                self.log(f"marginal_kl_div/dim_{i}", marginal_kl)
+                self.log(f"loss/marginal_kl_div/dim_{i}", marginal_kl)
         
         return recon_loss + weighted_kl_div
     
@@ -143,7 +144,7 @@ class VAE(L.LightningModule):
         
         # Compute loss
         loss = self.loss(x, mu, logvar, z, x_hat_logits)
-        self.log("train_loss", loss)
+        self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
         
@@ -157,7 +158,7 @@ class VAE(L.LightningModule):
         
         # Compute loss
         loss = self.loss(x, mu, logvar, z, x_hat_logits, log_components=False)
-        self.log("val_loss", loss)
+        self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")
     
@@ -180,14 +181,14 @@ class VAE(L.LightningModule):
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
-        self.log("test_recon_loss", recon_loss)
+        self.log("loss/test_recon", recon_loss)
         
         # Compute Dice score
         x_hat = torch.softmax(x_hat_logits, dim=1)
         x_hat_onehot = discretise(x_hat)
         dl = DiceLoss(reduction="mean", include_background=False)
         dice_score = 1 - dl(input=x_hat_onehot, target=x)
-        self.log("dice_score", dice_score)
+        self.log("loss/dsc", dice_score)
         
         # Visualise 40 samples and reconstructions
         num_data = x.shape[0]
@@ -221,14 +222,26 @@ class VAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
+        discretised_x_fakes = discretise(x_fake_logits)
+        
         frds_value = compute_frds(
             x,
-            discretise(x_fake_logits),
+            discretised_x_fakes,
             resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
-        self.log("frds", frds_value)
+        self.log("gen/frds", frds_value)
+        
+        # Percentage of anatomically valid generations
+        num_valid = 0
+        
+        for discretised_x_fake in discretised_x_fakes:
+            AV = AnatomicalValidityChecker(discretised_x_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        self.log("gen/anatomically_valid", num_valid / num_samples)
     
     def log_lerp(self, x: torch.Tensor):
         """
