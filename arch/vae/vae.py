@@ -42,6 +42,11 @@ class VAE(L.LightningModule):
         
         self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
         self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
+        
+        # To keep track of test set and generated samples during test time, to
+        # compute FRDS
+        self.x_buffer: list[torch.Tensor] = []
+        self.x_fake_logits_buffer: list[torch.Tensor] = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -163,16 +168,15 @@ class VAE(L.LightningModule):
         print(f"Val loss: {loss}")
     
     def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        assert batch_idx == 0, "Only 1 batch allowed"
         self.log_reconstruction_metrics(x)
         self.log_generation_metrics(x)
-        self.log_lerp(x[:20])
+        
+        self.x_buffer.append(x)
     
     def log_reconstruction_metrics(self, x: torch.Tensor):
         """
         Log reconstruction metrics to TensorBoard. This includes average
-        reconstruction loss and Dice score across the batch. Log visualisations
-        of samples and their reconstructions.
+        reconstruction loss and Dice score across the batch.
         
         Args:
             x (torch.Tensor): One-hot encoded input segmentations.
@@ -189,22 +193,11 @@ class VAE(L.LightningModule):
         dl = DiceLoss(reduction="mean", include_background=False)
         dice_score = 1 - dl(input=x_hat_onehot, target=x)
         self.log("loss/dsc", dice_score)
-        
-        # Visualise 40 samples and reconstructions
-        num_data = x.shape[0]
-        samples_idx = torch.randperm(num_data)[:40]
-        x = x[samples_idx]
-        x_hat_logits = x_hat_logits[samples_idx]
-        
-        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
-        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
     
     def log_generation_metrics(self, x: torch.Tensor):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
-        Distance with SimCLR (FRDS) metric across the batch. Log visualisations
-        of sample generations.
+        Distance with SimCLR (FRDS) metric across the batch.
         
         Args:
             x (torch.Tensor): One-hot encoded input segmentations.
@@ -216,58 +209,51 @@ class VAE(L.LightningModule):
         
         # Generate probabilistic segmentation maps from latent variables
         x_fake_logits: torch.Tensor = self.decoder(z)
-
-        # Discretise probabilistic map then view generations
-        generations = torch.argmax(x_fake_logits[:40], dim=1).unsqueeze(1)
-        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/generations", plt.gcf())
-        
-        discretised_x_fakes = discretise(x_fake_logits)
-        
-        frds_value = compute_frds(
-            x,
-            discretised_x_fakes,
-            resnet_path=FRDS_MODEL_PATH,
-            device=self.device,
-        )
-
-        self.log("gen/frds", frds_value)
         
         # Percentage of anatomically valid generations
         num_valid = 0
         
-        for discretised_x_fake in discretised_x_fakes:
+        for discretised_x_fake in discretise(x_fake_logits):
             AV = AnatomicalValidityChecker(discretised_x_fake)
             if AV.count_violations() == 0:
                 num_valid += 1
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
+        
+        # Keep track of all generations to compute FRDS
+        self.x_fake_logits_buffer.append(x_fake_logits)
     
-    def log_lerp(self, x: torch.Tensor):
-        """
-        Linearly interpolate between the latent representations of two samples,
-        then visualise the reconstructions.
+    def log_reconstruction_visualisation(self, x: torch.Tensor):
+        num_data = x.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        x = x[samples_idx]
+        _, _, _, x_hat_logits = self(x)
         
-        Args:
-            x (torch.Tensor): One-hot encoded input segmentations.
-        """
-        z = self.get_latent(x)
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+    
+    def log_generation_visualisation(self, x_fake_logits: torch.Tensor):
+        generations = torch.argmax(x_fake_logits[:40], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
+    
+    def on_test_end(self):
+        x = torch.cat(self.x_buffer, dim=0)
+        x_fake_logits = torch.cat(self.x_fake_logits_buffer, dim=0)
+        
+        frds_value = compute_frds(
+            x,
+            discretise(x_fake_logits),
+            resnet_path=FRDS_MODEL_PATH,
+            device=self.device,
+        )
 
-        # Hand pick 2 masks that look different
-        z1, z2 = z[1], z[19]
+        print(f"FRDS: {frds_value}")
+        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
-        # Linear interpolation between z1 and z2
-        z_lerps = []
-
-        for i in range(10):
-            z_lerps.append(torch.lerp(z1, z2, i / 9))
+        # Visualise samples and reconstructions
+        self.log_reconstruction_visualisation(x)
         
-        z_lerps = torch.stack(z_lerps)
-        
-        # Pass through decoder
-        x_hat_logits: torch.Tensor = self.decoder(z_lerps)
-        
-        reconstructions = torch.argmax(x_hat_logits, dim=1).unsqueeze(1)
-
-        show_samples(reconstructions, rgb=False, ncol=10, figsize=(10, 1), display=False)
-        self.logger.experiment.add_figure("img/lerp", plt.gcf())
+        # View generations
+        self.log_generation_visualisation(x_fake_logits)
