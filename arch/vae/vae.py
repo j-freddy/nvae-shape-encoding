@@ -42,6 +42,11 @@ class VAE(L.LightningModule):
         
         self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
         self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
+        
+        # To keep track of test set and generated samples during test time, to
+        # compute FRDS
+        self.x_buffer: list[torch.Tensor] = []
+        self.discretised_x_fakes_buffer: list[torch.Tensor] = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -214,3 +219,21 @@ class VAE(L.LightningModule):
                 num_valid += 1
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
+        
+        # Keep track of all samples, to compute FRDS
+        self.x_buffer.append(x)
+        self.discretised_x_fakes_buffer.append(discretised_x_fakes)
+    
+    def on_test_end(self):
+        x = torch.cat(self.x_buffer, dim=0)
+        discretised_x_fakes = torch.cat(self.discretised_x_fakes_buffer, dim=0)
+        
+        frds_value = compute_frds(
+            x,
+            discretised_x_fakes,
+            resnet_path=FRDS_MODEL_PATH,
+            device=self.device,
+        )
+
+        print(f"FRDS: {frds_value}")
+        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
