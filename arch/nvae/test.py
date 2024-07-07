@@ -52,7 +52,7 @@ def main(flags: argparse.Namespace):
         # Using CPU for testing as FRDS calculation with 1 large batch can give
         # OOM error (script runs ~1 min on CPU)
         accelerator="cpu",
-        devices="auto",
+        devices="cpu",
         logger=TensorBoardLogger(
             save_dir=flags.logs,
             name=ACDC.DIR.NVAE,
