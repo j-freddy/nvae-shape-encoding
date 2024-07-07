@@ -17,6 +17,9 @@ class AnatomicalValidityChecker:
     """
 
     def __init__(self, mask: torch.Tensor):
+        # Using Skimage so move to CPU
+        mask = mask.cpu()
+        
         num_classes, _, _ = mask.shape
         assert num_classes == ACDC.NUM_CLASSES
         assert set(mask.unique().tolist()).issubset({0, 1})
