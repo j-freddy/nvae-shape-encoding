@@ -46,7 +46,7 @@ class VAE(L.LightningModule):
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
         self.x_buffer: list[torch.Tensor] = []
-        self.discretised_x_fakes_buffer: list[torch.Tensor] = []
+        self.x_fake_logits_buffer: list[torch.Tensor] = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -208,12 +208,10 @@ class VAE(L.LightningModule):
         # Generate probabilistic segmentation maps from latent variables
         x_fake_logits: torch.Tensor = self.decoder(z)
         
-        discretised_x_fakes = discretise(x_fake_logits)
-        
         # Percentage of anatomically valid generations
         num_valid = 0
         
-        for discretised_x_fake in discretised_x_fakes:
+        for discretised_x_fake in discretise(x_fake_logits):
             AV = AnatomicalValidityChecker(discretised_x_fake)
             if AV.count_violations() == 0:
                 num_valid += 1
@@ -222,18 +220,39 @@ class VAE(L.LightningModule):
         
         # Keep track of all samples, to compute FRDS
         self.x_buffer.append(x)
-        self.discretised_x_fakes_buffer.append(discretised_x_fakes)
+        self.x_fake_logits_buffer.append(x_fake_logits)
+    
+    def log_reconstruction_visualisation(self, x: torch.Tensor):
+        num_data = x.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        x = x[samples_idx]
+        _, _, _, x_hat_logits = self(x)
+        
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(x, x_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+    
+    def log_generation_visualisation(self, x_fake_logits: torch.Tensor):
+        generations = torch.argmax(x_fake_logits[:40], dim=1).unsqueeze(1)
+        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/generations", plt.gcf())
     
     def on_test_end(self):
         x = torch.cat(self.x_buffer, dim=0)
-        discretised_x_fakes = torch.cat(self.discretised_x_fakes_buffer, dim=0)
+        x_fake_logits = torch.cat(self.x_fake_logits_buffer, dim=0)
         
         frds_value = compute_frds(
             x,
-            discretised_x_fakes,
+            discretise(x_fake_logits),
             resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
         print(f"FRDS: {frds_value}")
         self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
+        
+        # Visualise samples and reconstructions
+        self.log_reconstruction_visualisation(x)
+        
+        # View generations
+        self.log_generation_visualisation(x_fake_logits)
