@@ -557,8 +557,7 @@ class NVAE(L.LightningModule):
     def log_generation_metrics(self, feats: torch.Tensor):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
-        Distance with SimCLR (FRDS) metric across the batch. Log visualisations
-        of sample generations.
+        Distance with SimCLR (FRDS) metric across the batch.
         
         Args:
             feats (torch.Tensor): Batch of input samples.
@@ -582,7 +581,7 @@ class NVAE(L.LightningModule):
         # Keep track of all generations to compute FRDS
         self.feats_fake_buffer.append(feats_fake)
     
-    def log_reconstruction_visualisation(self, x: torch.Tensor):
+    def log_reconstruction_visualisation(self, feats: torch.Tensor):
         num_data = feats.shape[0]
         samples_idx = torch.randperm(num_data)[:40]
         feats = feats[samples_idx]
