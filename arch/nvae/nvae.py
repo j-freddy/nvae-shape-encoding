@@ -10,6 +10,7 @@ from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 from const import ACDC, FRDS_MODEL_PATH
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
@@ -472,11 +473,23 @@ class NVAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
+        discretised_feats_fake = discretise(feats_fake)
+        
         frds_value = compute_frds(
             feats,
-            discretise(feats_fake),
+            discretised_feats_fake,
             resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
         self.log("gen/frds", frds_value)
+        
+        # Percentage of anatomically valid generations
+        num_valid = 0
+        
+        for discretised_feat_fake in discretised_feats_fake:
+            AV = AnatomicalValidityChecker(discretised_feat_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        self.log("gen/anatomically_valid", num_valid / num_samples)
