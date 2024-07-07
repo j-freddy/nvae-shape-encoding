@@ -100,11 +100,11 @@ class InfoAdversarialVAE(VAE):
         if log_components:
             marginal_kl_div = self._kl_divergence(mu, logvar, marginal=True)
             
-            self.log("recon_loss", recon_loss)
-            self.log("kl_div", kl_div)
-            self.log("kl_qp", weighted_kl_qp)
+            self.log("loss/recon", recon_loss)
+            self.log("loss/kl_div", kl_div)
+            self.log("loss/kl_qp", weighted_kl_qp)
             for i, marginal_kl in enumerate(marginal_kl_div):
-                self.log(f"marginal_kl_div/dim_{i}", marginal_kl)
+                self.log(f"loss/marginal_kl_div/dim_{i}", marginal_kl)
 
         loss = recon_loss + weighted_kl_div + weighted_kl_qp
         
@@ -146,7 +146,7 @@ class InfoAdversarialVAE(VAE):
         predp: torch.Tensor = self.discriminator(zp)
         
         discriminator_loss = self.loss_discriminator(pred, predp)
-        self.log("discriminator_loss", discriminator_loss)
+        self.log("loss/discriminator", discriminator_loss)
         print(f"Discriminator loss: {discriminator_loss}")
         
         if torch.isnan(discriminator_loss):
@@ -164,7 +164,7 @@ class InfoAdversarialVAE(VAE):
 
         mu, logvar, z, x_hat_logits = self(x)
         pred, loss = self.loss(x, mu, logvar, z, x_hat_logits, return_pred=True)
-        self.log("train_loss", loss)
+        self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
         
