@@ -56,11 +56,12 @@ python -m arch.vae.train \
 # Train a NVAE model with good configurations (~120 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
+    --arch "latent-skip" \
     --projected_channels 4 \
+    --min_channels 16 \
     --warmup_steps 6420 \
-    --beta0 1 \
-    --beta1 1 \
-    --beta2 1
+    --betas 1,1,1 \
+    --sr
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
