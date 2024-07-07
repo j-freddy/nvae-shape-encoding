@@ -10,6 +10,7 @@ from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 from const import ACDC, FRDS_MODEL_PATH
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
@@ -292,8 +293,8 @@ class NVAE(L.LightningModule):
                 # Log the original (unbalanced) KL per layer which indicates
                 # amount of information encoded at each layer
                 kl_div_layer = kl_divs_batch_avg[kl_latent_layers == latent_idx].mean()
-                self.log(f"kl_div_{latent_idx}", kl_div_layer)
-        
+                self.log(f"loss/kl_div_{latent_idx}", kl_div_layer)
+    
         return weighted_kls.sum()
 
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
@@ -331,8 +332,8 @@ class NVAE(L.LightningModule):
         print(f"Weighted KL divergence: {balanced_kl_div}")
         
         if log_components:
-            self.log("recon_loss", recon_loss)
-            self.log("kl_div", balanced_kl_div)
+            self.log("loss/recon", recon_loss)
+            self.log("loss/kl_div", balanced_kl_div)
         
         return recon_loss + balanced_kl_div
     
@@ -397,7 +398,7 @@ class NVAE(L.LightningModule):
         
         # Compute loss
         loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
-        self.log("train_loss", loss)
+        self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
         
@@ -411,7 +412,7 @@ class NVAE(L.LightningModule):
         
         # Compute loss
         loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
-        self.log("val_loss", loss)
+        self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")
         
@@ -433,14 +434,14 @@ class NVAE(L.LightningModule):
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
-        self.log("test_recon_loss", recon_loss)
+        self.log("loss/test_recon", recon_loss)
         
         # Compute Dice score
         feats_hat = torch.softmax(feats_hat_logits, dim=1)
         feats_hat_onehot = discretise(feats_hat)
         dl = DiceLoss(reduction="mean", include_background=False)
         dice_score = 1 - dl(input=feats_hat_onehot, target=feats)
-        self.log("dice_score", dice_score)
+        self.log("loss/dsc", dice_score)
 
         # Visualise 40 samples and reconstructions
         num_data = feats.shape[0]
@@ -472,11 +473,23 @@ class NVAE(L.LightningModule):
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
         
+        discretised_feats_fake = discretise(feats_fake)
+        
         frds_value = compute_frds(
             feats,
-            discretise(feats_fake),
+            discretised_feats_fake,
             resnet_path=FRDS_MODEL_PATH,
             device=self.device,
         )
 
-        self.log("frds", frds_value)
+        self.log("gen/frds", frds_value)
+        
+        # Percentage of anatomically valid generations
+        num_valid = 0
+        
+        for discretised_feat_fake in discretised_feats_fake:
+            AV = AnatomicalValidityChecker(discretised_feat_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        self.log("gen/anatomically_valid", num_valid / num_samples)

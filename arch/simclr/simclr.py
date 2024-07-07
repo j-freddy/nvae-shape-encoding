@@ -94,9 +94,9 @@ class SimCLR(L.LightningModule):
             sim_argsort = comb_sim.argsort(dim=-1, descending=True).argmin(dim=-1)
 
             # Logging ranking metrics
-            self.log("acc_top1", (sim_argsort == 0).float().mean())
-            self.log("acc_top5", (sim_argsort < 5).float().mean())
-            self.log("acc_mean_pos", 1 + sim_argsort.float().mean())
+            self.log("acc/top1", (sim_argsort == 0).float().mean())
+            self.log("acc/top5", (sim_argsort < 5).float().mean())
+            self.log("acc/mean_pos", 1 + sim_argsort.float().mean())
         
         return loss
 
@@ -110,7 +110,7 @@ class SimCLR(L.LightningModule):
         
         # Compute loss
         loss = self.loss(z)
-        self.log("train_loss", loss)
+        self.log("loss/train", loss)
 
         print(f"Train loss: {loss}")
 
@@ -126,6 +126,6 @@ class SimCLR(L.LightningModule):
         
         # Compute loss
         loss = self.loss(z, log_rank_metrics=True)
-        self.log("val_loss", loss)
+        self.log("loss/val", loss)
 
         print(f"Val loss: {loss}")
