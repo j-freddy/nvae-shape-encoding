@@ -1,3 +1,4 @@
+from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
@@ -49,16 +50,35 @@ class NVAE(L.LightningModule):
         self,
         in_channels: int=4,
         initial_channels: int=64,
+        min_channels: int=0,
         z_channels: int=20,
         # Topmost layer has fewest groups (i.e. 1)
         # Shallowest layer has most groups (i.e. 4)
-        num_groups_per_layer: list[int]=[4, 2, 2, 1, 1],
-        is_layer_shared: list[bool]=[True, False, True, False, True],
-        initial_downsample_factor: int=2,
+        num_groups_per_layer: list[int]=[4, 2, 1],
+        is_layer_shared: list[bool]=[True, True, True],
+        initial_downsample_factor: int=8,
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
+        use_sr: bool=False,
     ):
+        """
+        Args:
+            in_channels (int): Number of input channels. Corresponds to number
+                of classes in segmentation mask. Default: 4.
+            initial_channels (int): Number of channels @in_channels gets
+                projected to. This is done immediately in the stem, then
+                reverted at the very end of the pass in the conditional coder.
+                Default: 64.
+            min_channels (int): Minimum number of channels anywhere. By default,
+                the number of channels is doubled at each deeper layer. For
+                example, if @initial_channels is 16 and there are 3 layers, it
+                goes 16 -> 32 -> 64 -> 128. But if @initial_channels is 4 and
+                @min_channels is 16, it goes 16 -> 16 -> 16 -> 32 instead of 4
+                -> 8 -> 16 -> 32. The idea is to not have an initial bottleneck,
+                which may be caused by limited capacity from the small number of
+                channels. Default: 16.
+        """
         super().__init__()
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
@@ -75,7 +95,7 @@ class NVAE(L.LightningModule):
         # Table 6: # initial channels in enc. (NVAE paper)
         self.stem = nn.Conv2d(
             self.hparams.in_channels,
-            self.hparams.initial_channels,
+            max(self.hparams.initial_channels, self.hparams.min_channels),
             kernel_size=3,
             padding=1,
             bias=True,
@@ -85,6 +105,7 @@ class NVAE(L.LightningModule):
             num_groups_per_layer=self.hparams.num_groups_per_layer,
             is_layer_shared=self.hparams.is_layer_shared,
             initial_channels=self.hparams.initial_channels,
+            min_channels=self.hparams.min_channels,
             z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
@@ -95,6 +116,7 @@ class NVAE(L.LightningModule):
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
             is_layer_shared=self.hparams.is_layer_shared[::-1],
             initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.num_layers - 1)),
+            min_channels=self.hparams.min_channels,
             top_latent_shape=(top_latent_dim, top_latent_dim),
             z_channels=self.hparams.z_channels,
             final_upsample_factor=self.hparams.initial_downsample_factor,
@@ -104,17 +126,29 @@ class NVAE(L.LightningModule):
         self.conditional_coder = nn.Sequential(
             nn.ELU(),
             nn.Conv2d(
-                self.hparams.initial_channels,
+                max(self.hparams.initial_channels, self.hparams.min_channels),
                 self.hparams.in_channels,
                 kernel_size=3,
                 padding=1,
             ),
         )
+                
+        # Convolutional layers are used for spectral regularisation
+        self.conv_layers = self._get_conv_layers()
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
         self.feats_buffer: list[torch.Tensor] = []
         self.feats_fake_buffer: list[torch.Tensor] = []
+    
+    def _get_conv_layers(self) -> list[nn.Conv2d]:
+        conv_layers = []
+        
+        for _, layer in self.named_modules():
+            if isinstance(layer, nn.Conv2d):
+                conv_layers.append(layer)
+        
+        return conv_layers
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
@@ -302,6 +336,68 @@ class NVAE(L.LightningModule):
     
         return weighted_kls.sum()
 
+    def _spectral_norm(self) -> torch.Tensor:
+        # Dictionary: weight shape -> weight matrix
+        # So we can later stack weight matrices of the same shape and compute in
+        # parallel
+        weights = defaultdict(lambda: [])
+
+        for layer in self.conv_layers:
+            # TODO See weight_normalized in Conv2D official code
+            weight = layer.weight
+            weight_matrix = weight.view(weight.size(0), -1)
+            weights[weight_matrix.shape].append(weight_matrix)
+
+        loss = 0
+        
+        # U and V matrices of singular value decomposition
+        sr_u = {}
+        sr_v = {}
+
+        for shape in weights.keys():
+            weights[shape] = torch.stack(weights[shape], dim=0)
+
+            with torch.no_grad():
+                num_iter = 4
+
+                if shape not in sr_u:
+                    n, row, col = weights[shape].shape
+                    sr_u[shape] = F.normalize(
+                        torch.ones(n, row).normal_(0, 1).to(self.device),
+                        dim=1,
+                        eps=1e-3,
+                    )
+                    sr_v[shape] = F.normalize(
+                        torch.ones(n, col).normal_(0, 1).to(self.device),
+                        dim=1,
+                        eps=1e-3,
+                    )
+
+                    # First occurance: increase number of iterations
+                    num_iter = 40
+
+                # SVD: u^T W v
+                # Approximate u, v via power iteration
+                for _ in range(num_iter):
+                    sr_v[shape] = F.normalize(
+                        torch.matmul(sr_u[shape].unsqueeze(1),weights[shape]).squeeze(1),
+                        dim=1,
+                        eps=1e-3,
+                    )
+                    sr_u[shape] = F.normalize(
+                        torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)).squeeze(2),
+                        dim=1,
+                        eps=1e-3,
+                    )
+
+            sigma = torch.matmul(
+                sr_u[shape].unsqueeze(1),
+                torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)),
+            )
+            loss += torch.sum(sigma)
+
+        return loss
+
     def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         """
         Compute the reconstruction loss using cross-entropy.
@@ -339,6 +435,16 @@ class NVAE(L.LightningModule):
         if log_components:
             self.log("loss/recon", recon_loss)
             self.log("loss/kl_div", balanced_kl_div)
+        
+        # Spectral regularisation
+        if self.hparams.use_sr:
+            weighted_sr_loss = 0.1 * self._spectral_norm()
+            print(f"Spectral regularisation loss: {weighted_sr_loss}")
+            
+            if log_components:
+                self.log("sr_loss", weighted_sr_loss)
+            
+            return recon_loss + balanced_kl_div + weighted_sr_loss
         
         return recon_loss + balanced_kl_div
     
@@ -460,7 +566,7 @@ class NVAE(L.LightningModule):
         num_samples, _, _, _ = feats.shape
         
         # Generate probabilistic segmentation maps
-        x_fake = self.decoder.generate(num_samples, device=feats.device)
+        x_fake = self.decoder.generate(num_samples, device=self.device)
         feats_fake = self.conditional_coder(x_fake)
         
         # Percentage of anatomically valid generations
