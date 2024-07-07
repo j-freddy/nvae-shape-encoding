@@ -170,6 +170,8 @@ class VAE(L.LightningModule):
     def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
         self.log_reconstruction_metrics(x)
         self.log_generation_metrics(x)
+        
+        self.x_buffer.append(x)
     
     def log_reconstruction_metrics(self, x: torch.Tensor):
         """
@@ -218,8 +220,7 @@ class VAE(L.LightningModule):
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
         
-        # Keep track of all samples, to compute FRDS
-        self.x_buffer.append(x)
+        # Keep track of all generations to compute FRDS
         self.x_fake_logits_buffer.append(x_fake_logits)
     
     def log_reconstruction_visualisation(self, x: torch.Tensor):
