@@ -139,7 +139,7 @@ def main(flags: argparse.Namespace):
             default_hp_metric=False,
         ),
         callbacks=[
-            ModelCheckpoint(monitor="val_loss", mode="min"),
+            ModelCheckpoint(monitor="loss/val", mode="min"),
             LearningRateMonitor("epoch"),
         ]
     )
