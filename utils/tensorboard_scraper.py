@@ -47,15 +47,15 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "default-clamp"
-    metrics = ["frds", "dice_score"]
+    log_subdir = "latent-skip-clamp"
+    metrics = ["gen/frds", "gen/anatomically_valid", "loss/dsc",]
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.NVAE, log_subdir),
         metrics=metrics,
     )
 
-    df.sort_values(by="dice_score", inplace=True, ascending=False)
+    df.sort_values(by="loss/dsc", inplace=True, ascending=False)
 
     print(df.head())
 
