@@ -64,13 +64,13 @@ class DecoderCombinerCell(nn.Module):
     neural_operations.py.
     """
     
-    def __init__(self, in_channels_x1: int, in_channels_x2: int, out_channels: int):
+    def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         
-        self.net = nn.Conv2d(in_channels_x1 + in_channels_x2, out_channels, kernel_size=1)
+        self.net = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
-    def forward(self, x1, x2):
-        return self.net(torch.cat([x1, x2], dim=1))
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        return x1 + self.net(x2)
 
 class Decoder(nn.Module):
     """
@@ -148,7 +148,6 @@ class Decoder(nn.Module):
                     # Add dec combiner
                     self.tower.append(
                         DecoderCombinerCell(
-                            true_num_channels,
                             z_channels,
                             true_num_channels,
                         ),
