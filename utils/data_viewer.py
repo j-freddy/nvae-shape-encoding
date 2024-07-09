@@ -80,11 +80,13 @@ def view_acdc():
     # Reseed
     L.seed_everything(SEED)
 
-    data_test = data_module.data_test.masks
+    data_train = data_module.data_train.masks
     
     # Shuffle and select subset
-    samples_idx = torch.randperm(data_test.shape[0])[:24]
-    samples = data_test[samples_idx]
+    # samples_idx = torch.randperm(data_test.shape[0])[:24]
+    # samples = data_test[samples_idx]
+    
+    samples = data_train[:20]
     
     if not flags.augment_simclr:
         # Uncomment this to view each channel separately

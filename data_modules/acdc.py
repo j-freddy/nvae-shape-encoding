@@ -114,10 +114,10 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
     transform = tio.transforms.Compose([
         # Crop to dimensions centred around the mask to minimise background
         tio.CropOrPad(
-            (width + padding, width + padding, num_slices),
+            (400, 400, num_slices),
             mask_name="mask",
         ),
-        tio.Resize((ACDC.WIDTH, ACDC.WIDTH, num_slices)),
+        # tio.Resize((ACDC.WIDTH, ACDC.WIDTH, num_slices)),
         tio.RescaleIntensity((0, 1)),
     ])
     
@@ -130,7 +130,7 @@ def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
     seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
-    # seq = range(101, 106) if test else range(1, 6)
+    # seq = range(101, 106) if test else range(29, 30)
     
     max_slices = 0
     
@@ -287,10 +287,10 @@ class ACDCMaskDataModule(LightningDataModule):
             data_train = one_hot_to_image(data_train)
             data_test = one_hot_to_image(data_test)
 
-        data_train, data_val = self._split_train_val(data_train)
+        # data_train, data_val = self._split_train_val(data_train)
         
         self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr)
-        self.data_val = ACDCMaskDataset(data_val, augment_rotation, augment_simclr)
+        self.data_val = ACDCMaskDataset(data_test, augment_rotation, augment_simclr)
         self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test)
     
     def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
