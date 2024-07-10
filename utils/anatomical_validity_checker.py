@@ -1,5 +1,6 @@
 import numpy as np
 from skimage import measure, morphology
+from skimage.measure._regionprops import RegionProperties
 import torch
 
 from const import ACDC
@@ -42,13 +43,15 @@ class AnatomicalValidityChecker:
     
     def _count_holes(self, struct_mask: np.ndarray) -> int:
         # Extract continuous regions of 1
-        props = measure.regionprops(measure.label(struct_mask, connectivity=2))
+        region_props: list[RegionProperties] = measure.regionprops(
+            measure.label(struct_mask, connectivity=2),
+        )
 
         num_holes = 0
 
-        for prop in props:
+        for region in region_props:
             # Skip the region open by the side (the one that includes padding)
-            if prop.bbox[0] != 0:
+            if region.bbox[0] != 0:
                 num_holes += 1
 
         return num_holes
@@ -61,6 +64,30 @@ class AnatomicalValidityChecker:
     def count_num_components(self, merged_class_ids: list[ACDC.ClassLabel]) -> int:
         struct_mask = self._merge_classes(merged_class_ids)
         return measure.label(struct_mask, connectivity=2).max()
+
+    def are_classes_disconnected(self, class_id1: ACDC.ClassLabel, class_id2: ACDC.ClassLabel) -> bool:
+        mask1 = self._get_struct_mask(class_id1)
+        mask2 = self._get_struct_mask(class_id2).numpy()
+        
+        # Exception: class 2 is empty
+        if not np.any(mask2):
+            return False
+        
+        labeled_mask1 = measure.label(mask1, connectivity=2)
+        region_props: list[RegionProperties] = measure.regionprops(labeled_mask1)
+    
+        for region in region_props:
+            component1 = (labeled_mask1 == region.label).astype(np.uint8)
+            
+            # Pad 1px around region
+            component1_dilated = morphology.binary_dilation(component1).astype(np.uint8)
+            
+            # If padded mask does not overlap, a region in class 1 is
+            # disconnected
+            if not np.any(component1_dilated & mask2):
+                return True
+        
+        return False
 
     def do_classes_touch(self, class_id1: ACDC.ClassLabel, class_id2: ACDC.ClassLabel) -> bool:
         mask1 = self._get_struct_mask(class_id1)
@@ -85,11 +112,11 @@ class AnatomicalValidityChecker:
         num_myo = self.count_num_components([ACDC.ClassLabel.MYO])
         num_lv = self.count_num_components([ACDC.ClassLabel.LV])
         
-        # Assuming only 1 RV and 1 MYO, check if RV is disconnected from MYO
-        num_rv_myo = self.count_num_components([
+        # Check if RV is disconnected from MYO
+        rv_disconnected_from_myo = self.are_classes_disconnected(
             ACDC.ClassLabel.RV,
             ACDC.ClassLabel.MYO,
-        ])
+        )
         
         # Check if LV touches RV or background
         touch_lv_rv = self.do_classes_touch(ACDC.ClassLabel.LV, ACDC.ClassLabel.RV)
@@ -100,9 +127,7 @@ class AnatomicalValidityChecker:
             "num_rv": num_rv,
             "num_myo": num_myo,
             "num_lv": num_lv,
-            # TODO This is only guaranteed to work if there is only 1 RV and 1
-            # MYO
-            "rv_disconnected_from_myo": num_rv_myo > 1,
+            "rv_disconnected_from_myo": rv_disconnected_from_myo,
             "lv_touches_rv": touch_lv_rv,
             "lv_touches_bg": touch_lv_bg,
         }
