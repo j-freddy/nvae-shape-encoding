@@ -18,7 +18,7 @@ source activate
 # NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
 # where this constraint is met. For the default architecture.
 #
-# Time taken: unknown
+# Time taken: 19 hr 30 min
 # ==============================================================================
 
 # Grid size is 20

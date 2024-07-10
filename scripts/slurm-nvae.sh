@@ -17,24 +17,48 @@ source activate
 # Any script to train a single NVAE model.
 # ==============================================================================
 
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "default" \
-    --projected_channels 4 \
-    --min_channels 16 \
-    --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-default" \
-    --logs "logs-standalone"
+projected_channels_list=("4")
+warmup_steps_list=("6420")
+betas=("1 2 5 10")
 
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "latent-skip" \
-    --projected_channels 4 \
-    --min_channels 16 \
-    --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-latent-skip" \
-    --logs "logs-standalone"
+logdir="logs-nvae-dec-res"
+
+# Train
+
+for projected_channels in $projected_channels_list
+do
+    for warmup_steps in $warmup_steps_list
+    do
+        for beta in $betas
+        do
+            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
+            betas_str="${beta},${beta},${beta}"
+            # Train
+            python -m arch.nvae.train \
+                --epochs 100 \
+                --arch "default" \
+                --projected_channels $projected_channels \
+                --warmup_steps $warmup_steps \
+                --betas $betas_str \
+                --model_name $model_name \
+                --logs $logdir
+        done
+    done
+done
+
+# Evaluate
+
+for projected_channels in $projected_channels_list
+do
+    for warmup_steps in $warmup_steps_list
+    do
+        for beta in $betas
+        do
+            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
+            # Get saved model path
+            model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
+            # Test: Save figures and metrics
+            python -m arch.nvae.test --model_path $model_path --logs $logdir
+        done
+    done
+done
