@@ -69,7 +69,7 @@ class DecoderCombinerCell(nn.Module):
         
         self.net = nn.Conv2d(in_channels_x1 + in_channels_x2, out_channels, kernel_size=1)
 
-    def forward(self, x1, x2):
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         return self.net(torch.cat([x1, x2], dim=1))
 
 class Decoder(nn.Module):
