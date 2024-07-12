@@ -52,8 +52,6 @@ class NVAE(L.LightningModule):
         initial_channels: int=64,
         min_channels: int=0,
         z_channels: int=20,
-        # Topmost layer has fewest groups (i.e. 1)
-        # Shallowest layer has most groups (i.e. 4)
         num_groups_per_layer: list[int]=[4, 2, 1],
         is_layer_shared: list[bool]=[True, True, True],
         initial_downsample_factor: int=8,
@@ -63,6 +61,9 @@ class NVAE(L.LightningModule):
         use_sr: bool=False,
     ):
         """
+        Create an instance of the NVAE model. All constructor arguments are
+        saved in the checkpoint as hyperparameters.
+        
         Args:
             in_channels (int): Number of input channels. Corresponds to number
                 of classes in segmentation mask. Default: 4.
@@ -78,6 +79,31 @@ class NVAE(L.LightningModule):
                 -> 8 -> 16 -> 32. The idea is to not have an initial bottleneck,
                 which may be caused by limited capacity from the small number of
                 channels. Default: 16.
+            z_channels (int): Number of channels in the latent space. For
+                example, if the latent space is 4x4 for a particular layer, the
+                latent variable is @z_channelsx4x4. Default: 20.
+            num_groups_per_layer (list[int]): Number of groups in each layer.
+                This is traversed sequentially, so more groups allow for more
+                corrections and refinement within a single layer. Order: from
+                shallowest to topmost layer. Default: [4, 2, 1].
+            is_layer_shared (list[bool]): Whether the latent space in each layer
+                is shared with the decoder. If a layer is not shared, it only
+                consists of residual cells and does not have a combiner nor
+                sampler. Order corresponds to @num_groups_per_layer. Default:
+                [True, True, True].
+            initial_downsample_factor (int): Downsample factor in the
+                preprocess stage of the encoder tower. This corresponds to the
+                upsample factor in the postprocess stage of the decoder tower.
+                For example, if @initial_downsample_factor is 8 and the input is
+                128x128, the preprocess stage downsamples to 16x16. Default: 8.
+            max_epochs (int): Maximum number of epochs for training. Default:
+                50.
+            beta_per_layer (list[float]): Beta coefficient for each shared
+                layer. Order corresponds to the shared layers of
+                @is_layer_shared. Default: [1.0, 1.0, 1.0].
+            kl_warmup_steps (int): Number of steps to perform KL annealing.
+                Each epoch has 214 steps. Default: 500.
+            use_sr (bool): If True, use spectral regularisation. Default: False.
         """
         super().__init__()
         
@@ -246,8 +272,8 @@ class NVAE(L.LightningModule):
     
     def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_latent_layers: torch.Tensor):
         """
-        For each layer, weight the KL divergence by the corresponding beta.
-        Equivalent to beta-VAE but applied to each layer.
+        For each shared layer, weight the KL divergence by the corresponding
+        beta. Equivalent to beta-VAE but applied to each shared layer.
         
         Args:
             balanced_kl_divs (torch.Tensor): KL per group after balancing,
