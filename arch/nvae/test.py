@@ -43,7 +43,7 @@ def main(flags: argparse.Namespace):
     # Load model
     model = NVAE.load_from_checkpoint(flags.model_path)
 
-    # TODO noqa
+    # noqa
     model_name = flags.model_path.split("/")[2]
 
     trainer = L.Trainer(

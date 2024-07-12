@@ -126,7 +126,7 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
 def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
     subjects = []
     
-    # TODO noqa
+    # noqa
     seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing

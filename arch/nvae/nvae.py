@@ -372,7 +372,6 @@ class NVAE(L.LightningModule):
         weights = defaultdict(lambda: [])
 
         for layer in self.conv_layers:
-            # TODO See weight_normalized in Conv2D official code
             weight = layer.weight
             weight_matrix = weight.view(weight.size(0), -1)
             weights[weight_matrix.shape].append(weight_matrix)
