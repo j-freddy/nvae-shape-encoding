@@ -228,11 +228,12 @@ class Decoder(nn.Module):
             num_shared_layers (int): Number of latent layers shared with the
                 decoder from the topmost layer. For example, if
                 @num_shared_layers is 2, only the topmost and its immediate
-                subsequent layer are shared. If a layer is not shared, the
-                decoder does not draw information from the encoder. That is, the
-                residual distribution only consists of the prior and not the
-                approximate posterior. If -1, all layers are shared. Useful for
-                ablation study and checking collapsed layers. Default: -1.
+                subsequent latent layer are shared. If a latent layer is not
+                shared, the decoder does not draw information from the encoder.
+                That is, the residual distribution only consists of the prior
+                and not the approximate posterior. If -1, all latent layers are
+                shared. Useful for ablation study and checking collapsed layers.
+                Default: -1.
         
         Returns:
             x (torch.Tensor): Output logits before passing through the
@@ -334,11 +335,12 @@ class Decoder(nn.Module):
                 results in less diverse samples. Default: 1.0.
             num_sample_layers (int): Number of latent layers from the topmost
                 layer to sample from. For example, if @num_sample_layers is 2,
-                only the topmost and its immediate subsequent layer are sampled
-                from. All other subsequent layers use deterministic sampling,
-                that is, take the mean of the prior distribution instead of
-                sampling from it. If -1, sample from all layers. Useful for
-                ablation study and checking collapsed layers. Default: -1.
+                only the topmost and its immediate subsequent latent layer are
+                sampled from. All other subsequent latent layers use
+                deterministic sampling, that is, take the mean of the prior
+                distribution instead of sampling from it. If -1, sample from all
+                latent layers. Useful for ablation study and checking collapsed
+                layers. Default: -1.
             z (torch.Tensor): Custom fixed latent representation. If provided,
                 the model will use this as the topmost latent variable instead
                 of sampling from a Gaussian prior. Default: None.

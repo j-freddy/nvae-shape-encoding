@@ -23,12 +23,8 @@ class NVAE(L.LightningModule):
     details described in the paper and the original codebase
     (https://github.com/NVlabs/NVAE).
     
-    Note: The paper refers to each latent layer in the VAE as a "latent scale".
-    We will use the word "layer", as it is a more common term in hierarchical
-    model literature (e.g. Ladder VAE).
-    
-    Indexing of n latent layers is as follows: 0 corresponds to the shallowest
-    layer and n-1 corresponds to the topmost layer.
+    Indexing of n layers is as follows: 0 corresponds to the shallowest layer
+    and n-1 corresponds to the topmost layer.
     
     We have extended the framework such that some layers do not encode shared
     latent variables. Such a layer only consists of residual cells and does not
@@ -41,6 +37,13 @@ class NVAE(L.LightningModule):
         Layer 2: Shared (latent index 1)    (16x16 latent space)
         Layer 3: Not shared                 (8x8 feature space)
         Layer 4: Shared (latent index 2)    (4x4 latent space)
+    
+    The NVAE paper refers to each latent layer in the VAE as a "latent scale".
+    We will use the term "latent layer", as it is a more common term in
+    hierarchical model literature (e.g. Ladder VAE). We will also use the term
+    "shared layer" interchangeably with "latent layer", since only shared layers
+    have an explicit latent space; the only exception is if a latent layer is
+    not shared when performing an ablation study.
     
     [1]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
     Advances in neural information processing systems. 2020;33:19667-79.
