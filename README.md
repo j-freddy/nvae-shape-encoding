@@ -42,7 +42,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If everything has been set up correctly, the commands below should work. Time estimations are based on a 16GB RAM, 8-core CPU powered laptop. Running on an A30 GPU with 24GB RAM is ~6 times faster.
+If everything has been set up correctly, the commands below should work. Time
+estimations are based on a 16GB RAM, 8-core CPU powered laptop. Running with MPS
+(Apple silicon chip) is ~2 times faster. Running on an A30 GPU with 24GB RAM is
+~5 times faster.
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc
@@ -56,11 +59,10 @@ python -m arch.vae.train \
 # Train a NVAE model with good configurations (~120 minutes)
 python -m arch.nvae.train \
     --epochs 100 \
-    --arch "latent-skip" \
+    --arch "default" \
     --projected_channels 4 \
-    --min_channels 16 \
     --warmup_steps 6420 \
-    --betas 1,1,1 \
+    --betas 10,10,10 \
     --sr
 # Test (~5 minutes)
 # A typical checkpoint path is:

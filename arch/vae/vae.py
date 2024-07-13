@@ -167,7 +167,7 @@ class VAE(L.LightningModule):
         
         print(f"Val loss: {loss}")
     
-    def test_step(self, x: torch.Tensor, batch_idx: int) -> torch.Tensor:
+    def test_step(self, x: torch.Tensor) -> torch.Tensor:
         self.log_reconstruction_metrics(x)
         self.log_generation_metrics(x)
         

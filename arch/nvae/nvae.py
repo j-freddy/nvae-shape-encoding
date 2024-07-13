@@ -555,7 +555,7 @@ class NVAE(L.LightningModule):
         
         print(f"Val loss: {loss}")
         
-    def test_step(self, feats: torch.Tensor, batch_idx: int) -> torch.Tensor:
+    def test_step(self, feats: torch.Tensor) -> torch.Tensor:
         self.log_reconstruction_metrics(feats)
         self.log_generation_metrics(feats)
         
