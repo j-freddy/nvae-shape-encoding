@@ -5,7 +5,7 @@ import torch
 from const import ACDC, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import acdc_class_id_to_idx, setup_device, show_samples
+from utils.utils import setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -72,6 +72,7 @@ def view_acdc():
         as_image=flags.augment_simclr,
         augment_rotation_test=flags.augment,
         augment_simclr_test=flags.augment_simclr,
+        return_original=flags.augment_simclr,
     )
 
     print(f"Number of train samples: {len(data_module.data_train)}")
@@ -79,22 +80,27 @@ def view_acdc():
     
     # Reseed
     L.seed_everything(SEED)
-
-    data_test = data_module.data_test.masks
     
-    # Shuffle and select subset
-    samples_idx = torch.randperm(data_test.shape[0])[:24]
-    samples = data_test[samples_idx]
+    # View samples
+    loader_test = data_module.test_dataloader(shuffle=True)
     
     if not flags.augment_simclr:
+        samples: torch.Tensor = next(iter(loader_test))
+
         # Uncomment this to view each channel separately
         # class_idx = acdc_class_to_idx(ACDC.CardiacClass.RV)
         # samples = samples[:, class_idx, :, :].unsqueeze(1)
         
         # Or recombine the channels
-        samples: torch.Tensor = torch.argmax(samples, dim=1).unsqueeze(1)
+        samples = torch.argmax(samples, dim=1).unsqueeze(1)
+        
+        show_samples(samples, rgb=flags.augment_simclr, ncol=6, figsize=(6, 4))
+    else:
+        samples_pair: list[torch.Tensor] = next(iter(loader_test))
+        samples = torch.cat(samples_pair, dim=0)
+        
+        show_samples(samples, rgb=flags.augment_simclr, ncol=12, figsize=(12, 3))
     
-    show_samples(samples, rgb=flags.augment_simclr, ncol=6, figsize=(6, 4))
 
 def main(flags: argparse.Namespace):
     # Setup device

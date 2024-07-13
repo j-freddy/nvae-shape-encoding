@@ -251,6 +251,8 @@ class ACDCMaskDataModule(LightningDataModule):
         augment_rotation_test: bool=False,
         augment_simclr: bool=False,
         augment_simclr_test: bool=False,
+        # If True, return the original mask as well as the augmented pair
+        return_original: bool=False,
     ):
         assert not (augment_rotation and augment_simclr)
         assert not (augment_rotation_test and augment_simclr_test)
@@ -289,9 +291,9 @@ class ACDCMaskDataModule(LightningDataModule):
 
         data_train, data_val = self._split_train_val(data_train)
         
-        self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr)
-        self.data_val = ACDCMaskDataset(data_val, augment_rotation, augment_simclr)
-        self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test)
+        self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr, return_original)
+        self.data_val = ACDCMaskDataset(data_val, augment_rotation, augment_simclr, return_original)
+        self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test, return_original)
     
     def _register_alignment(self, masks: torch.Tensor) -> torch.Tensor:
         # avg_y is average y-coordinate of right ventricle
@@ -395,8 +397,8 @@ class ACDCMaskDataModule(LightningDataModule):
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
 
-    def val_dataloader(self):
-        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=False)
+    def val_dataloader(self, shuffle=False):
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
     
-    def test_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=False)
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
