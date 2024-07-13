@@ -394,8 +394,8 @@ class ACDCMaskDataModule(LightningDataModule):
         
         return mask_train, mask_val
     
-    def train_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
 
     def val_dataloader(self, shuffle=False):
         return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
