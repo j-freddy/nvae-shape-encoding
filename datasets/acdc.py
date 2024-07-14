@@ -24,11 +24,14 @@ class ACDCMaskDataset(Dataset):
         masks: torch.Tensor,
         augment_rotation: bool=False,
         augment_simclr: bool=False,
+        # If True, return the original mask as well as the augmented pair
+        return_original: bool=False,
     ):
         self.masks = masks
         self.num_classes = masks.shape[1]
         self.augment_rotation = augment_rotation
         self.augment_simclr = augment_simclr
+        self.return_original = return_original
         
         self.augmentation_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=30),
@@ -45,6 +48,8 @@ class ACDCMaskDataset(Dataset):
             ),
             transforms.Normalize((0.5,), (0.5,)),
         ])
+        
+        self.normalise_pipeline = transforms.Normalize((0.5,), (0.5,))
     
     def __len__(self) -> int:
         return len(self.masks)
@@ -79,6 +84,11 @@ class ACDCMaskDataset(Dataset):
         
         if self.augment_simclr:
             assert not self.augment_rotation
-            return [self.simclr_pipeline(mask) for _ in range(2)]
+            pair = [self.simclr_pipeline(mask) for _ in range(2)]
+            
+            if self.return_original:
+                mask = self.normalise_pipeline(mask)
+                pair = [mask] + pair
+            return pair
 
         return mask

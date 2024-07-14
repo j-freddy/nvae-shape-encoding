@@ -8,7 +8,7 @@ from const import FRDS_MODEL_PATH, LOGS_PATH, OUT_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils.custom_augmentations import AverageSmoothing, RandomBlackBoxCrop, RandomPepperNoise
 from utils.eval import compute_fid_manual, compute_frds
-from utils.utils import setup_device, show_samples
+from utils.utils import get_data, setup_device, show_samples
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -72,7 +72,7 @@ disturbances = {
 }
 
 def show_preview(data: torch.Tensor):
-    x = data[:10]
+    x = data[1:2]
     
     for disturbance_type, specific_disturbances in disturbances.items():
         x_augs = []
@@ -80,10 +80,12 @@ def show_preview(data: torch.Tensor):
         for _, disturbance in specific_disturbances.items():
             x_augs.append(disturbance(x))
             
+        fig_quality = 3
+            
         show_samples(
-            torch.cat([x[:10]] + x_augs, dim=0),
-            ncol=10,
-            figsize=(10, len(x_augs) + 1),
+            torch.cat([x] + x_augs, dim=0),
+            ncol=len(x_augs) + 1,
+            figsize=(fig_quality * (len(x_augs) + 1), fig_quality),
             save_path=os.path.join(OUT_PATH, f"{disturbance_type}.png"),
             display=False,
         )
@@ -147,18 +149,17 @@ def main(flags: argparse.Namespace):
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
-
-    data_train = data_module.data_train.masks
-    data_test = data_module.data_test.masks
+    
+    loader_train = data_module.train_dataloader(shuffle=True)
+    loader_test = data_module.test_dataloader(shuffle=True)
+    
+    data_train = get_data(loader_train)
+    data_test = get_data(loader_test)
     
     num_samples = min(data_train.shape[0], data_test.shape[0])
     
-    # Shuffle and select subset
-    train_samples_idx = torch.randperm(data_train.shape[0])[:num_samples]
-    test_samples_idx = torch.randperm(data_test.shape[0])[:num_samples]
-    
-    data_train = data_train[train_samples_idx]
-    data_test = data_test[test_samples_idx]
+    data_train = data_train[:num_samples]
+    data_test = data_test[:num_samples]
     
     if flags.show_preview:
         show_preview(data_test)

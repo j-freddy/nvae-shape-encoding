@@ -113,3 +113,14 @@ def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
 
 def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
     return torch.tanh(x.div(factor)) * factor
+
+def get_data(loader: torch.utils.data.DataLoader) -> torch.Tensor:
+    """
+    Get all data from a DataLoader.
+    """
+    data = []
+    
+    for x in loader:
+        data.append(x)
+    
+    return torch.cat(data, dim=0)
