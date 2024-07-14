@@ -39,7 +39,7 @@ do
         for beta in $betas
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
-            betas_str="${beta},${beta},${beta}"
+            betas_str="${beta},${beta},${beta},${beta},${beta}"
             # Train
             python -m arch.nvae.train \
                 --epochs 100 \
