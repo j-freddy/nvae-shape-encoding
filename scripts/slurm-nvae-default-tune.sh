@@ -14,58 +14,60 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [NVAE Tune Slim]
-# NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
-# where this constraint is met. For the default architecture.
+# [NVAE Tune]
+# Note: A larger range of hyperparameters has been previously tuned
+# 
+# NVAE ACDC: It seems that beta=10 works well. This is a smaller grid around
+# this value. For the default architecture.
 #
 # Time taken: unknown
 # ==============================================================================
 
-# Grid size is 20
-projected_channels_list=("4")
-# Size=1 (6420 is 214*30 so first 30 epochs)
-warmup_steps_list=("6420")
-# Size=20
-betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
+# Size=64
+betas1=("8 9 10 11")
+betas2=("8 9 10 11")
+betas3=("8 9 10 11")
 
-logdir="logs-nvae"
+logdir="logs-nvae-fine"
 
 # Train
 
-for projected_channels in $projected_channels_list
+for beta1 in $betas1
 do
-    for warmup_steps in $warmup_steps_list
+    for beta2 in $betas2
     do
-        for beta in $betas
+        for beta3 in $betas3
         do
-            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
-            betas_str="${beta},${beta},${beta}"
-            # Train
-            python -m arch.nvae.train \
-                --epochs 100 \
-                --arch "default" \
-                --projected_channels $projected_channels \
-                --warmup_steps $warmup_steps \
-                --betas $betas_str \
-                --model_name $model_name \
-                --logs $logdir
+            model_name="b1-${beta1}-b2-${beta2}-b3-${beta3}"
+            betas_str="${beta1},${beta2},${beta3}"
+            # # Train
+            # python -m arch.nvae.train \
+            #     --epochs 100 \
+            #     --arch "default" \
+            #     --projected_channels 4 \
+            #     --warmup_steps 6420 \
+            #     --betas $betas_str \
+            #     --model_name $model_name \
+            #     --logs $logdir
+            echo "Training: $model_name"
         done
     done
 done
 
 # Evaluate
 
-for projected_channels in $projected_channels_list
+for beta1 in $betas1
 do
-    for warmup_steps in $warmup_steps_list
+    for beta2 in $betas2
     do
-        for beta in $betas
+        for beta3 in $betas3
         do
-            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
-            # Get saved model path
-            model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
-            # Test: Save figures and metrics
-            python -m arch.nvae.test --model_path $model_path --logs $logdir
+            model_name="b1-${beta1}-b2-${beta2}-b3-${beta3}"
+            # # Get saved model path
+            # model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
+            # # Test: Save figures and metrics
+            # python -m arch.nvae.test --model_path $model_path --logs $logdir
+            echo "Testing: $model_name"
         done
     done
 done
