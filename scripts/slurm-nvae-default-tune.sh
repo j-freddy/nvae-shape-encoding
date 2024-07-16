@@ -40,16 +40,15 @@ do
         do
             model_name="b1-${beta1}-b2-${beta2}-b3-${beta3}"
             betas_str="${beta1},${beta2},${beta3}"
-            # # Train
-            # python -m arch.nvae.train \
-            #     --epochs 100 \
-            #     --arch "default" \
-            #     --projected_channels 4 \
-            #     --warmup_steps 6420 \
-            #     --betas $betas_str \
-            #     --model_name $model_name \
-            #     --logs $logdir
-            echo "Training: $model_name"
+            # Train
+            python -m arch.nvae.train \
+                --epochs 100 \
+                --arch "default" \
+                --projected_channels 4 \
+                --warmup_steps 6420 \
+                --betas $betas_str \
+                --model_name $model_name \
+                --logs $logdir
         done
     done
 done
@@ -63,11 +62,10 @@ do
         for beta3 in $betas3
         do
             model_name="b1-${beta1}-b2-${beta2}-b3-${beta3}"
-            # # Get saved model path
-            # model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
-            # # Test: Save figures and metrics
-            # python -m arch.nvae.test --model_path $model_path --logs $logdir
-            echo "Testing: $model_name"
+            # Get saved model path
+            model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
+            # Test: Save figures and metrics
+            python -m arch.nvae.test --model_path $model_path --logs $logdir
         done
     done
 done
