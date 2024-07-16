@@ -1,6 +1,6 @@
 ID_TO_ARCH = {
     "default": {
-        "num_groups_per_layer": [4, 2, 1],
+        "num_groups_per_layer": [8, 4, 2],
         "is_layer_shared": [True, True, True],
         "initial_downsample_factor": 8,
     },

@@ -24,17 +24,5 @@ python -m arch.nvae.train \
     --min_channels 16 \
     --warmup_steps 6420 \
     --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-default" \
-    --logs "logs-standalone"
-
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "latent-skip" \
-    --projected_channels 4 \
-    --min_channels 16 \
-    --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-latent-skip" \
-    --logs "logs-standalone"
+    --model_name "nvae-model-default-more-groups" \
+    --logs "logs-more-groups"
