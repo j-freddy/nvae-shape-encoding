@@ -12,7 +12,7 @@ from const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
-def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
+def get_info(patient_id: str, test: bool=False) -> dict:
     info_file = os.path.join(
         ACDC.RAW.TEST_PATH if test else ACDC.RAW.TRAIN_PATH,
         f"patient{patient_id}",
@@ -21,19 +21,13 @@ def get_frame_ids(patient_id: str, test: bool=False) -> tuple[str, str]:
     
     with open(info_file, "r") as f:
         reader = csv.reader(f, delimiter=":")
+        info = {key: value.strip() for key, value in reader}
+        info["Height"] = float(info["Height"])
+        info["Weight"] = float(info["Weight"])
         
-        ed, frame_ed = next(reader)
-        es, frame_es = next(reader)
-        
-        frame_ed = frame_ed.strip().zfill(2)
-        frame_es = frame_es.strip().zfill(2)
-        
-    assert ed == "ED"
-    assert es == "ES"
-    
-    return frame_ed, frame_es
+    return info
 
-def get_image_and_mask(
+def get_scan_and_mask(
     patient_id: str,
     frame_ed: str,
     frame_es: str,
@@ -44,44 +38,44 @@ def get_image_and_mask(
         f"patient{patient_id}",
     )
     
-    path_ed = os.path.join(
+    path_scan_ed = os.path.join(
         patient_dir,
         f"patient{patient_id}_frame{frame_ed}.nii.gz",
     )
     
-    path_ed_gt = os.path.join(
+    path_mask_ed = os.path.join(
         patient_dir,
         f"patient{patient_id}_frame{frame_ed}_gt.nii.gz",
     )
     
-    path_es = os.path.join(
+    path_scan_es = os.path.join(
         patient_dir,
         f"patient{patient_id}_frame{frame_es}.nii.gz",
     )
     
-    path_es_gt = os.path.join(
+    path_mask_es = os.path.join(
         patient_dir,
         f"patient{patient_id}_frame{frame_es}_gt.nii.gz",
     )
     
-    image_ed = tio.ScalarImage(path_ed)
-    image_ed_gt = tio.LabelMap(path_ed_gt)
-    image_es = tio.ScalarImage(path_es)
-    image_es_gt = tio.LabelMap(path_es_gt)
+    scan_ed = tio.ScalarImage(path_scan_ed)
+    mask_ed = tio.LabelMap(path_mask_ed)
+    scan_es = tio.ScalarImage(path_scan_es)
+    mask_es = tio.LabelMap(path_mask_es)
     
     subject_ed = tio.Subject(
-        image=image_ed,
-        mask=image_ed_gt,
+        image=scan_ed,
+        mask=mask_ed,
     )
     
     subject_es = tio.Subject(
-        image=image_es,
-        mask=image_es_gt,
+        image=scan_es,
+        mask=mask_es,
     )
     
     return subject_ed, subject_es
 
-def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
+def preprocess(subject: tio.Subject) -> tio.Subject:
     mask = subject.mask.data[0, :, :, :]
     _, _, num_slices = mask.shape
 
@@ -121,42 +115,44 @@ def preprocess(subject: tio.Subject) -> tuple[tio.Subject, int]:
         tio.RescaleIntensity((0, 1)),
     ])
     
-    return transform(subject), num_slices
+    return transform(subject)
 
-def get_dataset(test=False) -> tuple[tio.SubjectsDataset, int]:
+def get_dataset(test=False) -> tio.SubjectsDataset:
     subjects = []
     
     # noqa
-    seq = range(101, 151) if test else range(1, 101)
+    # seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
-    # seq = range(101, 106) if test else range(1, 6)
-    
-    max_slices = 0
+    seq = range(101, 106) if test else range(1, 6)
     
     for i in seq:
         patient_id = str(i).zfill(3)
+        info = get_info(patient_id, test)
         
-        frame_ed, frame_es = get_frame_ids(patient_id, test)
-        subject_ed, subject_es = get_image_and_mask(patient_id, frame_ed, frame_es, test)
+        frame_ed = info["ED"].zfill(2)
+        frame_es = info["ES"].zfill(2)
 
-        subject_ed, num_slices_ed = preprocess(subject_ed)
-        subject_es, num_slices_es = preprocess(subject_es)
-        
-        max_slices = max(max_slices, num_slices_ed, num_slices_es)
+        subject_ed, subject_es = get_scan_and_mask(patient_id, frame_ed, frame_es, test)
+
+        subject_ed = preprocess(subject_ed)
+        subject_es = preprocess(subject_es)
         
         subject = tio.Subject(
             ed_image=subject_ed.image,
             ed_mask=subject_ed.mask,
             es_image=subject_es.image,
             es_mask=subject_es.mask,
+            height=info["Height"],
+            weight=info["Weight"],
+            condition=info["Group"],
         )
         
         subjects.append(subject)
     
-    return tio.SubjectsDataset(subjects), max_slices
+    return tio.SubjectsDataset(subjects)
 
-def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, int, int]:
+def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset]:
     # Download dataset if not present and preprocessing required
     if not os.path.exists(ACDC.TRAIN_PATH) or not os.path.exists(ACDC.TEST_PATH):
         if not os.path.exists(os.path.join(DATA_PATH, "ACDC")):
@@ -167,14 +163,12 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         d = torch.load(ACDC.TRAIN_PATH)
         data_train = d["data_train"]
-        max_slices_train = d["max_slices_train"]
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
-        data_train, max_slices_train = get_dataset()
+        data_train = get_dataset()
         torch.save({
             "data_train": data_train,
-            "max_slices_train": max_slices_train,
         }, ACDC.TRAIN_PATH)
     
     if os.path.exists(ACDC.TEST_PATH):
@@ -182,36 +176,106 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         d = torch.load(ACDC.TEST_PATH)
         data_test = d["data_test"]
-        max_slices_test = d["max_slices_test"]
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
-        data_test, max_slices_test = get_dataset(test=True)
+        data_test = get_dataset(test=True)
         torch.save({
             "data_test": data_test,
-            "max_slices_test": max_slices_test,
         }, ACDC.TEST_PATH)
     
-    return data_train, data_test, max_slices_train, max_slices_test 
+    return data_train, data_test
 
 class ACDCDataModule(LightningDataModule):
     """
     Automated Cardiac Diagnosis Challenge (ACDC) data module.
     
+    TODO Update DOCSTRING
+    
     Data is preprocessed to crop to the bounding box around the heart and
     resized to 128x128xs where s is the number of slices. Intensity values are
-    rescaled to [0, 1]. Informataion of each data point is retained, including
+    rescaled to [0, 1]. Information of each data point is retained, including
     voxel spacing and orientation.
     
     The number of slices may differ per patient (e.g. 10, 8) so each data point
     may not necessarily have the same shape.
     """
     
-    def __init__(self, batch_size: int=2):
+    def __init__(
+        self,
+        batch_size: int=32,
+        filter_empty: bool=False,
+        register_alignment: bool=False,
+    ):
         super().__init__()
         
         self.batch_size = batch_size
-        self.data_train, self.data_test, _, _ = download_and_preprocess_acdc()
+        
+        data_train, data_test = download_and_preprocess_acdc()
+        
+        data_train = self._get_data_as_slice(data_train, filter_empty, register_alignment)
+        # Always preserve empty masks for test set
+        data_test = self._get_data_as_slice(data_test, filter_empty=False, register_alignment=register_alignment)
+        
+        print(data_train.shape)
+        print(data_test.shape)
+        import sys
+        sys.exit()
+        
+    def _get_data_as_slice_from_subject(
+        self,
+        subject: tio.Subject,
+        is_es: bool=False,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        subject_mask_data = subject.es_mask.data if is_es else subject.ed_mask.data
+        
+        masks = []
+        
+        _, _, _, num_slices = subject_mask_data.shape
+        
+        for slice in range(num_slices):
+            mask = subject_mask_data[:, :, :, slice]
+            
+            if filter_empty and torch.all(mask == 0):
+                continue
+
+            masks.append(mask)
+        
+        masks = torch.stack(masks)
+        
+        if register_alignment:
+            masks = self._register_alignment(masks)
+        
+        return masks
+        
+    def _get_data_as_slice(
+        self,
+        data: tio.SubjectsDataset,
+        filter_empty: bool=True,
+        register_alignment: bool=False,
+    ) -> torch.Tensor:
+        masks = []
+        
+        for subject in data:
+            ed_masks = self._get_data_as_slice_from_subject(
+                subject,
+                is_es=False,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(ed_masks)
+            
+            es_masks = self._get_data_as_slice_from_subject(
+                subject,
+                is_es=True,
+                filter_empty=filter_empty,
+                register_alignment=register_alignment,
+            )
+            masks.append(es_masks)
+        
+        return torch.cat(masks)
     
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=True)
