@@ -36,6 +36,9 @@ class ACDC:
     """
     WIDTH = 128
     NUM_CLASSES = 4
+    
+    conditions = ["NOR", "MINF", "DCM", "HCM", "RV"]
+    condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
 
     class ClassLabel(Enum):
         BG = 0

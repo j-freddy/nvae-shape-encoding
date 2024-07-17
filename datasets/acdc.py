@@ -1,9 +1,34 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
-from torchvision.transforms import v2
 
 from const import ACDC
+
+class ACDCDataset(Dataset):
+    def __init__(
+        self,
+        scans: torch.Tensor,
+        masks: torch.Tensor,
+        conditions: torch.Tensor,
+    ):
+        assert len(scans) == len(masks) == len(conditions)
+        
+        self.scans = scans
+        self.masks = masks
+        self.conditions = conditions
+    
+    def __len__(self) -> int:
+        return len(self.scans)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        scan = self.scans[idx]
+        mask = self.masks[idx]
+        condition = self.conditions[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        
+        return scan, mask, condition
 
 class ACDCMaskDataset(Dataset):
     """
