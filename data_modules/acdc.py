@@ -184,15 +184,19 @@ class ACDCDataModule(LightningDataModule):
     """
     Automated Cardiac Diagnosis Challenge (ACDC) data module.
     
-    TODO Update DOCSTRING
-    
-    Data is preprocessed to crop to the bounding box around the heart and
-    resized to 128x128xs where s is the number of slices. Intensity values are
-    rescaled to [0, 1]. Information of each data point is retained, including
-    voxel spacing and orientation.
-    
-    The number of slices may differ per patient (e.g. 10, 8) so each data point
-    may not necessarily have the same shape.
+    Data is preprocessed to crop to the bounding box around the heart based on
+    the provided GT segmentation masks. Each data point is a 3-tuple consisting
+    of a single slice with the following information:
+    (1) Scan tensor (1x128x128)
+    (2) One-hot encoded GT Mask tensor (4x128x128)
+    (3) Condition tensor (1)
+
+    The condition tensor is an integer with the following indexing:
+    - 1: NOR
+    - 2: MINF
+    - 3: DCM
+    - 4: HCM
+    - 5: RV
     """
     
     def __init__(

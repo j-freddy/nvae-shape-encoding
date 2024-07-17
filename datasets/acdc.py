@@ -5,6 +5,12 @@ from torchvision import transforms
 from const import ACDC
 
 class ACDCDataset(Dataset):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) dataset.
+    
+    See ACDCDataModule docstring.
+    """
+
     def __init__(
         self,
         scans: torch.Tensor,
