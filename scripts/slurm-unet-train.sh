@@ -14,27 +14,14 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# Any script to train a single NVAE model.
+# [U-Net Train]
 # ==============================================================================
 
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "default" \
-    --projected_channels 4 \
-    --min_channels 16 \
-    --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-default" \
-    --logs "logs-standalone"
+logdir="logs-unet"
+model_name="main"
 
-python -m arch.nvae.train \
+# Train
+python -m arch.unet.train \
     --epochs 100 \
-    --arch "latent-skip" \
-    --projected_channels 4 \
-    --min_channels 16 \
-    --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-latent-skip" \
-    --logs "logs-standalone"
+    --model_name $model_name \
+    --logs $logdir

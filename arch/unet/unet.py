@@ -1,9 +1,10 @@
 import lightning as L
-import torch
-
+from monai.losses.dice import DiceLoss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from utils.utils import discretise
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -95,6 +96,7 @@ class UNet(L.LightningModule):
         y_hat_logits: torch.Tensor,
     ) -> torch.Tensor:
         recon_loss = self.reconstruction_loss(y, y_hat_logits)
+        return recon_loss
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         skips = []
@@ -112,6 +114,13 @@ class UNet(L.LightningModule):
             x = layer(x, skip)
         
         return self.conditional_coder(x)
+
+    def _compute_dice(self, y: torch.Tensor, y_hat_logits: torch.Tensor) -> torch.Tensor:
+        y_hat = torch.softmax(y_hat_logits, dim=1)
+        y_hat_onehot = discretise(y_hat)
+        dl = DiceLoss(reduction="mean", include_background=False)
+        dice_score = 1 - dl(input=y_hat_onehot, target=y)
+        return dice_score
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _ = batch
@@ -121,12 +130,15 @@ class UNet(L.LightningModule):
         # Compute loss
         loss = self.loss(y, y_hat_logits)
         self.log("loss/train", loss)
-        
         print(f"Train loss: {loss}")
         
         if torch.isnan(loss):
             raise ValueError("NaN loss")
-
+    
+        dice_score = self._compute_dice(y, y_hat_logits)
+        self.log("dsc/train", dice_score)
+        print(f"Train DSC: {dice_score}")
+        
         return loss
     
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
@@ -137,8 +149,16 @@ class UNet(L.LightningModule):
         # Compute loss
         loss = self.loss(y, y_hat_logits)
         self.log("loss/val", loss)
-        
         print(f"Val loss: {loss}")
+        
+        dice_score = self._compute_dice(y, y_hat_logits)
+        self.log("dsc/val", dice_score)
+        print(f"Val DSC: {dice_score}")
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        print("To be implemented")
+        x, y, _ = batch
+        
+        y_hat_logits = self(x)
+
+        dice_score = self._compute_dice(y, y_hat_logits)
+        self.log("dsc/test", dice_score)

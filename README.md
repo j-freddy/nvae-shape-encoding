@@ -2,6 +2,10 @@
 
 <!-- This is a very rough draft. Go through this again towards the end. -->
 
+Time estimations in this document are based on a 16GB RAM, 8-core CPU powered
+laptop. Running with MPS (Apple silicon chip) is ~2 times faster. Running on an
+A30 GPU with 24GB RAM is ~5 times faster.
+
 To set up this repository for usage, go through [Quick Start](#quick-start) up
 to (and including) the Install dependencies step.
 
@@ -12,6 +16,7 @@ to (and including) the Install dependencies step.
 - [Usage Guide](#usage-guide)
     - [Variational Autoencoder](#variational-autoencoder)
     - [Nouveau Variational Autoencoder](#nouveau-variational-autoencoder)
+    - [U-Net](#u-net)
     - [SimCLR](#simclr)
     - [TensorBoard](#tensorboard)
 
@@ -42,36 +47,27 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If everything has been set up correctly, the commands below should work. Time
-estimations are based on a 16GB RAM, 8-core CPU powered laptop. Running with MPS
-(Apple silicon chip) is ~2 times faster. Running on an A30 GPU with 24GB RAM is
-~5 times faster.
+If everything has been set up correctly, the commands below should work.
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc
-# Train a VAE model with good configurations (~10 minutes)
+# Train a baseline VAE model with good configurations (~10 minutes)
 python -m arch.vae.train \
     --epochs 50 \
     --latent_dim 8 \
     --beta 0 \
     --gamma 200 \
     --loss_reg info_vae
-# Train a NVAE model with good configurations (~120 minutes)
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "default" \
-    --projected_channels 4 \
-    --warmup_steps 6420 \
-    --betas 10,10,10 \
-    --sr
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
 python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
-python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
 ```
 
 Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+For more examples, see the respective sections (e.g. [Nouveau
+VAE](#nouveau-variational-autoencoder)).
 
 ## Repository Structure
 
@@ -116,15 +112,33 @@ All entry points should be run as modules from the root directory. For example,
 
 ### Variational Autoencoder
 
-The single-layer variational autoencoder (VAE) is used as the baseline for this
-project. The code is located in `arch/vae/` and the entry points are `train.py`
-and `test.py`. Frameworks include $\beta$-VAE (`vae.py`), as well as InfoVAE
-implemented with minibatch sampling (`info_vae.py`) and with an adversarial
-network (`info_adversarial_vae.py`).
+The single-layer variational autoencoder (VAE) is the baseline for this project.
+It takes in a previously segmented GT cardiac mask as input and outputs a reconstruction. The code is located in `arch/vae/` and the entry points are
+`train.py` and `test.py`. Frameworks include $\beta$-VAE (`vae.py`), as well as
+InfoVAE implemented with minibatch sampling (`info_vae.py`) and with an
+adversarial network (`info_adversarial_vae.py`).
 
-See [Quick Start](#quick-start) for example commands.
+#### Example
 
-**1. Training**
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc
+# Train an Info-VAE model with good configurations (~10 minutes)
+python -m arch.vae.train \
+    --epochs 50 \
+    --latent_dim 8 \
+    --beta 0 \
+    --gamma 200 \
+    --loss_reg info_vae
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+#### Training
 
 ```sh
 python -m arch.vae.train -h
@@ -153,7 +167,7 @@ options:
                         If set, augment training data with small random rotation.
 ```
 
-**2. Testing**
+#### Testing
 
 If the model was trained with `--register_alignment` or `--augment`, the same
 flag(s) must be set during testing.
@@ -180,13 +194,32 @@ Further analysis:
 
 ### Nouveau Variational Autoencoder
 
-The Nouveau Variational Autoencoder (NVAE) is the main framework for this
-project. The code is located in `arch/nvae/` and the entry points are `train.py`
-and `test.py`.
+Nouveau Variational Autoencoder (NVAE) is the main framework for this project.
+It takes in a previously segmented GT cardiac mask as input and outputs a
+reconstruction. The code is located in `arch/nvae/` and the entry points are
+`train.py` and `test.py`.
 
-See [Quick Start](#quick-start) for example commands.
+#### Example
 
-**1. Training**
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc
+# Train a NVAE model with good configurations (~120 minutes)
+python -m arch.nvae.train \
+    --epochs 100 \
+    --arch "default" \
+    --projected_channels 4 \
+    --warmup_steps 6420 \
+    --betas 10,10,10
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/nvae_acdc/version_0/checkpoints/epoch=97-step=20972.ckpt
+python -m arch.vae.test --model_path path/to/nvae/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+#### Training
 
 ```sh
 python -m arch.nvae.train -h
@@ -214,7 +247,7 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-**2. Testing**
+#### Testing
 
 ```sh
 python -m arch.nvae.test -h
@@ -228,7 +261,31 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-### Frechet ResNet Distance with SimCLR
+### U-Net
+
+As an extension of the main work on NVAE, an application involves using its
+learned latent spaces as a shape prior in the objective function of U-Net to
+improve segmentation quality. The U-Net takes in a cardiac scan as input and
+outputs a segmentation mask. The code is located in `arch/unet/` and the entry
+points are `train.py` and `test.py`.
+
+#### Example
+
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc --show_scans
+# Train a U-Net model with good configurations (~TODO minutes)
+python -m arch.unet.train
+# Test (~5 minutes)
+# TODO Update below
+# A typical checkpoint path is:
+# logs/nvae_acdc/version_0/checkpoints/epoch=97-step=20972.ckpt
+python -m arch.vae.test --model_path path/to/nvae/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+### SimCLR
 
 <!-- TODO -->
 
@@ -245,4 +302,6 @@ process.
 tensorboard --logdir logs/vae_acdc
 # NVAE logs
 tensorboard --logdir logs/nvae_acdc
+# U-Net logs
+tensorboard --logdir logs/unet_acdc
 ```
