@@ -2,12 +2,24 @@
 
 <!-- This is a very rough draft. Go through this again towards the end. -->
 
+Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Hierarchical Variational Autoencoders", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
+
 Time estimations in this document are based on a 16GB RAM, 8-core CPU powered
 laptop. Running with MPS (Apple silicon chip) is ~2 times faster. Running on an
 A30 GPU with 24GB RAM is ~5 times faster.
 
 To set up this repository for usage, go through [Quick Start](#quick-start) up
 to (and including) the Install dependencies step.
+
+Abstract:
+<!-- TODO -->
+> Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.<br><br>
+At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.
 
 ## Table of Contents
 
