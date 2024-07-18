@@ -35,10 +35,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCDataModule(
-        batch_size=32,
-        register_alignment=flags.register_alignment,
-    )
+    data_module = ACDCDataModule(batch_size=32)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)

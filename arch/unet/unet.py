@@ -80,6 +80,7 @@ class UNet(L.LightningModule):
         
         # To keep track of test set during test time, to later generate figures
         self.y_buffer: list[torch.Tensor] = []
+        self.y_hat_logits_buffer: list[torch.Tensor] = []
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=0)
@@ -172,12 +173,17 @@ class UNet(L.LightningModule):
         self.log("dsc/test", dice_score)
         
         self.y_buffer.append(y)
+        self.y_hat_logits_buffer.append(y_hat_logits)
     
-    def log_reconstruction_visualisation(self, y: torch.Tensor):
+    def log_reconstruction_visualisation(
+        self,
+        y: torch.Tensor,
+        y_hat_logits: torch.Tensor,
+    ):
         num_data = y.shape[0]
         samples_idx = torch.randperm(num_data)[:40]
         y = y[samples_idx]
-        _, _, _, y_hat_logits = self(y)
+        y_hat_logits = y_hat_logits[samples_idx]
         
         samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(y, y_hat_logits)
         show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
@@ -185,6 +191,7 @@ class UNet(L.LightningModule):
     
     def on_test_end(self):
         y = torch.cat(self.y_buffer, dim=0)
+        y_hat_logits = torch.cat(self.y_hat_logits_buffer, dim=0)
         
         # Visualise samples and reconstructions
-        self.log_reconstruction_visualisation(y)
+        self.log_reconstruction_visualisation(y, y_hat_logits)
