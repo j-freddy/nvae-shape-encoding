@@ -60,11 +60,9 @@ class UNet(L.LightningModule):
             Down(128, 256),
             Down(256, 512),
             Down(512, 1024),
-            Down(1024, 2048),
         ])
         
         self.expansive = nn.ModuleList([
-            Up(2048, 1024),
             Up(1024, 512),
             Up(512, 256),
             Up(256, 128),
