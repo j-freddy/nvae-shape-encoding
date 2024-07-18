@@ -4,11 +4,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.nvae.utils import ID_TO_ARCH
 from arch.unet.unet import UNet
 from const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
-from arch.nvae.nvae import NVAE
+from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
