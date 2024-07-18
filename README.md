@@ -289,10 +289,9 @@ python -m utils.data_viewer --dataset acdc --show_scans
 # Train a U-Net model with good configurations (~TODO minutes)
 python -m arch.unet.train
 # Test (~5 minutes)
-# TODO Update below
 # A typical checkpoint path is:
-# logs/nvae_acdc/version_0/checkpoints/epoch=97-step=20972.ckpt
-python -m arch.vae.test --model_path path/to/nvae/checkpoint.ckpt
+# logs/unet_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.unet.test --model_path path/to/unet/checkpoint.ckpt
 ```
 
 Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.

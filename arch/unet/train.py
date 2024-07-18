@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
         "--epochs",
         type=int,
         help="Max number of epochs.",
-        default=100,
+        default=50,
     )
     
     parser.add_argument(

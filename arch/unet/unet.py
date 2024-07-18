@@ -1,10 +1,12 @@
 import lightning as L
+from matplotlib import pyplot as plt
 from monai.losses.dice import DiceLoss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.utils import discretise
+from utils.eval import get_samples_and_reconstructions_pixel_diff
+from utils.utils import discretise, show_samples
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -47,6 +49,11 @@ class Up(nn.Module):
         return self.conv(x)
 
 class UNet(L.LightningModule):
+    """
+    TODO Write Docstring
+    
+    In this class, x denotes the scans and y denotes the segmentation masks.
+    """
     def __init__(
         self,
         in_channels: int=1,
@@ -70,6 +77,9 @@ class UNet(L.LightningModule):
         ])
         
         self.conditional_coder = nn.Conv2d(64, out_channels, kernel_size=1)
+        
+        # To keep track of test set during test time, to later generate figures
+        self.y_buffer: list[torch.Tensor] = []
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=0)
@@ -160,3 +170,21 @@ class UNet(L.LightningModule):
 
         dice_score = self._compute_dice(y, y_hat_logits)
         self.log("dsc/test", dice_score)
+        
+        self.y_buffer.append(y)
+    
+    def log_reconstruction_visualisation(self, y: torch.Tensor):
+        num_data = y.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        y = y[samples_idx]
+        _, _, _, y_hat_logits = self(y)
+        
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(y, y_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+    
+    def on_test_end(self):
+        y = torch.cat(self.y_buffer, dim=0)
+        
+        # Visualise samples and reconstructions
+        self.log_reconstruction_visualisation(y)
