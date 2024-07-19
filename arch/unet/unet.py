@@ -58,8 +58,11 @@ class UNet(L.LightningModule):
         self,
         in_channels: int=1,
         out_channels: int=4,
+        loss_reg: str="cross_entropy",
     ):
         super().__init__()
+        
+        self.save_hyperparameters()
         
         self.contracting = nn.ModuleList([
             DoubleConv(in_channels, 64),
@@ -104,8 +107,7 @@ class UNet(L.LightningModule):
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
     ) -> torch.Tensor:
-        recon_loss = self.reconstruction_loss(y, y_hat_logits)
-        return recon_loss
+        return self.reconstruction_loss(y, y_hat_logits)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         skips = []

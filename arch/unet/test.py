@@ -1,8 +1,10 @@
 import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
 from arch.unet.unet import UNet
+from arch.unet.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
@@ -41,7 +43,12 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load model
-    model = UNet.load_from_checkpoint(flags.model_path)
+    # Inefficient: Need to load the hparams first to determine class type,
+    # then use load_from_checkpoint. So, this loads the checkpoint twice.
+    checkpoint = torch.load(flags.model_path, map_location=device)
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
+    del checkpoint
+    model = Model.load_from_checkpoint(flags.model_path)
 
     # noqa
     model_name = flags.model_path.split("/")[2]

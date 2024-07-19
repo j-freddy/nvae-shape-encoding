@@ -5,6 +5,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.unet.unet import UNet
+from arch.unet.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
@@ -17,6 +18,14 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Max number of epochs.",
         default=50,
+    )
+    
+    parser.add_argument(
+        "--loss_reg",
+        type=str,
+        help="Regulariser technique.",
+        choices=ID_TO_MODEL.keys(),
+        default="shape_prior",
     )
     
     parser.add_argument(
@@ -63,7 +72,9 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Train
-    model = UNet()
+    Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
+    
+    model = Model()
     
     trainer = L.Trainer(
         accelerator="auto",

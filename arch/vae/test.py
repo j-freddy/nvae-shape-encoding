@@ -64,6 +64,7 @@ def main(flags: argparse.Namespace):
     # then use load_from_checkpoint. So, this loads the checkpoint twice.
     checkpoint = torch.load(flags.model_path, map_location=device)
     Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
+    del checkpoint
     model = Model.load_from_checkpoint(flags.model_path)
 
     # noqa

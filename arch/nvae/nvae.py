@@ -475,6 +475,34 @@ class NVAE(L.LightningModule):
             return recon_loss + balanced_kl_div + weighted_sr_loss
         
         return recon_loss + balanced_kl_div
+
+    def get_latent(self, feats: torch.Tensor, test: bool=True) -> list[torch.Tensor]:
+        """
+        Given an input tensor, return its latent representations in each latent
+        layer by passing it through the encoder-decoder.
+        """
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
+        x = self.stem(2 * feats - 1.0)
+        
+        # Pass through encoder
+        x, xs, enc_combiner_cells = self.encoder(x)
+        
+        # Reverse buffers and modules for decoder
+        xs = xs[::-1]
+        enc_combiner_cells = enc_combiner_cells[::-1]
+        enc_samplers = self.encoder.samplers[::-1]
+        
+        # Pass through decoder
+        _, _, _, _, _, zs = self.decoder(
+            x,
+            xs,
+            enc_combiner_cells,
+            enc_samplers,
+            test=test,
+            return_latents=True,
+        )
+
+        return zs
     
     def forward(
         self,

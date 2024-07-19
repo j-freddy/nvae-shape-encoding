@@ -211,6 +211,7 @@ class Decoder(nn.Module):
         enc_samplers: list[nn.Module],
         test: bool=False,
         num_shared_layers: int=-1,
+        return_latents: bool=False,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         """
         Forward pass: NVAE Decoder.
@@ -261,6 +262,9 @@ class Decoder(nn.Module):
         distr = Normal(mu_q, logsig_q)
         z = distr.sample(test)
         
+        if return_latents:
+            zs = [z]
+        
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
@@ -300,6 +304,9 @@ class Decoder(nn.Module):
                     qs.append(distr)
                     log_qs.append(distr.log_p(z))
                     
+                    if return_latents:
+                        zs.append(z)
+                    
                     # Use prior
                     distr = Normal(mu_p, logsig_p)
                     ps.append(distr)
@@ -312,6 +319,9 @@ class Decoder(nn.Module):
                 x = cell(x)
 
         x = self.postprocess(x)
+        
+        if return_latents:
+            return x, qs, ps, log_qs, log_ps, zs
         
         return x, qs, ps, log_qs, log_ps
 
