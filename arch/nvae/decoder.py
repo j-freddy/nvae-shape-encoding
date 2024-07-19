@@ -206,7 +206,7 @@ class Decoder(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        xs: torch.Tensor,
+        xs: list[torch.Tensor],
         enc_combiner_cells: list[nn.Module],
         enc_samplers: list[nn.Module],
         test: bool=False,
@@ -217,7 +217,7 @@ class Decoder(nn.Module):
         
         Args:
             x (torch.Tensor): Top-level encoding.
-            xs (torch.Tensor): Non-top-level encodings.
+            xs (list[torch.Tensor]): Non-top-level encodings.
             enc_combiner_cells (list[nn.Module]): Encoder combiner cells.
             enc_samplers (list[nn.Module]): Encoder samplers.
             test (bool): Indicates whether test mode is enabled (compared to
