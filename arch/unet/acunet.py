@@ -20,6 +20,9 @@ class ACUNet(UNet):
         self.nvae = NVAE.load_from_checkpoint(nvae_path)
         self.nvae.freeze()
     
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=1e-2, weight_decay=0)
+    
     def loss(
         self,
         y: torch.Tensor,
