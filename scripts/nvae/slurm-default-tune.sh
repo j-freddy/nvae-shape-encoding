@@ -20,7 +20,7 @@ source activate
 # NVAE ACDC: It seems that beta=10 works well. This is a smaller grid around
 # this value. For the default architecture.
 #
-# Time taken: unknown
+# Time taken: 71 hr 1 min
 # ==============================================================================
 
 # Size=64
