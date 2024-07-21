@@ -16,8 +16,13 @@ source activate
 # ==============================================================================
 # [NVAE Tune Slim]
 # NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
-# where this constraint is met. For the latent skip architecture with minimum
-# channels=16.
+# where this constraint is met. For the latent skip architecture.
+#
+# The best result in this search is beta=1. We stop here as beta<1 does not
+# guarantee ELBO lower bound, and beta>1 for any of the latent layers will
+# theoretically decrease reconstruction quality.
+#
+# Note: Clamp, SR does not noticeably improve performance.
 #
 # Time taken: OOM
 # ==============================================================================
@@ -46,7 +51,6 @@ do
                 --epochs 100 \
                 --arch "latent-skip" \
                 --projected_channels $projected_channels \
-                --min_channels 16 \
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \

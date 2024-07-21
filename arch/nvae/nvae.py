@@ -362,6 +362,14 @@ class NVAE(L.LightningModule):
                 # amount of information encoded at each layer
                 kl_div_layer = kl_divs_batch_avg[kl_latent_layers == latent_idx].mean()
                 self.log(f"loss/kl_div_{latent_idx}", kl_div_layer)
+            
+            num_groups = len(kl_divs_batch_avg)
+            
+            for i in range(num_groups):
+                # Log the original KL per group
+                # Shallowest group is 0
+                group_idx = num_groups - i - 1
+                self.log(f"loss/kl_div_group_{group_idx}", kl_divs_batch_avg[i])
     
         return weighted_kls.sum()
 
