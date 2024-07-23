@@ -111,22 +111,34 @@ class VAE(L.LightningModule):
         
         return recon_loss + weighted_kl_div
     
-    def _reparameterise(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    def _reparameterise(
+        self,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+        test: bool=False,
+    ) -> torch.Tensor:
         # z_m = mu(x_m) + sigma(x_m) * epsilon
         # epsilon ~ N(0, 1)
         
         eps = torch.randn_like(logvar)
+        
+        if test:
+            return mu
         return mu + torch.exp(0.5 * logvar) * eps
     
-    def get_latent(self, x: torch.Tensor) -> torch.Tensor:
+    def get_latent(self, x: torch.Tensor, test: bool=False) -> torch.Tensor:
         """
         Given an input tensor, return its latent representation z by passing it
         through the encoder.
         """
         mu, logvar = self.encoder(2 * x - 1.0)
-        return self._reparameterise(mu, logvar)
+        return self._reparameterise(mu, logvar, test)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self,
+        x: torch.Tensor,
+        test: bool=False,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass through the VAE encoder and decoder.
         
@@ -140,7 +152,7 @@ class VAE(L.LightningModule):
             x_hat_logits (torch.Tensor): Logits of reconstruction of input.
         """
         mu, logvar = self.encoder(2 * x - 1.0)
-        z = self._reparameterise(mu, logvar)
+        z = self._reparameterise(mu, logvar, test)
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits
     
@@ -181,7 +193,7 @@ class VAE(L.LightningModule):
         Args:
             x (torch.Tensor): One-hot encoded input segmentations.
         """
-        _, _, _, x_hat_logits = self(x)
+        _, _, _, x_hat_logits = self(x, test=True)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(x, x_hat_logits)

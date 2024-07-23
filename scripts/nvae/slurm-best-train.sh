@@ -14,8 +14,26 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# Any script to train a single NVAE model.
+# NVAE: Train the 3 best configurations
+#
+# This is a lightweight script that summarises the results from all
+# previous hyperparameter tuning.
 # ==============================================================================
+
+logdir="logs-nvae-best"
+
+# Expect: 0.961 DSC, 35.27 FRDS, 0.9749 valid
+
+python -m arch.nvae.train \
+    --epochs 100 \
+    --arch "default" \
+    --projected_channels 4 \
+    --warmup_steps 6420 \
+    --betas "10,9,11" \
+    --model_name "default" \
+    --logs $logdir
+
+# Expect: 0.987 DSC, 37.4 FRDS, 0.859 valid
 
 python -m arch.nvae.train \
     --epochs 100 \
@@ -23,18 +41,18 @@ python -m arch.nvae.train \
     --projected_channels 4 \
     --min_channels 16 \
     --warmup_steps 6420 \
-    --betas 1,1,1 \
+    --betas "1,1,1" \
     --sr \
-    --model_name "nvae-model-default" \
-    --logs "logs-standalone"
+    --model_name "default-clamp-sr" \
+    --logs $logdir
+
+# Expect: 0.998 DSC, 83.1 FRDS, 0.721 valid
 
 python -m arch.nvae.train \
     --epochs 100 \
     --arch "latent-skip" \
     --projected_channels 4 \
-    --min_channels 16 \
     --warmup_steps 6420 \
-    --betas 1,1,1 \
-    --sr \
-    --model_name "nvae-model-latent-skip" \
-    --logs "logs-standalone"
+    --betas "1,1,1" \
+    --model_name "latent-skip" \
+    --logs $logdir

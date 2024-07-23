@@ -3,9 +3,10 @@ import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 
-from arch.vae.train import ID_TO_MODEL
+from arch.unet.unet import UNet
+from arch.unet.utils import ID_TO_MODEL
 from const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCMaskDataModule
+from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -24,20 +25,6 @@ def parse_args() -> argparse.Namespace:
         help="Root save directory for logs.",
         default=LOGS_PATH,
     )
-    
-    parser.add_argument(
-        "--register_alignment",
-        action=argparse.BooleanOptionalAction,
-        help="If set, use masks that have been rotated such that the right ventricle points upwards.",
-        default=False,
-    )
-    
-    parser.add_argument(
-        "--augment",
-        action=argparse.BooleanOptionalAction,
-        help="If set, augment training data with small random rotation.",
-        default=False,
-    )
 
     return parser.parse_args()
 
@@ -50,11 +37,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(
-        batch_size=16,
-        register_alignment=flags.register_alignment,
-        augment_rotation_test=flags.augment,
-    )
+    data_module = ACDCDataModule(batch_size=32)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
@@ -75,14 +58,14 @@ def main(flags: argparse.Namespace):
         devices="auto",
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.VAE,
+            name=ACDC.DIR.UNET,
             version=model_name,
             default_hp_metric=False,
         ),
     )
 
     trainer.test(model, data_module)
-    
+
 if __name__ == "__main__":
     flags = parse_args()
     main(flags)

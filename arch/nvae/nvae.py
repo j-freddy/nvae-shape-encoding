@@ -362,6 +362,14 @@ class NVAE(L.LightningModule):
                 # amount of information encoded at each layer
                 kl_div_layer = kl_divs_batch_avg[kl_latent_layers == latent_idx].mean()
                 self.log(f"loss/kl_div_{latent_idx}", kl_div_layer)
+            
+            num_groups = len(kl_divs_batch_avg)
+            
+            for i in range(num_groups):
+                # Log the original KL per group
+                # Shallowest group is 0
+                group_idx = num_groups - i - 1
+                self.log(f"loss/kl_div_group_{group_idx}", kl_divs_batch_avg[i])
     
         return weighted_kls.sum()
 
@@ -426,7 +434,7 @@ class NVAE(L.LightningModule):
 
         return loss
 
-    def reconstruction_loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+    def reconstruction_loss(self, x: torch.Tensor, x_hat_logits: torch.Tensor) -> torch.Tensor:
         """
         Compute the reconstruction loss using cross-entropy.
         
@@ -438,12 +446,12 @@ class NVAE(L.LightningModule):
             recon_loss (torch.Tensor): Reconstruction loss.
         """
         batch_size = x.size(0)
-        return F.cross_entropy(x_hat, x, reduction="sum") / batch_size
+        return F.cross_entropy(x_hat_logits, x, reduction="sum") / batch_size
     
     def loss(
         self,
         x: torch.Tensor,
-        x_hat: torch.Tensor,
+        x_hat_logits: torch.Tensor,
         qs: list[Normal],
         ps: list[Normal],
         log_qs: list[torch.Tensor],
@@ -454,7 +462,7 @@ class NVAE(L.LightningModule):
         Compute the NVAE loss: sum of reconstruction loss and beta-weighted
         balanced KL divergence regulariser term.
         """
-        recon_loss = self.reconstruction_loss(x, x_hat)
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
         balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
         
         print(f"Reconstruction loss: {recon_loss}")
@@ -475,6 +483,34 @@ class NVAE(L.LightningModule):
             return recon_loss + balanced_kl_div + weighted_sr_loss
         
         return recon_loss + balanced_kl_div
+
+    def get_latent(self, feats: torch.Tensor, test: bool=True) -> list[torch.Tensor]:
+        """
+        Given an input tensor, return its latent representations in each latent
+        layer by passing it through the encoder-decoder.
+        """
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
+        x = self.stem(2 * feats - 1.0)
+        
+        # Pass through encoder
+        x, xs, enc_combiner_cells = self.encoder(x)
+        
+        # Reverse buffers and modules for decoder
+        xs = xs[::-1]
+        enc_combiner_cells = enc_combiner_cells[::-1]
+        enc_samplers = self.encoder.samplers[::-1]
+        
+        # Pass through decoder
+        _, _, _, _, _, zs = self.decoder(
+            x,
+            xs,
+            enc_combiner_cells,
+            enc_samplers,
+            test=test,
+            return_latents=True,
+        )
+
+        return zs
     
     def forward(
         self,
@@ -494,8 +530,7 @@ class NVAE(L.LightningModule):
                 See docstring of Decoder forward pass for details. Default: -1.
         
         Returns:
-            feats_hat, qs, ps, log_qs, log_ps
-            feats_hat (torch.Tensor): Logits of reconstruction of input.
+            feats_hat_logits (torch.Tensor): Logits of reconstruction of input.
             qs (list[Normal]): Approximate posterior distributions.
             ps (list[Normal]): Prior distributions.
             log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
@@ -516,7 +551,7 @@ class NVAE(L.LightningModule):
         enc_samplers = self.encoder.samplers[::-1]
         
         # Pass through decoder
-        x_hat, qs, ps, log_qs, log_ps = self.decoder(
+        x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
             x,
             xs,
             enc_combiner_cells,
@@ -526,17 +561,17 @@ class NVAE(L.LightningModule):
         )
         
         # Compute logits
-        feats_hat: torch.Tensor = self.conditional_coder(x_hat)
+        feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
 
-        assert feats.shape == feats_hat.shape
+        assert feats.shape == feats_hat_logits.shape
         
-        return feats_hat, qs, ps, log_qs, log_ps
+        return feats_hat_logits, qs, ps, log_qs, log_ps
         
     def training_step(self, feats: torch.Tensor) -> torch.Tensor:
-        feats_hat, qs, ps, log_qs, log_ps = self(feats)
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats)
         
         # Compute loss
-        loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
+        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -547,10 +582,10 @@ class NVAE(L.LightningModule):
         return loss
     
     def validation_step(self, feats: torch.Tensor) -> torch.Tensor:
-        feats_hat, qs, ps, log_qs, log_ps = self(feats)
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats)
         
         # Compute loss
-        loss = self.loss(feats, feats_hat, qs, ps, log_qs, log_ps)
+        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
         self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")

@@ -1,9 +1,23 @@
-# Nouveau-VAE for Anatomical Shape Encoding
+# Nouveau VAE for Anatomical Shape Encoding
 
-<!-- This is a very rough draft. Go through this again towards the end. -->
+Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Hierarchical Variational Autoencoders", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
+
+Time estimations in this document are based on a 16GB RAM, 8-core CPU powered
+laptop. Running with MPS (Apple silicon chip) is ~2 times faster. Running on an
+A30 GPU with 24GB RAM is ~5 times faster.
 
 To set up this repository for usage, go through [Quick Start](#quick-start) up
 to (and including) the Install dependencies step.
+
+Abstract:
+<!-- TODO -->
+> Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.<br><br>
+At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.
 
 ## Table of Contents
 
@@ -12,6 +26,7 @@ to (and including) the Install dependencies step.
 - [Usage Guide](#usage-guide)
     - [Variational Autoencoder](#variational-autoencoder)
     - [Nouveau Variational Autoencoder](#nouveau-variational-autoencoder)
+    - [U-Net](#u-net)
     - [SimCLR](#simclr)
     - [TensorBoard](#tensorboard)
 
@@ -23,12 +38,12 @@ to (and including) the Install dependencies step.
 git clone https://github.com/j-freddy/nvae-shape-encoding.git
 ```
 
-2. Create virtual environment with Python 3.10+. Python 3.11.8 is recommended.
+2. Create virtual environment. The experiments are conducted with Python 3.11.8.
 
 ```sh
 # Go inside repo
 cd nvae-shape-encoding
-# Check Python 3.10+ is being used
+# Check Python version
 python --version
 # Create virtual environment
 python -m venv venv
@@ -42,61 +57,56 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If everything has been set up correctly, the commands below should work. Time
-estimations are based on a 16GB RAM, 8-core CPU powered laptop. Running with MPS
-(Apple silicon chip) is ~2 times faster. Running on an A30 GPU with 24GB RAM is
-~5 times faster.
+If everything has been set up correctly, the commands below should work.
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc
-# Train a VAE model with good configurations (~10 minutes)
+# Train a baseline VAE model with good configurations (~10 minutes)
 python -m arch.vae.train \
     --epochs 50 \
     --latent_dim 8 \
     --beta 0 \
     --gamma 200 \
     --loss_reg info_vae
-# Train a NVAE model with good configurations (~120 minutes)
-python -m arch.nvae.train \
-    --epochs 100 \
-    --arch "default" \
-    --projected_channels 4 \
-    --warmup_steps 6420 \
-    --betas 10,10,10 \
-    --sr
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
 python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
-python -m arch.nvae.test --model_path path/to/nvae/checkpoint.ckpt
 ```
 
 Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
 
+For more examples, see the respective sections (e.g. [Nouveau
+VAE](#nouveau-variational-autoencoder)).
+
 ## Repository Structure
 
-The following briefly summarises the repo contents.
+We briefly summarise the repository contents.
 
 - `analysis/` - Main evaluation metrics are calculated within the Lightning test
-  step, e.g. in `arch/nvae/nvae.py`. This subdirectory contains additional scripts
-  for closer inspection of the trained models, e.g. latent traversals. These
-  scripts are often presented as Jupyter notebooks to allow easy configuration
-  and interaction.
-- `arch/`
-    - `vae/` - Variational Autoencoder (VAE) framework. The train and test entry
-      points are `train.py` and `test.py`.
-    - `nvae/` - Nouveau-VAE (NVAE) implementation. The train and test entry
-      points are `train.py` and `test.py`.
+  step, e.g. in `arch/nvae/nvae.py`. This subdirectory contains additional
+  scripts for closer inspection of the trained models. These scripts are often
+  presented as Jupyter notebooks to allow easy configuration and interaction.
+  Each notebook contains comments and explanations. To run the notebooks, either replace the model path with your own trained model, or download the pretrained models [here][pretrained-models-archive].
+- `arch/` - Implementation of frameworks. For each architecture, the train and
+  test entry points are `train.py` and `test.py`.
+    - `nvae/` - Nouveau-VAE (NVAE) framework.
+    - `simclr/` - SimCLR framework.
+    - `vae/` - Variational Autoencoder (VAE) framework.
+    - `unet/` - U-Net framework.
 - `data_modules/` - Lightning DataModule classes. The main module is
-  `ACDCMaskDataModule` in `acdc.py`, with the file also containing preprocessing
+  `ACDCMaskDataModule` in `acdc.py`, which is used for all frameworks except
+  U-Net, which uses `ACDCDataModule`. The file also contains preprocessing
   scripts.
 - `datasets/` - Custom Torch datasets. Augmentation pipelines are implemented
-  here and run during train time.
+  here and run during train time (if configured).
 - `plot/` - Basic plots can be found in [TensorBoard](#tensorboard). This
   subdirectory contains scripts for additional plots that are not generated by
   TensorBoard, e.g. aggregate scatter plots of hyperparameter tuning results.
 - `scripts/` - Shell scripts. Mostly for running hyperparameter tuning on the
   Imperial College DoC GPU cluster.
+- `test/` - Unit tests for the codebase. Currently only testing the correctness
+  of the `AnatomicalValidityChecker` class.
 - `utils/` - Utility functions and scripts such as data viewer and scraping data
   off of TensorBoard logs.
 
@@ -108,23 +118,42 @@ Running programs can generate the following subdirectories.
 
 ## Usage Guide
 
-See [Quick Start](#quick-start) for a brief overview. This section provides full
-instructions and options on running the scripts.
+See [Quick Start](#quick-start) on setting up the repository. This section
+provides detailed instructions and options on running the scripts.
 
 All entry points should be run as modules from the root directory. For example,
-`python -m arch.nvae.train`, not `python arch/nvae/train.py`.
+use `python -m arch.nvae.train`, not `python arch/nvae/train.py`.
 
 ### Variational Autoencoder
 
-The single-layer variational autoencoder (VAE) is used as the baseline for this
-project. The code is located in `arch/vae/` and the entry points are `train.py`
-and `test.py`. Frameworks include $\beta$-VAE (`vae.py`), as well as InfoVAE
-implemented with minibatch sampling (`info_vae.py`) and with an adversarial
-network (`info_adversarial_vae.py`).
+The single-layer variational autoencoder (VAE) acts as the baseline for this
+project. It takes in a previously segmented GT cardiac mask as input and outputs
+a reconstruction. The code is located in `arch/vae/` and the entry points are
+`train.py` and `test.py`. Frameworks include $\beta$-VAE (`vae.py`), as well as
+InfoVAE implemented with minibatch sampling (InfoVAE-M / `info_vae.py`) and with
+an adversarial network (InfoVAE-D / `info_adversarial_vae.py`).
 
-See [Quick Start](#quick-start) for example commands.
+#### Example
 
-**1. Training**
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc
+# Train an Info-VAE model with good configurations (~10 minutes)
+python -m arch.vae.train \
+    --epochs 50 \
+    --latent_dim 8 \
+    --beta 0 \
+    --gamma 200 \
+    --loss_reg info_vae
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+#### Training
 
 ```sh
 python -m arch.vae.train -h
@@ -153,7 +182,7 @@ options:
                         If set, augment training data with small random rotation.
 ```
 
-**2. Testing**
+#### Testing
 
 If the model was trained with `--register_alignment` or `--augment`, the same
 flag(s) must be set during testing.
@@ -175,18 +204,36 @@ options:
                         If set, augment training data with small random rotation.
 ```
 
-Further analysis:
-- `analysis/vae/latent_traversal.ipynb`
+See `arch/vae` for further analysis on trained models.
 
 ### Nouveau Variational Autoencoder
 
-The Nouveau Variational Autoencoder (NVAE) is the main framework for this
-project. The code is located in `arch/nvae/` and the entry points are `train.py`
-and `test.py`.
+Nouveau Variational Autoencoder (NVAE) is the main framework for this project.
+It takes in a previously segmented GT cardiac mask as input and outputs a
+reconstruction. The code is located in `arch/nvae/` and the entry points are
+`train.py` and `test.py`.
 
-See [Quick Start](#quick-start) for example commands.
+#### Example
 
-**1. Training**
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc
+# Train a NVAE model with good configurations (~120 minutes)
+python -m arch.nvae.train \
+    --epochs 100 \
+    --arch "default" \
+    --projected_channels 4 \
+    --warmup_steps 6420 \
+    --betas 10,10,10
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/nvae_acdc/version_0/checkpoints/epoch=97-step=20972.ckpt
+python -m arch.vae.test --model_path path/to/nvae/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+#### Training
 
 ```sh
 python -m arch.nvae.train -h
@@ -214,7 +261,7 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-**2. Testing**
+#### Testing
 
 ```sh
 python -m arch.nvae.test -h
@@ -228,12 +275,110 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-### Frechet ResNet Distance with SimCLR
+See `arch/nvae` for further analysis on trained models.
 
-<!-- TODO -->
+### U-Net
 
-Further analysis:
-- `analysis/frds/visualise_embedding.ipynb`
+As an extension of the main work on NVAE, an application involves using its
+learned latent spaces as a shape prior in the objective function of U-Net to
+improve segmentation quality. The U-Net takes in a cardiac scan as input and
+outputs a segmentation mask. The code is located in `arch/unet/` and the entry
+points are `train.py` and `test.py`.
+
+The baseline is a U-Net model trained with a cross-entropy objective without the
+shape prior.
+
+#### Example
+
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc --show_scans
+# Train a U-Net model with shape prior, with good configurations (~90 minutes)
+python -m arch.unet.train
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/unet_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.unet.test --model_path path/to/unet/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+
+#### Training
+
+TODO
+
+#### Testing
+
+TODO
+
+<!-- TODO arch/unet doesn't exist -->
+
+See `arch/unet` for further analysis on trained models.
+
+### SimCLR
+
+A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)
+is used to pretrain a ResNet-18 model that acts to replace Inception-v3 in the
+FID metric. This is motivated by FID being a weak, unstable metric for
+non-natural, segmentation maps. We have pretrained the model for a newly
+proposed metric, Frechet ResNet Distance with SimCLR (FRDS).
+
+#### Example
+
+```sh
+# View data samples
+python -m utils.data_viewer --dataset acdc --augment_simclr
+# Pretrain a ResNet-18 model with good configurations for FRDS (~90 minutes)
+python -m arch.simclr.train \
+    --epochs 200 \
+    --model_name frds-resnet-18 \
+    --logs $logdir
+# Run the benchmark tests (~5 minutes)
+# A typical checkpoint path is:
+# logs/simclr_acdc/version_0/checkpoints/epoch=199-step=1400.ckpt
+python -m arch.simclr.test --model_path path/to/simclr/checkpoint.ckpt
+```
+
+Use [TensorBoard](#tensorboard) to see the train graphs.
+
+#### Training
+
+```sh
+python -m arch.simclr.train -h
+
+usage: train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE] [--model_name MODEL_NAME] [--logs LOGS]
+
+options:
+  -h, --help            show this help message and exit
+  --epochs EPOCHS       Max number of epochs.
+  --batch_size BATCH_SIZE
+                        Batch size as defined by number of pairs.
+  --model_name MODEL_NAME
+                        Directory name of saved model checkpoints and metadata.
+  --logs LOGS           Root save directory for logs.
+```
+
+#### Testing
+
+```sh
+python -m arch.simclr.test -h             
+usage: test.py [-h] [--model_path MODEL_PATH] [--use_inception | --no-use_inception] [--logs LOGS]
+               [--show_preview | --no-show_preview]
+
+options:
+  -h, --help            show this help message and exit
+  --model_path MODEL_PATH
+                        Path to model checkpoint.
+  --use_inception, --no-use_inception
+                        If set, use Inception-v3 and compute FID.
+  --logs LOGS           Root save directory for logs.
+  --show_preview, --no-show_preview
+                        If set, show effect of the various disturbances only
+                        and do not run tests. The visualisations are saved in
+                        the out directory.
+```
+
+See `arch/simclr` for further analysis on trained models.
 
 ### TensorBoard
 
@@ -245,4 +390,8 @@ process.
 tensorboard --logdir logs/vae_acdc
 # NVAE logs
 tensorboard --logdir logs/nvae_acdc
+# U-Net logs
+tensorboard --logdir logs/unet_acdc
 ```
+
+[pretrained-models-archive]: TODO

@@ -8,13 +8,8 @@ OUT_PATH = "out"
 SCRIPTS_PATH = "scripts"
 SEED = 1969
 
-# TODO Remove once FRDS is finalised
-FRDS_MODEL_PATH_V2_NO_ELASTIC = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-FRDS_MODEL_PATH_V4 = "logs/simclr_acdc/resnet-18-v4/checkpoints/epoch=188-step=1323.ckpt"
-FRDS_MODEL_PATH_V4_125 = "logs/simclr_acdc/resnet-18-v4-2/checkpoints/epoch=184-step=1295.ckpt"
-FRDS_MODEL_PATH_V4_15 = "logs/simclr_acdc/resnet-18-v4-3/checkpoints/epoch=140-step=987.ckpt"
-
-FRDS_MODEL_PATH = FRDS_MODEL_PATH_V2_NO_ELASTIC
+FRDS_MODEL_PATH = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
+NVAE_MODEL_PATH = "logs/nvae_acdc/default/pc-4-ws-6420-b-10/checkpoints/epoch=97-step=20972.ckpt"
 
 @dataclass
 class CIFAR10:
@@ -28,6 +23,7 @@ class CIFAR10:
         VAE = "vae_cifar10"
         NVAE = "nvae_cifar10"
         SIMCLR = "simclr_cifar10"
+        UNET = "unet_cifar10"
 
 @dataclass
 class ACDC:
@@ -36,6 +32,9 @@ class ACDC:
     """
     WIDTH = 128
     NUM_CLASSES = 4
+    
+    conditions = ["NOR", "MINF", "DCM", "HCM", "RV"]
+    condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
 
     class ClassLabel(Enum):
         BG = 0
@@ -47,6 +46,7 @@ class ACDC:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
         SIMCLR = "simclr_acdc"
+        UNET = "unet_acdc"
 
     @dataclass
     class RAW:

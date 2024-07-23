@@ -5,6 +5,46 @@ from torchvision.transforms import v2
 
 from const import ACDC
 
+class ACDCDataset(Dataset):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) dataset.
+    
+    See ACDCDataModule docstring.
+    """
+
+    def __init__(
+        self,
+        scans: torch.Tensor,
+        masks: torch.Tensor,
+        conditions: torch.Tensor,
+        equalise: bool=False,
+    ):
+        assert len(scans) == len(masks) == len(conditions)
+        
+        self.equalise = equalise
+        
+        self.scans = scans
+        self.masks = masks
+        self.conditions = conditions
+        
+        self.equalise_pipeline = v2.RandomEqualize(p=1.0)
+    
+    def __len__(self) -> int:
+        return len(self.scans)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        scan = self.scans[idx]
+        mask = self.masks[idx]
+        condition = self.conditions[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        
+        if self.equalise:
+            scan = self.equalise_pipeline(scan)
+        
+        return scan, mask, condition
+
 class ACDCMaskDataset(Dataset):
     """
     Automated Cardiac Diagnosis Challenge (ACDC) masks dataset.
@@ -33,9 +73,7 @@ class ACDCMaskDataset(Dataset):
         self.augment_simclr = augment_simclr
         self.return_original = return_original
         
-        self.augmentation_pipeline = transforms.Compose([
-            transforms.RandomRotation(degrees=30),
-        ])
+        self.augmentation_pipeline = transforms.RandomRotation(degrees=30)
 
         self.simclr_pipeline = transforms.Compose([
             transforms.RandomRotation(degrees=180),

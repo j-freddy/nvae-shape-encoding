@@ -19,6 +19,12 @@ source activate
 # where this constraint is met. For the default architecture with minimum
 # channels=16.
 #
+# The best result in this search is beta=1. We stop here as beta<1 does not
+# guarantee ELBO lower bound, and beta>1 for any of the latent layers will
+# theoretically decrease reconstruction quality.
+#
+# Note: SR improves performance for beta=1.
+#
 # Time taken: 23 hr 43 min
 # ==============================================================================
 

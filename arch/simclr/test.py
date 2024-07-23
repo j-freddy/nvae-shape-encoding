@@ -37,7 +37,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--show_preview",
         action=argparse.BooleanOptionalAction,
-        help="If set, show effect of the various disturbances only and do not run tests.",
+        help=(
+            "If set, show effect of the various disturbances only "
+            "and do not run tests. The visualisations are saved in "
+            "the out directory."
+        ),
         default=False,
     )
     
