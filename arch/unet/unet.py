@@ -134,7 +134,7 @@ class UNet(L.LightningModule):
         return dice_score
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
         
@@ -153,7 +153,7 @@ class UNet(L.LightningModule):
         return loss
     
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
         
@@ -167,7 +167,7 @@ class UNet(L.LightningModule):
         print(f"Val DSC: {dice_score}")
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
 

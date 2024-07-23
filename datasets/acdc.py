@@ -17,6 +17,7 @@ class ACDCDataset(Dataset):
         scans: torch.Tensor,
         masks: torch.Tensor,
         conditions: torch.Tensor,
+        eds: torch.Tensor,
         equalise: bool=False,
     ):
         assert len(scans) == len(masks) == len(conditions)
@@ -26,6 +27,7 @@ class ACDCDataset(Dataset):
         self.scans = scans
         self.masks = masks
         self.conditions = conditions
+        self.eds = eds
         
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
     
@@ -36,6 +38,7 @@ class ACDCDataset(Dataset):
         scan = self.scans[idx]
         mask = self.masks[idx]
         condition = self.conditions[idx]
+        ed = self.eds[idx]
         
         # Values should be preprocessed as 0, 1 before passing into pipeline
         assert set(mask.unique().tolist()).issubset({0, 1})
@@ -43,7 +46,7 @@ class ACDCDataset(Dataset):
         if self.equalise:
             scan = self.equalise_pipeline(scan)
         
-        return scan, mask, condition
+        return scan, mask, condition, ed
 
 class ACDCMaskDataset(Dataset):
     """

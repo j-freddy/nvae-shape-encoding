@@ -185,11 +185,12 @@ class ACDCDataModule(LightningDataModule):
     Automated Cardiac Diagnosis Challenge (ACDC) data module.
     
     Data is preprocessed to crop to the bounding box around the heart based on
-    the provided GT segmentation masks. Each data point is a 3-tuple consisting
+    the provided GT segmentation masks. Each data point is a 4-tuple consisting
     of a single slice with the following information:
     (1) Scan tensor (1x128x128)
     (2) One-hot encoded GT Mask tensor (4x128x128)
     (3) Condition tensor (1)
+    (4) Whether the scan is ED/1 or ES/0 (1)
 
     The condition tensor is an integer with the following indexing:
     - 1: NOR
@@ -270,12 +271,12 @@ class ACDCDataModule(LightningDataModule):
     def _get_data_as_slice_from_subject(
         self,
         subject: tio.Subject,
-        is_es: bool=False,
+        is_ed: bool=True,
         filter_empty: bool=True,
         register_alignment: bool=False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        subject_scan_data = subject.es_scan.data if is_es else subject.ed_scan.data
-        subject_mask_data = subject.es_mask.data if is_es else subject.ed_mask.data
+        subject_scan_data = subject.ed_scan.data if is_ed else subject.es_scan.data
+        subject_mask_data = subject.ed_mask.data if is_ed else subject.es_mask.data
         
         scans = []
         masks = []
@@ -307,37 +308,41 @@ class ACDCDataModule(LightningDataModule):
         data: tio.SubjectsDataset,
         filter_empty: bool=True,
         register_alignment: bool=False,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scans = []
         masks = []
         conditions = []
+        eds = []
         
         for subject in data:
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
                 subject,
-                is_es=False,
+                is_ed=True,
                 filter_empty=filter_empty,
                 register_alignment=register_alignment,
             )
             scans.append(ed_scans)
             masks.append(ed_masks)
             conditions.append(ed_conditions)
+            eds.append(torch.ones(ed_scans.shape[0]))
             
             es_scans, es_masks, es_conditions = self._get_data_as_slice_from_subject(
                 subject,
-                is_es=True,
+                is_ed=False,
                 filter_empty=filter_empty,
                 register_alignment=register_alignment,
             )
             scans.append(es_scans)
             masks.append(es_masks)
             conditions.append(es_conditions)
+            eds.append(torch.zeros(es_scans.shape[0]))
         
         scans = torch.cat(scans)
         masks = self._one_hot(torch.cat(masks))
         conditions = torch.cat(conditions)
+        eds = torch.cat(eds)
         
-        return scans, masks, conditions
+        return scans, masks, conditions, eds
 
     def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
         masks = torch.squeeze(masks, dim=1)
