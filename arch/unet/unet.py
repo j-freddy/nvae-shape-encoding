@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.const import ACDC
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
@@ -178,9 +179,19 @@ class UNet(L.LightningModule):
         y_hat = torch.softmax(y_hat_logits, dim=1)
         y_hat_onehot = discretise(y_hat)
 
-        dice_score: torch.Tensor = compute_dice_score(y, y_hat_onehot, self.device)
+        dice_score, dice_score_per_class = compute_dice_score(
+            y,
+            y_hat_onehot,
+            self.device,
+            dice_per_class=True,
+        )
 
         self.log("dsc/test", dice_score)
+        
+        for i, dice_score in enumerate(dice_score_per_class):
+            # i + 1 as excluding background class
+            class_label = ACDC.mask_classes[i + 1]
+            self.log(f"dsc/test_{class_label}", dice_score)
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)
