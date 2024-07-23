@@ -112,7 +112,7 @@ def preprocess(subject: tio.Subject) -> tio.Subject:
             mask_name="mask",
         ),
         tio.Resize((ACDC.WIDTH, ACDC.WIDTH, num_slices)),
-        tio.RescaleIntensity((0, 1)),
+        tio.RescaleIntensity((0, 1), percentiles=(1, 99)),
     ])
     
     return transform(subject)
