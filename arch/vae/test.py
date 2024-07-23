@@ -4,7 +4,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 
 from arch.vae.train import ID_TO_MODEL
-from const import ACDC, LOGS_PATH, SEED
+from utils.const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils.utils import setup_device
 

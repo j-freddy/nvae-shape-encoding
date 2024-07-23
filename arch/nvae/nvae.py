@@ -10,9 +10,9 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from const import ACDC, FRDS_MODEL_PATH
+from utils.const import ACDC, FRDS_MODEL_PATH
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
+from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
 class NVAE(L.LightningModule):
@@ -613,9 +613,20 @@ class NVAE(L.LightningModule):
         # Compute Dice score
         feats_hat = torch.softmax(feats_hat_logits, dim=1)
         feats_hat_onehot = discretise(feats_hat)
-        dl = DiceLoss(reduction="mean", include_background=False)
-        dice_score = 1 - dl(input=feats_hat_onehot, target=feats)
+        
+        dice_score, dice_score_per_class = compute_dice_score(
+            feats,
+            feats_hat_onehot,
+            self.device,
+            dice_per_class=True,
+        )
+        
         self.log("loss/dsc", dice_score)
+        
+        for i, dice_score in enumerate(dice_score_per_class):
+            # i + 1 as excluding background class
+            class_label = ACDC.mask_classes[i + 1]
+            self.log(f"loss/dsc_{class_label}", dice_score)
 
     def log_generation_metrics(self, feats: torch.Tensor):
         """

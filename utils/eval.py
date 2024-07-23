@@ -1,3 +1,4 @@
+from monai.losses.dice import DiceLoss
 import numpy as np
 from scipy.linalg import sqrtm
 import torch
@@ -7,6 +8,7 @@ from torchvision import transforms
 from torchvision.models import inception_v3
 
 from arch.simclr.utils import load_simclr_backbone
+from utils.const import ACDC
 from utils.utils import one_hot_to_image
 
 def compute_fid(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
@@ -186,3 +188,40 @@ def get_samples_and_reconstructions_pixel_diff(
     diff = torch.abs(samples - reconstructions)
     
     return samples, diff
+
+def compute_dice_score(
+    x: torch.Tensor,
+    x_hat_onehot: torch.Tensor,
+    device: torch.device,
+    dice_per_class: bool=False,
+    print_logs: bool=False,
+) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    # Compute DSC
+    dl = DiceLoss(reduction="mean", include_background=False)
+    dice_score = 1 - dl(input=x_hat_onehot, target=x)
+    
+    if print_logs:
+        print(f"Dice score: {dice_score}")
+    
+    if not dice_per_class:
+        return dice_score
+    
+    # Compute DSC per class (excluding background)
+    dl = DiceLoss(reduction="mean")
+    dice_score_per_class = []
+    
+    for component_idx in range(1, ACDC.NUM_CLASSES):
+        x_component = x[:, component_idx, :, :].unsqueeze(1)
+        x_hat_onehot_component = x_hat_onehot[:, component_idx, :, :].unsqueeze(1)
+        
+        x_component = x_component.to(device)
+        x_hat_onehot_component = x_hat_onehot_component.to(device)
+
+        dice_score_per_class.append(
+            1 - dl(input=x_hat_onehot_component, target=x_component),
+        )
+        
+        if print_logs:
+            print(f"Dice score for component {ACDC.mask_classes[component_idx]}: {dice_score}")
+    
+    return dice_score, dice_score_per_class

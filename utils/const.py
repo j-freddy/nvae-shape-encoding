@@ -36,7 +36,9 @@ class ACDC:
     conditions = ["NOR", "MINF", "DCM", "HCM", "RV"]
     condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
 
-    class ClassLabel(Enum):
+    mask_classes = ["BG", "RV", "MYO", "LV"]
+
+    class MaskClassLabel(Enum):
         BG = 0
         RV = 1
         MYO = 2

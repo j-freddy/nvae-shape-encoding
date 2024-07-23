@@ -3,7 +3,7 @@ from skimage import measure, morphology
 from skimage.measure._regionprops import RegionProperties
 import torch
 
-from const import ACDC
+from utils.const import ACDC
 from utils.utils import acdc_class_id_to_idx
 
 class AnatomicalValidityChecker:
@@ -26,10 +26,10 @@ class AnatomicalValidityChecker:
         assert set(mask.unique().tolist()).issubset({0, 1})
         self.mask = mask.int()
 
-    def _get_struct_mask(self, class_id: ACDC.ClassLabel) -> torch.Tensor:
+    def _get_struct_mask(self, class_id: ACDC.MaskClassLabel) -> torch.Tensor:
         return self.mask[acdc_class_id_to_idx(class_id), :, :]
     
-    def _merge_classes(self, merged_class_ids: list[ACDC.ClassLabel]) -> np.ndarray:
+    def _merge_classes(self, merged_class_ids: list[ACDC.MaskClassLabel]) -> np.ndarray:
         struct_mask = torch.zeros_like(self.mask[0, :, :])
         
         # Mask for the specified aggregate class
@@ -56,16 +56,16 @@ class AnatomicalValidityChecker:
 
         return num_holes
     
-    def count_holes(self, merged_class_ids: list[ACDC.ClassLabel]) -> int:
+    def count_holes(self, merged_class_ids: list[ACDC.MaskClassLabel]) -> int:
         struct_mask = self._merge_classes(merged_class_ids)
         struct_mask = self._invert_and_pad(struct_mask)
         return self._count_holes(struct_mask)
 
-    def count_num_components(self, merged_class_ids: list[ACDC.ClassLabel]) -> int:
+    def count_num_components(self, merged_class_ids: list[ACDC.MaskClassLabel]) -> int:
         struct_mask = self._merge_classes(merged_class_ids)
         return measure.label(struct_mask, connectivity=2).max()
 
-    def are_classes_disconnected(self, class_id1: ACDC.ClassLabel, class_id2: ACDC.ClassLabel) -> bool:
+    def are_classes_disconnected(self, class_id1: ACDC.MaskClassLabel, class_id2: ACDC.MaskClassLabel) -> bool:
         mask1 = self._get_struct_mask(class_id1)
         mask2 = self._get_struct_mask(class_id2).numpy()
         
@@ -89,7 +89,7 @@ class AnatomicalValidityChecker:
         
         return False
 
-    def do_classes_touch(self, class_id1: ACDC.ClassLabel, class_id2: ACDC.ClassLabel) -> bool:
+    def do_classes_touch(self, class_id1: ACDC.MaskClassLabel, class_id2: ACDC.MaskClassLabel) -> bool:
         mask1 = self._get_struct_mask(class_id1)
         mask2 = self._get_struct_mask(class_id2).numpy()
         # Pad 1px around one mask
@@ -102,25 +102,25 @@ class AnatomicalValidityChecker:
         # Check for any presence of holes: in LV, RV, MYO, between LV and MYO,
         # between RV and MYO
         num_holes = self.count_holes([
-            ACDC.ClassLabel.RV,
-            ACDC.ClassLabel.MYO,
-            ACDC.ClassLabel.LV,
+            ACDC.MaskClassLabel.RV,
+            ACDC.MaskClassLabel.MYO,
+            ACDC.MaskClassLabel.LV,
         ])
         
         # Check for presence of more than 1 LV, RV or MYO
-        num_rv = self.count_num_components([ACDC.ClassLabel.RV])
-        num_myo = self.count_num_components([ACDC.ClassLabel.MYO])
-        num_lv = self.count_num_components([ACDC.ClassLabel.LV])
+        num_rv = self.count_num_components([ACDC.MaskClassLabel.RV])
+        num_myo = self.count_num_components([ACDC.MaskClassLabel.MYO])
+        num_lv = self.count_num_components([ACDC.MaskClassLabel.LV])
         
         # Check if RV is disconnected from MYO
         rv_disconnected_from_myo = self.are_classes_disconnected(
-            ACDC.ClassLabel.RV,
-            ACDC.ClassLabel.MYO,
+            ACDC.MaskClassLabel.RV,
+            ACDC.MaskClassLabel.MYO,
         )
         
         # Check if LV touches RV or background
-        touch_lv_rv = self.do_classes_touch(ACDC.ClassLabel.LV, ACDC.ClassLabel.RV)
-        touch_lv_bg = self.do_classes_touch(ACDC.ClassLabel.LV, ACDC.ClassLabel.BG)
+        touch_lv_rv = self.do_classes_touch(ACDC.MaskClassLabel.LV, ACDC.MaskClassLabel.RV)
+        touch_lv_bg = self.do_classes_touch(ACDC.MaskClassLabel.LV, ACDC.MaskClassLabel.BG)
         
         return {
             "num_holes": num_holes,

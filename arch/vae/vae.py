@@ -1,15 +1,14 @@
 import lightning as L
 from matplotlib import pyplot as plt
-from monai.losses.dice import DiceLoss
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from const import FRDS_MODEL_PATH
+from utils.const import ACDC, FRDS_MODEL_PATH
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
+from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
 class VAE(L.LightningModule):
@@ -202,9 +201,20 @@ class VAE(L.LightningModule):
         # Compute Dice score
         x_hat = torch.softmax(x_hat_logits, dim=1)
         x_hat_onehot = discretise(x_hat)
-        dl = DiceLoss(reduction="mean", include_background=False)
-        dice_score = 1 - dl(input=x_hat_onehot, target=x)
+        
+        dice_score, dice_score_per_class = compute_dice_score(
+            x,
+            x_hat_onehot,
+            self.device,
+            dice_per_class=True,
+        )
+        
         self.log("loss/dsc", dice_score)
+        
+        for i, dice_score in enumerate(dice_score_per_class):
+            # i + 1 as excluding background class
+            class_label = ACDC.mask_classes[i + 1]
+            self.log(f"loss/dsc_{class_label}", dice_score)
     
     def log_generation_metrics(self, x: torch.Tensor):
         """

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.eval import get_samples_and_reconstructions_pixel_diff
+from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
 class DoubleConv(nn.Module):
@@ -65,7 +65,7 @@ class UNet(L.LightningModule):
         self.save_hyperparameters()
         
         self.contracting = nn.ModuleList([
-            DoubleConv(in_channels, 64),
+            DoubleConv(self.hparams.in_channels, 64),
             Down(64, 128),
             Down(128, 256),
             Down(256, 512),
@@ -79,7 +79,7 @@ class UNet(L.LightningModule):
             Up(128, 64),
         ])
         
-        self.conditional_coder = nn.Conv2d(64, out_channels, kernel_size=1)
+        self.conditional_coder = nn.Conv2d(64, self.hparams.out_channels, kernel_size=1)
         
         # To keep track of test set during test time, to later generate figures
         self.y_buffer: list[torch.Tensor] = []
@@ -125,16 +125,9 @@ class UNet(L.LightningModule):
             x = layer(x, skip)
         
         return self.conditional_coder(x)
-
-    def _compute_dice(self, y: torch.Tensor, y_hat_logits: torch.Tensor) -> torch.Tensor:
-        y_hat = torch.softmax(y_hat_logits, dim=1)
-        y_hat_onehot = discretise(y_hat)
-        dl = DiceLoss(reduction="mean", include_background=False)
-        dice_score = 1 - dl(input=y_hat_onehot, target=y)
-        return dice_score
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
         
@@ -146,14 +139,19 @@ class UNet(L.LightningModule):
         if torch.isnan(loss):
             raise ValueError("NaN loss")
     
-        dice_score = self._compute_dice(y, y_hat_logits)
+        # Compute Dice score
+        y_hat = torch.softmax(y_hat_logits, dim=1)
+        y_hat_onehot = discretise(y_hat)
+
+        dice_score: torch.Tensor = compute_dice_score(y, y_hat_onehot, self.device)
+    
         self.log("dsc/train", dice_score)
         print(f"Train DSC: {dice_score}")
         
         return loss
     
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
         
@@ -162,16 +160,26 @@ class UNet(L.LightningModule):
         self.log("loss/val", loss)
         print(f"Val loss: {loss}")
         
-        dice_score = self._compute_dice(y, y_hat_logits)
+        # Compute Dice score
+        y_hat = torch.softmax(y_hat_logits, dim=1)
+        y_hat_onehot = discretise(y_hat)
+
+        dice_score: torch.Tensor = compute_dice_score(y, y_hat_onehot, self.device)
+
         self.log("dsc/val", dice_score)
         print(f"Val DSC: {dice_score}")
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x, y, _ = batch
+        x, y, _, _ = batch
         
         y_hat_logits = self(x)
 
-        dice_score = self._compute_dice(y, y_hat_logits)
+        # Compute Dice score
+        y_hat = torch.softmax(y_hat_logits, dim=1)
+        y_hat_onehot = discretise(y_hat)
+
+        dice_score: torch.Tensor = compute_dice_score(y, y_hat_onehot, self.device)
+
         self.log("dsc/test", dice_score)
         
         self.y_buffer.append(y)

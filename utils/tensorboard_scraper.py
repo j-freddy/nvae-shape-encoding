@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import requests
 
-from const import ACDC, LOGS_PATH
+from utils.const import ACDC, LOGS_PATH
 
 def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
     """

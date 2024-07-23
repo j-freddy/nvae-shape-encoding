@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from const import ACDC, SEED
+from utils.const import ACDC, SEED
 
 def clamp(x: float, low: float, high: float) -> float:
     return max(low, min(x, high))
@@ -36,7 +36,7 @@ def setup_device() -> torch.device:
 
     return device
 
-def acdc_class_id_to_idx(class_id: ACDC.ClassLabel) -> int:
+def acdc_class_id_to_idx(class_id: ACDC.MaskClassLabel) -> int:
     return class_id.value
 
 def show_samples(

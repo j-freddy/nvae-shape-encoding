@@ -4,9 +4,8 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
-from const import ACDC, LOGS_PATH, SEED
+from utils.const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 

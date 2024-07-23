@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torchvision.utils import make_grid
 
-from const import ACDC, SEED
+from utils.const import ACDC, SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import setup_device, show_samples
