@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from const import ACDC, FRDS_MODEL_PATH
+from utils.const import ACDC, FRDS_MODEL_PATH
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples

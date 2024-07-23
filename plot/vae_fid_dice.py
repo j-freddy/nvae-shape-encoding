@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import os
 import pandas as pd
 
-from const import ACDC, LOGS_PATH
+from utils.const import ACDC, LOGS_PATH
 
 def filter_entries(dfs: list[pd.DataFrame]) -> list[pd.DataFrame]:
     """

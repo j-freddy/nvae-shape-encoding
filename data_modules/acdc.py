@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
-from const import ACDC, DATA_PATH, SCRIPTS_PATH
+from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 

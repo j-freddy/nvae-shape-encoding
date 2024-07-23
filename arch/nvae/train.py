@@ -5,7 +5,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.nvae.utils import ID_TO_ARCH
-from const import ACDC, LOGS_PATH, SEED
+from utils.const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from arch.nvae.nvae import NVAE
 from utils.utils import setup_device

@@ -7,7 +7,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from const import FRDS_MODEL_PATH
+from utils.const import FRDS_MODEL_PATH
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples

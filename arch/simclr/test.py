@@ -4,7 +4,7 @@ import lightning as L
 import torch
 from torchvision.transforms import ElasticTransform, InterpolationMode
 
-from const import FRDS_MODEL_PATH, LOGS_PATH, OUT_PATH, SEED
+from utils.const import FRDS_MODEL_PATH, LOGS_PATH, OUT_PATH, SEED
 from data_modules.acdc import ACDCMaskDataModule
 from utils.custom_augmentations import AverageSmoothing, RandomBlackBoxCrop, RandomPepperNoise
 from utils.eval import compute_fid_manual, compute_frds

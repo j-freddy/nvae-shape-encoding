@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from const import DATA_PATH
+from utils.const import DATA_PATH
 
 class CIFAR10DataModule(LightningDataModule):
     def __init__(self, batch_size: int=32, preprocess: bool=True):
