@@ -427,9 +427,9 @@ class ACDCMaskDataModule(LightningDataModule):
         data_module = ACDCDataModule(batch_size, filter_empty, register_alignment)
         
         # Extract masks from the data module
-        _, data_train, _ = data_module.data_train_raw
-        _, data_val, _ = data_module.data_val_raw
-        _, data_test, _ = data_module.data_test_raw
+        _, data_train, _, _ = data_module.data_train_raw
+        _, data_val, _, _ = data_module.data_val_raw
+        _, data_test, _, _ = data_module.data_test_raw
 
         if as_image:
             # Remove background class

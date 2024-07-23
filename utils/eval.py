@@ -193,6 +193,7 @@ def compute_dice_score(
     x: torch.Tensor,
     x_hat_onehot: torch.Tensor,
     device: torch.device,
+    dice_per_class: bool=False,
     print_logs: bool=False,
 ) -> tuple[torch.Tensor, list[torch.Tensor]]:
     # Compute DSC
@@ -201,6 +202,9 @@ def compute_dice_score(
     
     if print_logs:
         print(f"Dice score: {dice_score}")
+    
+    if not dice_per_class:
+        return dice_score
     
     # Compute DSC per class (excluding background)
     dl = DiceLoss(reduction="mean")

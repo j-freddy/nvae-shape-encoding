@@ -206,6 +206,7 @@ class VAE(L.LightningModule):
             x,
             x_hat_onehot,
             self.device,
+            dice_per_class=True,
         )
         
         self.log("loss/dsc", dice_score)
