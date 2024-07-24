@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torchvision.transforms import functional as TF
 
 class RandomBlackBoxCrop:
     def __init__(self, size_range: tuple[int, int]):
@@ -48,3 +49,11 @@ class RandomPepperNoise:
             mask[i] = torch.rand(width, height) > self.p
 
         return img * mask
+
+class RandomGammaCorrection:
+    def __init__(self, range: tuple[float, float]):
+        self.range = range
+
+    def __call__(self, img):
+        gamma = np.random.uniform(*self.range)
+        return TF.adjust_gamma(img, gamma)

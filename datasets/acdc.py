@@ -4,6 +4,7 @@ from torchvision import transforms
 from torchvision.transforms import v2
 
 from utils.const import ACDC
+from utils.custom_augmentations import RandomGammaCorrection
 
 class ACDCDataset(Dataset):
     """
@@ -33,7 +34,14 @@ class ACDCDataset(Dataset):
         
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
         
-        self.augmentation_pipeline = transforms.RandomHorizontalFlip()
+        self.augmentation_pipeline_scan = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            RandomGammaCorrection(range=(0.5, 1.5)),
+        ])
+        
+        self.augmentation_pipeline_mask = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+        ])
     
     def __len__(self) -> int:
         return len(self.scans)
@@ -53,9 +61,9 @@ class ACDCDataset(Dataset):
         if self.augment:
             # Ensure same random augmentation is applied to both scan and mask
             state = torch.get_rng_state()
-            scan = self.augmentation_pipeline(scan)
+            scan = self.augmentation_pipeline_scan(scan)
             torch.set_rng_state(state)
-            mask = self.augmentation_pipeline(mask)
+            mask = self.augmentation_pipeline_mask(mask)
         
         return scan, mask, condition, ed
 
