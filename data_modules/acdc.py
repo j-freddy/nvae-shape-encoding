@@ -205,6 +205,8 @@ class ACDCDataModule(LightningDataModule):
         batch_size: int=32,
         filter_empty: bool=False,
         register_alignment: bool=False,
+        augment: bool=False,
+        augment_test: bool=False,
     ):
         super().__init__()
         
@@ -236,9 +238,9 @@ class ACDCDataModule(LightningDataModule):
         self.data_val_raw = data_val
         self.data_test_raw = data_test
         
-        self.data_train = ACDCDataset(*data_train)
-        self.data_val = ACDCDataset(*data_val)
-        self.data_test = ACDCDataset(*data_test)
+        self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_val = ACDCDataset(*data_val, augment=False)
+        self.data_test = ACDCDataset(*data_test, augment=augment_test)
     
     def _register_alignment(
         self,

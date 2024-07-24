@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--augment",
         action=argparse.BooleanOptionalAction,
-        help="If set, augment training data with small random rotation.",
+        help="If set, augment training data.",
         default=False,
     )
     
@@ -102,6 +102,7 @@ def view_acdc_scans():
         batch_size=24,
         filter_empty=flags.filter_empty,
         register_alignment=flags.register_alignment,
+        augment_test=flags.augment,
     )
     
     print(f"Number of train samples: {len(data_module.data_train)}")
@@ -114,7 +115,7 @@ def view_acdc_scans():
     loader_test = data_module.test_dataloader(shuffle=True)
     
     samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
-    scans, masks, _ = samples
+    scans, masks, _, _ = samples
     
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
         

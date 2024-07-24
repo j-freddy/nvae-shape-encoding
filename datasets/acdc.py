@@ -19,10 +19,12 @@ class ACDCDataset(Dataset):
         conditions: torch.Tensor,
         eds: torch.Tensor,
         equalise: bool=False,
+        augment: bool=False,
     ):
         assert len(scans) == len(masks) == len(conditions)
         
         self.equalise = equalise
+        self.augment = augment
         
         self.scans = scans
         self.masks = masks
@@ -30,6 +32,8 @@ class ACDCDataset(Dataset):
         self.eds = eds
         
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
+        
+        self.augmentation_pipeline = transforms.RandomHorizontalFlip()
     
     def __len__(self) -> int:
         return len(self.scans)
@@ -45,6 +49,13 @@ class ACDCDataset(Dataset):
         
         if self.equalise:
             scan = self.equalise_pipeline(scan)
+        
+        if self.augment:
+            # Ensure same random augmentation is applied to both scan and mask
+            state = torch.get_rng_state()
+            scan = self.augmentation_pipeline(scan)
+            torch.set_rng_state(state)
+            mask = self.augmentation_pipeline(mask)
         
         return scan, mask, condition, ed
 
