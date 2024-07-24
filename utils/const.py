@@ -9,7 +9,7 @@ SCRIPTS_PATH = "scripts"
 SEED = 1969
 
 FRDS_MODEL_PATH = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-NVAE_MODEL_PATH = "logs/nvae_acdc/default/pc-4-ws-6420-b-10/checkpoints/epoch=97-step=20972.ckpt"
+NVAE_MODEL_PATH = "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt"
 
 @dataclass
 class CIFAR10:
