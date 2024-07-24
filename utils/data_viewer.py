@@ -89,7 +89,7 @@ def show_scans_and_masks(
     plt.figure(figsize=figsize)
     plt.axis("off")
     plt.imshow(scans)
-    plt.imshow(masks, alpha=0.5)
+    plt.imshow(masks, alpha=0.64)
     plt.tight_layout()
     
     plt.show()
