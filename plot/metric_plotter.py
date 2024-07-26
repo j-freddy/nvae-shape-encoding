@@ -42,13 +42,13 @@ if __name__ == '__main__':
 
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAE, "decomposed-kernel.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAE, "dynamic-warmup.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "beta-vae.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-adversarial-vae.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["NVAE", "NVAE Dynamic Warmup", "InfoVAE"]
+    labels = ["beta-VAE", "InfoVAE-M", "InfoVAE-D"]
     
     # Read data
     dfs = []
@@ -60,13 +60,12 @@ if __name__ == '__main__':
     # dfs = filter_entries(dfs)
 
     for label, df in zip(labels, dfs):
-        # Filter all rows with frds >= 500
-        df = df[df["frds"] < 500]
-        df.sort_values(by="dice_score", inplace=True, ascending=False)
-        plt.scatter(df["frds"], df["dice_score"], alpha=0.5, label=label)
+        # Filter all rows with FID >= 25
+        df = df[df["gen/fid"] < 25]
+        plt.scatter(df["gen/fid"], df["gen/anatomically_valid"], alpha=0.5, label=label)
     
-    plt.xlabel("FRDS")
-    plt.ylabel("Dice score")
+    plt.xlabel("FID")
+    plt.ylabel("% Anatomically Valid")
     
     plt.tight_layout()
     plt.legend()
