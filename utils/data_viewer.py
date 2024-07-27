@@ -1,11 +1,12 @@
 import argparse
+import os
 import lightning as L
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from torchvision.utils import make_grid
 
-from utils.const import ACDC, SEED
+from utils.const import ACDC, OUT_PATH, SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import setup_device, show_samples
@@ -56,6 +57,13 @@ def parse_args() -> argparse.Namespace:
         default=False,
     )
     
+    parser.add_argument(
+        "--save",
+        action=argparse.BooleanOptionalAction,
+        help="If set, save high-quality figures in out/ instead of showing them.",
+        default=False,
+    )
+    
     return parser.parse_args()
 
 def view_cifar10():
@@ -76,6 +84,8 @@ def show_scans_and_masks(
     masks: torch.Tensor,
     ncol: int=6,
     figsize: tuple[int, int]=(6, 4),
+    save_path: str=None,
+    display: bool=True,
 ):
     scans = scans.cpu().float()
     masks = masks.cpu().float()
@@ -92,9 +102,18 @@ def show_scans_and_masks(
     plt.imshow(masks, alpha=0.64)
     plt.tight_layout()
     
-    plt.show()
+    if save_path:
+        save_dir, _ = os.path.split(save_path)
+        
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        
+        plt.savefig(save_path)
 
-def view_acdc_scans():
+    if display:
+        plt.show()
+
+def view_acdc_scans(save: bool):
     # Seed
     L.seed_everything(SEED)
     
@@ -118,10 +137,19 @@ def view_acdc_scans():
     scans, masks, _, _ = samples
     
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
-        
-    show_scans_and_masks(scans, masks, ncol=6, figsize=(6, 4))
+    
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    
+    show_scans_and_masks(
+        scans,
+        masks,
+        ncol=6,
+        figsize=(24, 16) if save else (6, 4),
+        save_path=save_path,
+        display=not save,
+    )
 
-def view_acdc_masks():
+def view_acdc_masks(save: bool):
     # Seed
     L.seed_everything(SEED)
     
@@ -144,6 +172,8 @@ def view_acdc_masks():
     # View samples
     loader_test = data_module.test_dataloader(shuffle=True)
     
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    
     if not flags.augment_simclr:
         samples: torch.Tensor = next(iter(loader_test))
 
@@ -153,14 +183,27 @@ def view_acdc_masks():
         
         # Or recombine the channels
         samples = torch.argmax(samples, dim=1).unsqueeze(1)
-        
-        show_samples(samples, rgb=flags.augment_simclr, ncol=6, figsize=(6, 4))
+
+        show_samples(
+            samples,
+            rgb=flags.augment_simclr,
+            ncol=6,
+            figsize=(18, 12) if save else (6, 4),
+            save_path=save_path,
+            display=not save,
+        )
     else:
         samples_pair: list[torch.Tensor] = next(iter(loader_test))
         samples = torch.cat(samples_pair, dim=0)
         
-        show_samples(samples, rgb=flags.augment_simclr, ncol=12, figsize=(12, 3))
-    
+        show_samples(
+            samples,
+            rgb=flags.augment_simclr,
+            ncol=12,
+            figsize=(36, 9) if save else (12, 3),
+            save_path=save_path,
+            display=not save,
+        )
 
 def main(flags: argparse.Namespace):
     # Setup device
@@ -174,9 +217,9 @@ def main(flags: argparse.Namespace):
 
         case "acdc":
             if flags.show_scans:
-                view_acdc_scans()
+                view_acdc_scans(flags.save)
             else:
-                view_acdc_masks()
+                view_acdc_masks(flags.save)
 
         case _:
             raise ValueError(f"Unknown dataset: {flags.dataset}")
