@@ -84,12 +84,15 @@ def show_preview(data: torch.Tensor):
         for _, disturbance in specific_disturbances.items():
             x_augs.append(disturbance(x))
             
-        fig_quality = 3
+        fig_quality = 6
             
         show_samples(
             torch.cat([x] + x_augs, dim=0),
             ncol=len(x_augs) + 1,
-            figsize=(fig_quality * (len(x_augs) + 1), fig_quality),
+            figsize=(
+                fig_quality * (len(x_augs) + 1),
+                fig_quality,
+            ),
             save_path=os.path.join(OUT_PATH, f"{disturbance_type}.png"),
             display=False,
         )
