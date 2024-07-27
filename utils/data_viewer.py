@@ -200,7 +200,7 @@ def view_acdc_masks(save: bool):
             samples,
             rgb=flags.augment_simclr,
             ncol=12,
-            figsize=(36, 9) if save else (12, 3),
+            figsize=(48, 12) if save else (12, 3),
             save_path=save_path,
             display=not save,
         )
