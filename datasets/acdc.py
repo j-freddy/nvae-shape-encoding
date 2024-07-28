@@ -37,6 +37,7 @@ class ACDCDataset(Dataset):
         self.augmentation_pipeline_scan = transforms.Compose([
             transforms.RandomHorizontalFlip(),
             RandomGammaCorrection(range=(0.5, 1.5)),
+            v2.GaussianNoise(mean=0, sigma=0.1),
         ])
         
         self.augmentation_pipeline_mask = transforms.Compose([

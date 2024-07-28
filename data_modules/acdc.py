@@ -1,5 +1,6 @@
 import csv
 import os
+import warnings
 from lightning import LightningDataModule
 import subprocess
 import torch
@@ -161,7 +162,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
         
-        data_train = torch.load(ACDC.TRAIN_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_train = torch.load(ACDC.TRAIN_PATH)
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
@@ -171,7 +174,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TEST_PATH):
         print("Preprocessed test data found. Loading...")
         
-        data_test = torch.load(ACDC.TEST_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(ACDC.TEST_PATH)
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
@@ -217,8 +222,10 @@ class ACDCDataModule(LightningDataModule):
 
             print("Preprocessed aligned masks found. Loading...")
             
-            data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-            data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+            with warnings.catch_warnings():
+                warnings.simplefilter(action="ignore", category=FutureWarning)
+                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
+                data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
         else:
         
             data_train, data_test = download_and_preprocess_acdc()
