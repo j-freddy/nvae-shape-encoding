@@ -212,6 +212,8 @@ class ACDCDataModule(LightningDataModule):
         register_alignment: bool=False,
         augment: bool=False,
         augment_test: bool=False,
+        gamma_range: float=0.5,
+        noise_sigma: float=0.1,
     ):
         super().__init__()
         
@@ -245,9 +247,19 @@ class ACDCDataModule(LightningDataModule):
         self.data_val_raw = data_val
         self.data_test_raw = data_test
         
-        self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_train = ACDCDataset(
+            *data_train,
+            augment=augment,
+            gamma_range=gamma_range,
+            noise_sigma=noise_sigma,
+        )
         self.data_val = ACDCDataset(*data_val, augment=False)
-        self.data_test = ACDCDataset(*data_test, augment=augment_test)
+        self.data_test = ACDCDataset(
+            *data_test,
+            augment=augment_test,
+            gamma_range=gamma_range,
+            noise_sigma=noise_sigma,
+        )
     
     def _register_alignment(
         self,

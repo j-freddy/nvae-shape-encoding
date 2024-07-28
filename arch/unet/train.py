@@ -42,6 +42,16 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--gamma_range",
+        type=float,
+    )
+    
+    parser.add_argument(
+        "--noise_sigma",
+        type=float,
+    )
+    
+    parser.add_argument(
         "--model_name",
         type=str,
         help="Directory name of saved model checkpoints and metadata.",
@@ -76,6 +86,8 @@ def main(flags: argparse.Namespace):
         batch_size=32,
         filter_empty=flags.filter_empty,
         augment=flags.augment,
+        gamma_range=flags.gamma_range,
+        noise_sigma=flags.noise_sigma,
     )
     
     # Reseed after preprocessing data

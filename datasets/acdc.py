@@ -21,6 +21,8 @@ class ACDCDataset(Dataset):
         eds: torch.Tensor,
         equalise: bool=False,
         augment: bool=False,
+        gamma_range: float=0.5,
+        noise_sigma: float=0.1,
     ):
         assert len(scans) == len(masks) == len(conditions)
         
@@ -36,8 +38,8 @@ class ACDCDataset(Dataset):
         
         self.augmentation_pipeline_scan = transforms.Compose([
             transforms.RandomHorizontalFlip(),
-            RandomGammaCorrection(range=(0.5, 1.5)),
-            v2.GaussianNoise(mean=0, sigma=0.1),
+            RandomGammaCorrection(range=(1 - gamma_range, 1 + gamma_range)),
+            v2.GaussianNoise(mean=0, sigma=noise_sigma),
         ])
         
         self.augmentation_pipeline_mask = transforms.Compose([
