@@ -49,6 +49,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--seed",
+        type=int,
+        help="Seed for train reproducibility. This only affects training, not data split.",
+        default=SEED,
+    )
+    
+    parser.add_argument(
         "--model_name",
         type=str,
         help="Directory name of saved model checkpoints and metadata.",
@@ -86,7 +93,8 @@ def main(flags: argparse.Namespace):
     )
     
     # Reseed after preprocessing data
-    L.seed_everything(SEED)
+    # Accept a custom seed for training, but ensure data split is consistent
+    L.seed_everything(flags.seed)
     
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
