@@ -5,6 +5,8 @@ from utils.const import ACDC, NVAE_MODEL_PATH
 
 import torch.nn.functional as F
 
+from utils.utils import discretise
+
 class ACUNet(UNet):
     def __init__(
         self,
@@ -35,14 +37,14 @@ class ACUNet(UNet):
         l2_losses = []
         
         zs = self.nvae.get_latent(y)
-        zs_hat = self.nvae.get_latent(y_hat_logits)
+        # zs_hat = self.nvae.get_latent(discretise(y_hat_logits))
+        zs_hat = self.nvae.get_latent(F.softmax(y_hat_logits, dim=1))
 
         for z, z_hat in zip(zs, zs_hat):
             assert z.shape == z_hat.shape
             
             batch_size, z_channels, w, h = z.shape
-            # latent_size = batch_size * z_channels * w * h
-            latent_size = batch_size
+            latent_size = batch_size * z_channels * w * h
             
             # Since CE is averaged over batch but not mask size, let's multiply
             # by number of pixels in mask
