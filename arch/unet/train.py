@@ -4,8 +4,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
-from utils.const import ACDC, LOGS_PATH, SEED
+from const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
@@ -28,31 +29,10 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--alpha",
-        type=float,
-        help="If using shape prior loss, the weight of cross entropy loss.",
-        default=1.0,
-    )
-    
-    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
         default=False,
-    )
-    
-    parser.add_argument(
-        "--augment",
-        action=argparse.BooleanOptionalAction,
-        help="If set, augment training data with random flips.",
-        default=False,
-    )
-    
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="Seed for train reproducibility. This only affects training, not data split.",
-        default=SEED,
     )
     
     parser.add_argument(
@@ -73,7 +53,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(flags.logs, ACDC.DIR.UNET, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.NVAE, flags.model_name)
         
         if os.path.exists(model_dir):
             raise ValueError(f"Model {flags.model_name} already exists.")
@@ -86,25 +66,15 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCDataModule(
-        batch_size=32,
-        filter_empty=flags.filter_empty,
-        augment=flags.augment,
-    )
+    data_module = ACDCDataModule(batch_size=32, filter_empty=flags.filter_empty)
     
     # Reseed after preprocessing data
-    # Accept a custom seed for training, but ensure data split is consistent
-    L.seed_everything(flags.seed)
+    L.seed_everything(SEED)
     
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
-    model = Model(
-        in_channels=data_module.data_test.num_channels,
-        out_channels=data_module.data_test.num_classes,
-        loss_reg=flags.loss_reg,
-        alpha=flags.alpha,
-    )
+    model = Model()
     
     trainer = L.Trainer(
         accelerator="auto",
