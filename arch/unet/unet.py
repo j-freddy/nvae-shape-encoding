@@ -60,6 +60,7 @@ class UNet(L.LightningModule):
         in_channels: int=1,
         out_channels: int=4,
         loss_reg: str="cross_entropy",
+        alpha: float=1.0,
     ):
         super().__init__()
         
@@ -107,6 +108,7 @@ class UNet(L.LightningModule):
         self,
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
+        log_components: bool=True,
     ) -> torch.Tensor:
         return self.reconstruction_loss(y, y_hat_logits)
     
@@ -157,7 +159,7 @@ class UNet(L.LightningModule):
         y_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(y, y_hat_logits)
+        loss = self.loss(y, y_hat_logits, log_components=False)
         self.log("loss/val", loss)
         print(f"Val loss: {loss}")
         

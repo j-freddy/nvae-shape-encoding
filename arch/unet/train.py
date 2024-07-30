@@ -28,6 +28,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--alpha",
+        type=float,
+        help="If using shape prior loss, the weight of cross entropy loss.",
+        default=1.0,
+    )
+    
+    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -84,7 +91,12 @@ def main(flags: argparse.Namespace):
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
-    model = Model()
+    model = Model(
+        in_channels=data_module.data_test.num_channels,
+        out_channels=data_module.data_test.num_classes,
+        loss_reg=flags.loss_reg,
+        alpha=flags.alpha,
+    )
     
     trainer = L.Trainer(
         accelerator="auto",

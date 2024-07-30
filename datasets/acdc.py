@@ -32,6 +32,9 @@ class ACDCDataset(Dataset):
         self.conditions = conditions
         self.eds = eds
         
+        self.num_channels = scans.shape[1]
+        self.num_classes = masks.shape[1]
+        
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
         
         self.augmentation_pipeline_scan = transforms.Compose([
