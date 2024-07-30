@@ -1,7 +1,7 @@
 import torch
 from arch.nvae.nvae import NVAE
 from arch.unet.unet import UNet
-from const import NVAE_MODEL_PATH
+from utils.const import NVAE_MODEL_PATH
 
 import torch.nn.functional as F
 

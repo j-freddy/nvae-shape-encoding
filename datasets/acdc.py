@@ -3,7 +3,8 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import v2
 
-from const import ACDC
+from utils.const import ACDC
+from utils.custom_augmentations import RandomGammaCorrection
 
 class ACDCDataset(Dataset):
     """
@@ -17,17 +18,34 @@ class ACDCDataset(Dataset):
         scans: torch.Tensor,
         masks: torch.Tensor,
         conditions: torch.Tensor,
+        eds: torch.Tensor,
         equalise: bool=False,
+        augment: bool=False,
     ):
         assert len(scans) == len(masks) == len(conditions)
         
         self.equalise = equalise
+        self.augment = augment
         
         self.scans = scans
         self.masks = masks
         self.conditions = conditions
+        self.eds = eds
+        
+        self.num_channels = scans.shape[1]
+        self.num_classes = masks.shape[1]
         
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
+        
+        self.augmentation_pipeline_scan = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            # RandomGammaCorrection(range=(0.5, 1.5)),
+            # v2.GaussianNoise(mean=0, sigma=0.1),
+        ])
+        
+        self.augmentation_pipeline_mask = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+        ])
     
     def __len__(self) -> int:
         return len(self.scans)
@@ -36,6 +54,7 @@ class ACDCDataset(Dataset):
         scan = self.scans[idx]
         mask = self.masks[idx]
         condition = self.conditions[idx]
+        ed = self.eds[idx]
         
         # Values should be preprocessed as 0, 1 before passing into pipeline
         assert set(mask.unique().tolist()).issubset({0, 1})
@@ -43,7 +62,14 @@ class ACDCDataset(Dataset):
         if self.equalise:
             scan = self.equalise_pipeline(scan)
         
-        return scan, mask, condition
+        if self.augment:
+            # Ensure same random augmentation is applied to both scan and mask
+            state = torch.get_rng_state()
+            scan = self.augmentation_pipeline_scan(scan)
+            torch.set_rng_state(state)
+            mask = self.augmentation_pipeline_mask(mask)
+        
+        return scan, mask, condition, ed
 
 class ACDCMaskDataset(Dataset):
     """

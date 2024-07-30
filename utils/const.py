@@ -6,10 +6,10 @@ DATA_PATH = "data"
 LOGS_PATH = "logs"
 OUT_PATH = "out"
 SCRIPTS_PATH = "scripts"
-SEED = 1969
+SEED = 1980
 
 FRDS_MODEL_PATH = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-NVAE_MODEL_PATH = "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt"
+NVAE_MODEL_PATH = "logs/nvae_acdc/best/default-same-beta/checkpoints/epoch=97-step=20972.ckpt"
 
 @dataclass
 class CIFAR10:

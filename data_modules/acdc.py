@@ -1,5 +1,6 @@
 import csv
 import os
+import warnings
 from lightning import LightningDataModule
 import subprocess
 import torch
@@ -8,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
-from const import ACDC, DATA_PATH, SCRIPTS_PATH
+from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
@@ -161,7 +162,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
         
-        data_train = torch.load(ACDC.TRAIN_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_train = torch.load(ACDC.TRAIN_PATH)
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
@@ -171,7 +174,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TEST_PATH):
         print("Preprocessed test data found. Loading...")
         
-        data_test = torch.load(ACDC.TEST_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(ACDC.TEST_PATH)
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
@@ -185,11 +190,12 @@ class ACDCDataModule(LightningDataModule):
     Automated Cardiac Diagnosis Challenge (ACDC) data module.
     
     Data is preprocessed to crop to the bounding box around the heart based on
-    the provided GT segmentation masks. Each data point is a 3-tuple consisting
+    the provided GT segmentation masks. Each data point is a 4-tuple consisting
     of a single slice with the following information:
     (1) Scan tensor (1x128x128)
     (2) One-hot encoded GT Mask tensor (4x128x128)
     (3) Condition tensor (1)
+    (4) Whether the scan is ED/1 or ES/0 (1)
 
     The condition tensor is an integer with the following indexing:
     - 1: NOR
@@ -204,6 +210,8 @@ class ACDCDataModule(LightningDataModule):
         batch_size: int=32,
         filter_empty: bool=False,
         register_alignment: bool=False,
+        augment: bool=False,
+        augment_test: bool=False,
     ):
         super().__init__()
         
@@ -214,8 +222,10 @@ class ACDCDataModule(LightningDataModule):
 
             print("Preprocessed aligned masks found. Loading...")
             
-            data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-            data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+            with warnings.catch_warnings():
+                warnings.simplefilter(action="ignore", category=FutureWarning)
+                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
+                data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
         else:
         
             data_train, data_test = download_and_preprocess_acdc()
@@ -235,9 +245,9 @@ class ACDCDataModule(LightningDataModule):
         self.data_val_raw = data_val
         self.data_test_raw = data_test
         
-        self.data_train = ACDCDataset(*data_train)
-        self.data_val = ACDCDataset(*data_val)
-        self.data_test = ACDCDataset(*data_test)
+        self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_val = ACDCDataset(*data_val, augment=False)
+        self.data_test = ACDCDataset(*data_test, augment=augment_test)
     
     def _register_alignment(
         self,
@@ -270,12 +280,12 @@ class ACDCDataModule(LightningDataModule):
     def _get_data_as_slice_from_subject(
         self,
         subject: tio.Subject,
-        is_es: bool=False,
+        is_ed: bool=True,
         filter_empty: bool=True,
         register_alignment: bool=False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        subject_scan_data = subject.es_scan.data if is_es else subject.ed_scan.data
-        subject_mask_data = subject.es_mask.data if is_es else subject.ed_mask.data
+        subject_scan_data = subject.ed_scan.data if is_ed else subject.es_scan.data
+        subject_mask_data = subject.ed_mask.data if is_ed else subject.es_mask.data
         
         scans = []
         masks = []
@@ -307,37 +317,41 @@ class ACDCDataModule(LightningDataModule):
         data: tio.SubjectsDataset,
         filter_empty: bool=True,
         register_alignment: bool=False,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scans = []
         masks = []
         conditions = []
+        eds = []
         
         for subject in data:
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
                 subject,
-                is_es=False,
+                is_ed=True,
                 filter_empty=filter_empty,
                 register_alignment=register_alignment,
             )
             scans.append(ed_scans)
             masks.append(ed_masks)
             conditions.append(ed_conditions)
+            eds.append(torch.ones(ed_scans.shape[0]))
             
             es_scans, es_masks, es_conditions = self._get_data_as_slice_from_subject(
                 subject,
-                is_es=True,
+                is_ed=False,
                 filter_empty=filter_empty,
                 register_alignment=register_alignment,
             )
             scans.append(es_scans)
             masks.append(es_masks)
             conditions.append(es_conditions)
+            eds.append(torch.zeros(es_scans.shape[0]))
         
         scans = torch.cat(scans)
         masks = self._one_hot(torch.cat(masks))
         conditions = torch.cat(conditions)
+        eds = torch.cat(eds)
         
-        return scans, masks, conditions
+        return scans, masks, conditions, eds
 
     def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
         masks = torch.squeeze(masks, dim=1)
@@ -422,9 +436,9 @@ class ACDCMaskDataModule(LightningDataModule):
         data_module = ACDCDataModule(batch_size, filter_empty, register_alignment)
         
         # Extract masks from the data module
-        _, data_train, _ = data_module.data_train_raw
-        _, data_val, _ = data_module.data_val_raw
-        _, data_test, _ = data_module.data_test_raw
+        _, data_train, _, _ = data_module.data_train_raw
+        _, data_val, _, _ = data_module.data_val_raw
+        _, data_test, _, _ = data_module.data_test_raw
 
         if as_image:
             # Remove background class
