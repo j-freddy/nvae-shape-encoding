@@ -36,12 +36,28 @@ class ACUNet(UNet):
         
         zs = self.nvae.get_latent(y)
         zs_hat = self.nvae.get_latent(y_hat_logits)
+        
+        print(zs[3:7].shape)
+        
+        
+        print(zs[0].shape)
+        print(zs[1].shape)
+        print(zs[2].shape)
+        print(zs[3].shape)
+        print(zs[4].shape)
+        
+        import sys
+        sys.exit()
+        
+        import sys
+        sys.exit()
 
         for z, z_hat in zip(zs, zs_hat):
             assert z.shape == z_hat.shape
             
             batch_size, z_channels, w, h = z.shape
-            latent_size = batch_size * z_channels * w * h
+            # latent_size = batch_size * z_channels * w * h
+            latent_size = batch_size
             
             # Since CE is averaged over batch but not mask size, let's multiply
             # by number of pixels in mask
