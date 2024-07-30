@@ -32,7 +32,7 @@ class ACUNet(UNet):
         recon_loss = 0
         
         zs = self.nvae.get_latent(y)
-        zs_hat = self.nvae.get_latent(y_hat_logits)
+        zs_hat = self.nvae.get_latent(F.softmax(y_hat_logits, dim=1))
 
         for z, z_hat in zip(zs, zs_hat):
             recon_loss += F.mse_loss(z, z_hat)
