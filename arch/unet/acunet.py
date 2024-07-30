@@ -37,8 +37,8 @@ class ACUNet(UNet):
         l2_losses = []
         
         zs = self.nvae.get_latent(y)
-        # zs_hat = self.nvae.get_latent(discretise(y_hat_logits))
-        zs_hat = self.nvae.get_latent(F.softmax(y_hat_logits, dim=1))
+        zs_hat = self.nvae.get_latent(discretise(y_hat_logits))
+        # zs_hat = self.nvae.get_latent(F.softmax(y_hat_logits, dim=1))
 
         for z, z_hat in zip(zs, zs_hat):
             assert z.shape == z_hat.shape
