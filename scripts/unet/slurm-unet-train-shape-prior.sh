@@ -15,7 +15,7 @@ source activate
 
 seeds=("1969 1970 1971 1972 1973")
 
-logdir="logs-unet-weight-decay"
+logdir="logs-unet-temp"
 
 # Train
 
