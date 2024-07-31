@@ -24,7 +24,7 @@ do
     model_name="shape-prior-seed-${seed}"
     python -m arch.unet.train \
         --epochs 100 \
-        --loss_reg "shape-prior" \
+        --loss_reg "shape_prior" \
         --augment \
         --seed $seed \
         --model_name $model_name \
