@@ -22,7 +22,7 @@ class ACUNet(UNet):
         self.nvae.freeze()
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-2, weight_decay=0)
+        return torch.optim.Adam(self.parameters(), lr=1e-2, weight_decay=1e-4)
     
     def loss(
         self,
