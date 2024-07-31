@@ -11,7 +11,8 @@ class ACUNet(UNet):
         in_channels: int=1,
         out_channels: int=4,
         loss_reg: str="shape_prior",
-        nvae_path: str=NVAE_MODEL_PATH
+        nvae_path: str=NVAE_MODEL_PATH,
+        alpha: float=1.0,
     ):
         super().__init__(in_channels, out_channels, loss_reg)
         
@@ -27,6 +28,7 @@ class ACUNet(UNet):
         self,
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
+        log_components: bool=True,
     ):
         # recon_loss = self.reconstruction_loss(y, y_hat_logits)
         recon_loss = 0
