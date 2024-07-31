@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.const import ACDC
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
@@ -174,6 +175,7 @@ class UNet(L.LightningModule):
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _, _ = batch
+        num_samples, _, _, _ = x.shape
         
         y_hat_logits = self(x)
 
@@ -194,6 +196,16 @@ class UNet(L.LightningModule):
             # i + 1 as excluding background class
             class_label = ACDC.mask_classes[i + 1]
             self.log(f"dsc/test_{class_label}", dice_score)
+        
+        # Compute anatomical validity
+        num_valid = 0
+        
+        for discretised_y_hat in discretise(y_hat_logits):
+            AV = AnatomicalValidityChecker(discretised_y_hat)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        self.log("gen/anatomically_valid", num_valid / num_samples)
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)
