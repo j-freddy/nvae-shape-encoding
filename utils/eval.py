@@ -182,11 +182,14 @@ def get_samples_and_reconstructions(x: torch.Tensor, x_hat: torch.Tensor) -> tor
 def get_samples_and_reconstructions_pixel_diff(
     x: torch.Tensor,
     x_hat: torch.Tensor,
+    return_reconstructions: bool=False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     reconstructions = torch.argmax(x_hat, dim=1).unsqueeze(1)
     samples = torch.argmax(x, dim=1).unsqueeze(1)
     diff = torch.abs(samples - reconstructions)
     
+    if return_reconstructions:
+        return samples, reconstructions, diff
     return samples, diff
 
 def compute_dice_score(

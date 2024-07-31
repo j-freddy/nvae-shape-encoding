@@ -9,7 +9,7 @@ from torchvision.utils import make_grid
 from utils.const import ACDC, OUT_PATH, SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import setup_device, show_samples
+from utils.utils import setup_device, show_samples, show_scans_and_masks
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -78,40 +78,6 @@ def view_cifar10():
     samples: tuple[torch.Tensor, torch.Tensor] = next(iter(loader_test))
     images, _ = samples
     show_samples(images, ncol=8, figsize=(8, 2))
-
-def show_scans_and_masks(
-    scans: torch.Tensor,
-    masks: torch.Tensor,
-    ncol: int=6,
-    figsize: tuple[int, int]=(6, 4),
-    save_path: str=None,
-    display: bool=True,
-):
-    scans = scans.cpu().float()
-    masks = masks.cpu().float()
-    
-    scans = make_grid(scans, nrow=ncol, padding=2, normalize=True)
-    masks = make_grid(masks, nrow=ncol, padding=2, normalize=True)
-    
-    scans = np.transpose(scans.numpy(), (1, 2, 0))
-    masks = masks[0]
-    
-    plt.figure(figsize=figsize)
-    plt.axis("off")
-    plt.imshow(scans)
-    plt.imshow(masks, alpha=0.64)
-    plt.tight_layout()
-    
-    if save_path:
-        save_dir, _ = os.path.split(save_path)
-        
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        
-        plt.savefig(save_path)
-
-    if display:
-        plt.show()
 
 def view_acdc_scans(save: bool):
     # Seed
