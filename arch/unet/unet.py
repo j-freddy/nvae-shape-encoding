@@ -88,7 +88,7 @@ class UNet(L.LightningModule):
         self.y_hat_logits_buffer: list[torch.Tensor] = []
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=1e-4)
+        return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=0)
     
     def reconstruction_loss(self, y: torch.Tensor, y_hat_logits: torch.Tensor) -> torch.Tensor:
         """
