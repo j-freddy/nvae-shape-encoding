@@ -457,3 +457,93 @@ class ACDCMaskDataModule(LightningDataModule):
     
     def test_dataloader(self, shuffle=False):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+
+class ACDC3DDataModule(LightningDataModule):
+    """
+    Automated Cardiac Diagnosis Challenge 3D (ACDC) data module.
+    """
+    
+    def __init__(self, batch_size: int=1):
+        super().__init__()
+        
+        self.batch_size = batch_size
+        
+        data_train, data_test = download_and_preprocess_acdc()
+        
+        data_train = self._get_data_as_volume(data_train)
+        data_test = self._get_data_as_volume(data_test)
+        
+        # TODO
+        # data_train, data_val = self._split_train_val(data_train)
+        
+        self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_val = ACDCDataset(*data_val, augment=False)
+        self.data_test = ACDCDataset(*data_test, augment=augment_test)
+        
+    def _get_data_as_volume(
+        self,
+        data: tio.SubjectsDataset,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        scans = []
+        masks = []
+        conditions = []
+        eds = []
+        
+        for subject in data:
+            # Unprocessed ACDC is [C, H, W, S] and we want [S, C, H, W]
+            # where S is the number of slices
+            
+            # ED
+            subject_scan_data = subject.ed_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = self._one_hot(subject.ed_mask.data.permute(3, 0, 1, 2))
+            condition = ACDC.condition_to_idx[subject.condition]
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(1)
+            
+            # ES
+            subject_scan_data = subject.es_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = self._one_hot(subject.es_mask.data.permute(3, 0, 1, 2))
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(0)
+        
+        return scans, masks, conditions, eds
+
+    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
+        masks = torch.squeeze(masks, dim=1)
+        masks_onehot = F.one_hot(
+            masks.long(),
+            num_classes=len(masks.unique())
+        ).permute(0, 3, 1, 2)
+        
+        return masks_onehot.float()
+    
+    def _split_train_val(
+        self,
+        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        perc: float=0.9,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Shuffle data
+        idx = torch.randperm(len(data[0]))
+        data = [d[idx] for d in data]
+        
+        # Split data
+        split_idx = int(len(data[0]) * perc)
+        data_train = [d[:split_idx] for d in data]
+        data_val = [d[split_idx:] for d in data]
+        
+        return data_train, data_val
+    
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
+
+    def val_dataloader(self, shuffle=False):
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
