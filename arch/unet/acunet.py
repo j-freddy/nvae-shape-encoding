@@ -20,6 +20,14 @@ class ACUNet(UNet):
         
         self.nvae = NVAE.load_from_checkpoint(nvae_path)
         self.nvae.freeze()
+        
+        # We train 2 models
+        # 1. Baseline U-Net with cross-entropy loss
+        # 2. ACUNet with shape prior loss term only (alpha=0)
+        # The shape prior factor constant is how much larger the cross-entropy
+        # loss is compared to the L2 shape prior loss, averaged over the
+        # entirety of training time
+        self.shape_prior_factor = 974970
     
     def loss(
         self,
@@ -64,5 +72,5 @@ class ACUNet(UNet):
                 # Topmost group is 6
                 group_idx = num_groups - i - 1
                 self.log(f"loss/shape_prior/dim_{group_idx}", l2_loss)
-
-        return self.hparams.alpha * recon_loss + shape_prior_loss
+        
+        return self.hparams.alpha * recon_loss + self.shape_prior_factor * shape_prior_loss
