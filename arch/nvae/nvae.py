@@ -368,6 +368,7 @@ class NVAE(L.LightningModule):
             for i in range(num_groups):
                 # Log the original KL per group
                 # Shallowest group is 0
+                # Topmost group is 6
                 group_idx = num_groups - i - 1
                 self.log(f"loss/kl_div_group_{group_idx}", kl_divs_batch_avg[i])
     

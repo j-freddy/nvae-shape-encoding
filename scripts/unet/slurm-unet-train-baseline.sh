@@ -15,14 +15,34 @@ source activate
 
 # ==============================================================================
 # [U-Net Train]
+# Train baseline model with different seeds.
 # ==============================================================================
 
-logdir="logs-unet"
-model_name="softmax"
+seeds=("1969 1970 1971 1972 1973")
+
+logdir="logs-unet-baseline"
 
 # Train
-python -m arch.unet.train \
-    --epochs 50 \
-    --alpha 0 \
-    --model_name $model_name \
-    --logs $logdir
+
+for seed in $seeds
+do
+    model_name="baseline-seed-${seed}"
+    python -m arch.unet.train \
+        --epochs 100 \
+        --loss_reg "cross_entropy" \
+        --augment \
+        --seed $seed \
+        --model_name $model_name \
+        --logs $logdir
+done
+
+# Evaluate
+
+for seed in $seeds
+do
+    model_name="baseline-seed-${seed}"
+    # Get saved model path
+    model_path=$(ls ${logdir}/unet_acdc/${model_name}/checkpoints/*.ckpt)
+    # Test: Save figures and metrics
+    python -m arch.unet.test --model_path $model_path --logs $logdir
+done

@@ -91,6 +91,40 @@ def show_samples(
     if display:
         plt.show()
 
+def show_scans_and_masks(
+    scans: torch.Tensor,
+    masks: torch.Tensor,
+    ncol: int=6,
+    figsize: tuple[int, int]=(6, 4),
+    save_path: str=None,
+    display: bool=True,
+):
+    scans = scans.cpu().float()
+    masks = masks.cpu().float()
+    
+    scans = make_grid(scans, nrow=ncol, padding=2, normalize=True)
+    masks = make_grid(masks, nrow=ncol, padding=2, normalize=True)
+    
+    scans = np.transpose(scans.numpy(), (1, 2, 0))
+    masks = masks[0]
+    
+    plt.figure(figsize=figsize)
+    plt.axis("off")
+    plt.imshow(scans)
+    plt.imshow(masks, alpha=0.64)
+    plt.tight_layout()
+    
+    if save_path:
+        save_dir, _ = os.path.split(save_path)
+        
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        
+        plt.savefig(save_path)
+
+    if display:
+        plt.show()
+
 def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     """
     Given a probablistic segmentation map, round each pixel to the nearest
@@ -114,13 +148,34 @@ def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
 def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
     return torch.tanh(x.div(factor)) * factor
 
-def get_data(loader: torch.utils.data.DataLoader) -> torch.Tensor:
+def get_data(
+    loader: torch.utils.data.DataLoader,
+    is_tuple: bool=False,
+    scan_idx: int=0,
+    mask_idx: int=1,
+) -> torch.Tensor:
     """
     Get all data from a DataLoader.
+    
+    Each data point is either a mask (e.g. ACDCMaskDataModule), or a tuple (e.g.
+    ACDCDataModule). An example of a tuple is (scan, mask, other_data). If using
+    a data loader that returns tuples, set is_tuple=True and specify scan and
+    mask index positions if needed.
     """
-    data = []
+    if not is_tuple:
+        data = []
+        
+        for x in loader:
+            data.append(x)
+        
+        return torch.cat(data, dim=0)
+
+    # Tuple
+    scans = []
+    masks = []
     
     for x in loader:
-        data.append(x)
+        scans.append(x[scan_idx])
+        masks.append(x[mask_idx])
     
-    return torch.cat(data, dim=0)
+    return torch.cat(scans, dim=0), torch.cat(masks, dim=0)

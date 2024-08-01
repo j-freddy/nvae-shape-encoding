@@ -1,5 +1,6 @@
 import csv
 import os
+import warnings
 from lightning import LightningDataModule
 import subprocess
 import torch
@@ -161,7 +162,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
         
-        data_train = torch.load(ACDC.TRAIN_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_train = torch.load(ACDC.TRAIN_PATH)
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
@@ -171,7 +174,9 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     if os.path.exists(ACDC.TEST_PATH):
         print("Preprocessed test data found. Loading...")
         
-        data_test = torch.load(ACDC.TEST_PATH)
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(ACDC.TEST_PATH)
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
@@ -205,6 +210,8 @@ class ACDCDataModule(LightningDataModule):
         batch_size: int=32,
         filter_empty: bool=False,
         register_alignment: bool=False,
+        augment: bool=False,
+        augment_test: bool=False,
     ):
         super().__init__()
         
@@ -215,8 +222,10 @@ class ACDCDataModule(LightningDataModule):
 
             print("Preprocessed aligned masks found. Loading...")
             
-            data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-            data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+            with warnings.catch_warnings():
+                warnings.simplefilter(action="ignore", category=FutureWarning)
+                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
+                data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
         else:
         
             data_train, data_test = download_and_preprocess_acdc()
@@ -236,9 +245,9 @@ class ACDCDataModule(LightningDataModule):
         self.data_val_raw = data_val
         self.data_test_raw = data_test
         
-        self.data_train = ACDCDataset(*data_train)
-        self.data_val = ACDCDataset(*data_val)
-        self.data_test = ACDCDataset(*data_test)
+        self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_val = ACDCDataset(*data_val, augment=False)
+        self.data_test = ACDCDataset(*data_test, augment=augment_test)
     
     def _register_alignment(
         self,

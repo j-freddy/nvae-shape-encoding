@@ -293,7 +293,7 @@ shape prior.
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc --show_scans
-# Train a U-Net model with shape prior, with good configurations (~90 minutes)
+# Train a U-Net model with shape prior, with good configurations (~60 minutes)
 python -m arch.unet.train
 # Test (~5 minutes)
 # A typical checkpoint path is:

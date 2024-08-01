@@ -1,14 +1,15 @@
 import argparse
+import os
 import lightning as L
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from torchvision.utils import make_grid
 
-from utils.const import ACDC, SEED
+from utils.const import ACDC, OUT_PATH, SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import setup_device, show_samples
+from utils.utils import setup_device, show_samples, show_scans_and_masks
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -45,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--augment",
         action=argparse.BooleanOptionalAction,
-        help="If set, augment training data with small random rotation.",
+        help="If set, augment training data.",
         default=False,
     )
     
@@ -53,6 +54,13 @@ def parse_args() -> argparse.Namespace:
         "--augment_simclr",
         action=argparse.BooleanOptionalAction,
         help="If set, augment training data with SimCLR pipeline.",
+        default=False,
+    )
+    
+    parser.add_argument(
+        "--save",
+        action=argparse.BooleanOptionalAction,
+        help="If set, save high-quality figures in out/ instead of showing them.",
         default=False,
     )
     
@@ -71,30 +79,7 @@ def view_cifar10():
     images, _ = samples
     show_samples(images, ncol=8, figsize=(8, 2))
 
-def show_scans_and_masks(
-    scans: torch.Tensor,
-    masks: torch.Tensor,
-    ncol: int=6,
-    figsize: tuple[int, int]=(6, 4),
-):
-    scans = scans.cpu().float()
-    masks = masks.cpu().float()
-    
-    scans = make_grid(scans, nrow=ncol, padding=2, normalize=True)
-    masks = make_grid(masks, nrow=ncol, padding=2, normalize=True)
-    
-    scans = np.transpose(scans.numpy(), (1, 2, 0))
-    masks = masks[0]
-    
-    plt.figure(figsize=figsize)
-    plt.axis("off")
-    plt.imshow(scans)
-    plt.imshow(masks, alpha=0.5)
-    plt.tight_layout()
-    
-    plt.show()
-
-def view_acdc_scans():
+def view_acdc_scans(save: bool):
     # Seed
     L.seed_everything(SEED)
     
@@ -102,6 +87,7 @@ def view_acdc_scans():
         batch_size=24,
         filter_empty=flags.filter_empty,
         register_alignment=flags.register_alignment,
+        augment_test=flags.augment,
     )
     
     print(f"Number of train samples: {len(data_module.data_train)}")
@@ -114,13 +100,22 @@ def view_acdc_scans():
     loader_test = data_module.test_dataloader(shuffle=True)
     
     samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
-    scans, masks, _ = samples
+    scans, masks, _, _ = samples
     
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
-        
-    show_scans_and_masks(scans, masks, ncol=6, figsize=(6, 4))
+    
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    
+    show_scans_and_masks(
+        scans,
+        masks,
+        ncol=6,
+        figsize=(24, 16) if save else (6, 4),
+        save_path=save_path,
+        display=not save,
+    )
 
-def view_acdc_masks():
+def view_acdc_masks(save: bool):
     # Seed
     L.seed_everything(SEED)
     
@@ -143,6 +138,8 @@ def view_acdc_masks():
     # View samples
     loader_test = data_module.test_dataloader(shuffle=True)
     
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    
     if not flags.augment_simclr:
         samples: torch.Tensor = next(iter(loader_test))
 
@@ -152,14 +149,27 @@ def view_acdc_masks():
         
         # Or recombine the channels
         samples = torch.argmax(samples, dim=1).unsqueeze(1)
-        
-        show_samples(samples, rgb=flags.augment_simclr, ncol=6, figsize=(6, 4))
+
+        show_samples(
+            samples,
+            rgb=flags.augment_simclr,
+            ncol=6,
+            figsize=(18, 12) if save else (6, 4),
+            save_path=save_path,
+            display=not save,
+        )
     else:
         samples_pair: list[torch.Tensor] = next(iter(loader_test))
         samples = torch.cat(samples_pair, dim=0)
         
-        show_samples(samples, rgb=flags.augment_simclr, ncol=12, figsize=(12, 3))
-    
+        show_samples(
+            samples,
+            rgb=flags.augment_simclr,
+            ncol=12,
+            figsize=(48, 12) if save else (12, 3),
+            save_path=save_path,
+            display=not save,
+        )
 
 def main(flags: argparse.Namespace):
     # Setup device
@@ -173,9 +183,9 @@ def main(flags: argparse.Namespace):
 
         case "acdc":
             if flags.show_scans:
-                view_acdc_scans()
+                view_acdc_scans(flags.save)
             else:
-                view_acdc_masks()
+                view_acdc_masks(flags.save)
 
         case _:
             raise ValueError(f"Unknown dataset: {flags.dataset}")

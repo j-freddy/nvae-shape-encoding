@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
+from utils.const import ACDC
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
@@ -59,6 +61,7 @@ class UNet(L.LightningModule):
         in_channels: int=1,
         out_channels: int=4,
         loss_reg: str="cross_entropy",
+        alpha: float=1.0,
     ):
         super().__init__()
         
@@ -106,6 +109,7 @@ class UNet(L.LightningModule):
         self,
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
+        log_components: bool=True,
     ) -> torch.Tensor:
         return self.reconstruction_loss(y, y_hat_logits)
     
@@ -156,7 +160,7 @@ class UNet(L.LightningModule):
         y_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(y, y_hat_logits)
+        loss = self.loss(y, y_hat_logits, log_components=False)
         self.log("loss/val", loss)
         print(f"Val loss: {loss}")
         
@@ -171,6 +175,7 @@ class UNet(L.LightningModule):
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _, _ = batch
+        num_samples, _, _, _ = x.shape
         
         y_hat_logits = self(x)
 
@@ -178,9 +183,29 @@ class UNet(L.LightningModule):
         y_hat = torch.softmax(y_hat_logits, dim=1)
         y_hat_onehot = discretise(y_hat)
 
-        dice_score: torch.Tensor = compute_dice_score(y, y_hat_onehot, self.device)
+        dice_score, dice_score_per_class = compute_dice_score(
+            y,
+            y_hat_onehot,
+            self.device,
+            dice_per_class=True,
+        )
 
         self.log("dsc/test", dice_score)
+        
+        for i, dice_score in enumerate(dice_score_per_class):
+            # i + 1 as excluding background class
+            class_label = ACDC.mask_classes[i + 1]
+            self.log(f"dsc/test_{class_label}", dice_score)
+        
+        # Compute anatomical validity
+        num_valid = 0
+        
+        for discretised_y_hat in discretise(y_hat_logits):
+            AV = AnatomicalValidityChecker(discretised_y_hat)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        self.log("gen/anatomically_valid", num_valid / num_samples)
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)
