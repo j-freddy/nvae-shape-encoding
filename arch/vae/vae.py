@@ -169,7 +169,7 @@ class VAE(L.LightningModule):
 
         return loss
     
-    def validation_step(self, x: torch.Tensor) -> torch.Tensor:
+    def validation_step(self, x: torch.Tensor):
         mu, logvar, z, x_hat_logits = self(x)
         
         # Compute loss
@@ -178,7 +178,7 @@ class VAE(L.LightningModule):
         
         print(f"Val loss: {loss}")
     
-    def test_step(self, x: torch.Tensor) -> torch.Tensor:
+    def test_step(self, x: torch.Tensor):
         self.log_reconstruction_metrics(x)
         self.log_generation_metrics(x)
         

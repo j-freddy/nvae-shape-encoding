@@ -4,6 +4,7 @@ from torchvision import transforms
 from torchvision.transforms import v2
 
 from utils.const import ACDC
+from utils.custom_augmentations import RandomGammaCorrection
 
 class ACDCDataset(Dataset):
     """
@@ -19,22 +20,37 @@ class ACDCDataset(Dataset):
         conditions: torch.Tensor,
         eds: torch.Tensor,
         equalise: bool=False,
+        augment: bool=False,
     ):
-        assert len(scans) == len(masks) == len(conditions)
+        assert len(scans) == len(masks) == len(conditions) == len(eds)
         
         self.equalise = equalise
+        self.augment = augment
         
         self.scans = scans
         self.masks = masks
         self.conditions = conditions
         self.eds = eds
         
+        self.num_channels = scans.shape[1]
+        self.num_classes = masks.shape[1]
+        
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
+        
+        self.augmentation_pipeline_scan = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            # RandomGammaCorrection(range=(0.5, 1.5)),
+            # v2.GaussianNoise(mean=0, sigma=0.1),
+        ])
+        
+        self.augmentation_pipeline_mask = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+        ])
     
     def __len__(self) -> int:
         return len(self.scans)
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scan = self.scans[idx]
         mask = self.masks[idx]
         condition = self.conditions[idx]
@@ -45,6 +61,13 @@ class ACDCDataset(Dataset):
         
         if self.equalise:
             scan = self.equalise_pipeline(scan)
+        
+        if self.augment:
+            # Ensure same random augmentation is applied to both scan and mask
+            state = torch.get_rng_state()
+            scan = self.augmentation_pipeline_scan(scan)
+            torch.set_rng_state(state)
+            mask = self.augmentation_pipeline_mask(mask)
         
         return scan, mask, condition, ed
 
@@ -133,3 +156,41 @@ class ACDCMaskDataset(Dataset):
             return pair
 
         return mask
+
+class ACDC3DDataset(Dataset):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) 3D dataset.
+    
+    See ACDC3DDataModule docstring.
+    """
+
+    def __init__(
+        self,
+        scans: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        conditions: list[int],
+        eds: list[int],
+    ):
+        assert len(scans) == len(masks) == len(conditions) == len(eds)
+        
+        self.scans = scans
+        self.masks = masks
+        self.conditions = conditions
+        self.eds = eds
+        
+        self.num_channels = scans[0].shape[1]
+        self.num_classes = masks[0].shape[1]
+    
+    def __len__(self) -> int:
+        return len(self.scans)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        scan = self.scans[idx]
+        mask = self.masks[idx]
+        condition = self.conditions[idx]
+        ed = self.eds[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        
+        return scan, mask, condition, ed

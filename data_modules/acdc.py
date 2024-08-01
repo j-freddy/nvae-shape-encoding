@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
-from datasets.acdc import ACDCDataset, ACDCMaskDataset
+from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
 def get_info(patient_id: str, test: bool=False) -> dict:
@@ -460,30 +460,26 @@ class ACDCMaskDataModule(LightningDataModule):
 
 class ACDC3DDataModule(LightningDataModule):
     """
-    Automated Cardiac Diagnosis Challenge 3D (ACDC) data module.
+    Automated Cardiac Diagnosis Challenge (ACDC) 3D data module.
+    
+    This is only used during testing to evaluate the 3D DSC metric, and thus
+    the training and validation set is not implemented.
     """
     
-    def __init__(self, batch_size: int=1):
+    def __init__(self):
         super().__init__()
         
-        self.batch_size = batch_size
+        self.batch_size = 1
         
-        data_train, data_test = download_and_preprocess_acdc()
-        
-        data_train = self._get_data_as_volume(data_train)
+        _, data_test = download_and_preprocess_acdc()
         data_test = self._get_data_as_volume(data_test)
         
-        # TODO
-        # data_train, data_val = self._split_train_val(data_train)
-        
-        self.data_train = ACDCDataset(*data_train, augment=augment)
-        self.data_val = ACDCDataset(*data_val, augment=False)
-        self.data_test = ACDCDataset(*data_test, augment=augment_test)
+        self.data_test = ACDC3DDataset(*data_test)
         
     def _get_data_as_volume(
         self,
         data: tio.SubjectsDataset,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[int]]:
         scans = []
         masks = []
         conditions = []
@@ -523,27 +519,11 @@ class ACDC3DDataModule(LightningDataModule):
         
         return masks_onehot.float()
     
-    def _split_train_val(
-        self,
-        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        perc: float=0.9,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        # Shuffle data
-        idx = torch.randperm(len(data[0]))
-        data = [d[idx] for d in data]
-        
-        # Split data
-        split_idx = int(len(data[0]) * perc)
-        data_train = [d[:split_idx] for d in data]
-        data_val = [d[split_idx:] for d in data]
-        
-        return data_train, data_val
-    
-    def train_dataloader(self, shuffle=True):
-        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
+    def train_dataloader(self):
+        assert False, "ACDC3DDataModule is only used for testing"
 
-    def val_dataloader(self, shuffle=False):
-        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    def val_dataloader(self):
+        assert False, "ACDC3DDataModule is only used for testing"
     
     def test_dataloader(self, shuffle=False):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)

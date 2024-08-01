@@ -130,7 +130,7 @@ class UNet(L.LightningModule):
         
         return self.conditional_coder(x)
     
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _, _ = batch
         
         y_hat_logits = self(x)
@@ -154,7 +154,7 @@ class UNet(L.LightningModule):
         
         return loss
     
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         x, y, _, _ = batch
         
         y_hat_logits = self(x)
@@ -173,7 +173,7 @@ class UNet(L.LightningModule):
         self.log("dsc/val", dice_score)
         print(f"Val DSC: {dice_score}")
     
-    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         x, y, _, _ = batch
         num_samples, _, _, _ = x.shape
         
