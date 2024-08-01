@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
-from datasets.acdc import ACDCDataset, ACDCMaskDataset
+from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
 def get_info(patient_id: str, test: bool=False) -> dict:
@@ -454,6 +454,76 @@ class ACDCMaskDataModule(LightningDataModule):
 
     def val_dataloader(self, shuffle=False):
         return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+
+class ACDC3DDataModule(LightningDataModule):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) 3D data module.
+    
+    This is only used during testing to evaluate the 3D DSC metric, and thus
+    the training and validation set is not implemented.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.batch_size = 1
+        
+        _, data_test = download_and_preprocess_acdc()
+        data_test = self._get_data_as_volume(data_test)
+        
+        self.data_test = ACDC3DDataset(*data_test)
+        
+    def _get_data_as_volume(
+        self,
+        data: tio.SubjectsDataset,
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[int]]:
+        scans = []
+        masks = []
+        conditions = []
+        eds = []
+        
+        for subject in data:
+            # Unprocessed ACDC is [C, H, W, S] and we want [S, C, H, W]
+            # where S is the number of slices
+            
+            # ED
+            subject_scan_data = subject.ed_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = self._one_hot(subject.ed_mask.data.permute(3, 0, 1, 2))
+            condition = ACDC.condition_to_idx[subject.condition]
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(1)
+            
+            # ES
+            subject_scan_data = subject.es_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = self._one_hot(subject.es_mask.data.permute(3, 0, 1, 2))
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(0)
+        
+        return scans, masks, conditions, eds
+
+    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
+        masks = torch.squeeze(masks, dim=1)
+        masks_onehot = F.one_hot(
+            masks.long(),
+            num_classes=len(masks.unique())
+        ).permute(0, 3, 1, 2)
+        
+        return masks_onehot.float()
+    
+    def train_dataloader(self):
+        assert False, "ACDC3DDataModule is only used for testing"
+
+    def val_dataloader(self):
+        assert False, "ACDC3DDataModule is only used for testing"
     
     def test_dataloader(self, shuffle=False):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)

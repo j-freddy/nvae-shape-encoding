@@ -6,7 +6,7 @@ import torch
 from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCDataModule
+from data_modules.acdc import ACDC3DDataModule, ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -37,7 +37,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCDataModule(batch_size=32)
+    data_module = ACDC3DDataModule()
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)

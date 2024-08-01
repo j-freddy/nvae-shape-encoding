@@ -1,6 +1,5 @@
 import lightning as L
 from matplotlib import pyplot as plt
-from monai.losses.dice import DiceLoss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -130,7 +129,7 @@ class UNet(L.LightningModule):
         
         return self.conditional_coder(x)
     
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _, _ = batch
         
         y_hat_logits = self(x)
@@ -154,7 +153,7 @@ class UNet(L.LightningModule):
         
         return loss
     
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         x, y, _, _ = batch
         
         y_hat_logits = self(x)
@@ -173,13 +172,23 @@ class UNet(L.LightningModule):
         self.log("dsc/val", dice_score)
         print(f"Val DSC: {dice_score}")
     
-    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        """
+        Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
+        Dice scores.
+        """
         x, y, _, _ = batch
+        
+        # 3D data module ensures 1 batch only, but each data point is 4D of
+        # shape (S, C, W, H) where S is the number of slices.
+        x = x.squeeze(0)
+        y = y.squeeze(0)
+        
         num_samples, _, _, _ = x.shape
         
         y_hat_logits = self(x)
 
-        # Compute Dice score
+        # Compute 3D Dice score
         y_hat = torch.softmax(y_hat_logits, dim=1)
         y_hat_onehot = discretise(y_hat)
 
@@ -187,6 +196,7 @@ class UNet(L.LightningModule):
             y,
             y_hat_onehot,
             self.device,
+            is_3d=True,
             dice_per_class=True,
         )
 

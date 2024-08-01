@@ -196,9 +196,16 @@ def compute_dice_score(
     x: torch.Tensor,
     x_hat_onehot: torch.Tensor,
     device: torch.device,
+    is_3d: bool=False,
     dice_per_class: bool=False,
     print_logs: bool=False,
 ) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    if is_3d:
+        # x is currently [D, C, H, W]
+        # Monai expects [B, C, H, W, D]
+        x = x.permute(1, 2, 3, 0).unsqueeze(0)
+        x_hat_onehot = x_hat_onehot.permute(1, 2, 3, 0).unsqueeze(0)
+    
     # Compute DSC
     dl = DiceLoss(reduction="mean", include_background=False)
     dice_score = 1 - dl(input=x_hat_onehot, target=x)
@@ -214,8 +221,8 @@ def compute_dice_score(
     dice_score_per_class = []
     
     for component_idx in range(1, ACDC.NUM_CLASSES):
-        x_component = x[:, component_idx, :, :].unsqueeze(1)
-        x_hat_onehot_component = x_hat_onehot[:, component_idx, :, :].unsqueeze(1)
+        x_component = x[:, component_idx].unsqueeze(1)
+        x_hat_onehot_component = x_hat_onehot[:, component_idx].unsqueeze(1)
         
         x_component = x_component.to(device)
         x_hat_onehot_component = x_hat_onehot_component.to(device)
@@ -223,8 +230,5 @@ def compute_dice_score(
         dice_score_per_class.append(
             1 - dl(input=x_hat_onehot_component, target=x_component),
         )
-        
-        if print_logs:
-            print(f"Dice score for component {ACDC.mask_classes[component_idx]}: {dice_score}")
     
     return dice_score, dice_score_per_class

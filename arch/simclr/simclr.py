@@ -119,7 +119,7 @@ class SimCLR(L.LightningModule):
     
         return loss
 
-    def validation_step(self, batch: list[torch.Tensor]) -> torch.Tensor:
+    def validation_step(self, batch: list[torch.Tensor]):
         batch = torch.cat(batch, dim=0)
 
         z = self(batch)
