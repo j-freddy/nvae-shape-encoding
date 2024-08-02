@@ -629,6 +629,7 @@ class NVAE(L.LightningModule):
             feats,
             feats_hat_onehot,
             self.device,
+            is_3d=True,
             dice_per_class=True,
         )
         
