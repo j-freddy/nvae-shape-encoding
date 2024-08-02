@@ -5,7 +5,7 @@ import torch
 
 from arch.vae.train import ID_TO_MODEL
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDC3DDataModule, ACDCMaskDataModule
+from data_modules.acdc import ACDC3DDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -23,20 +23,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Root save directory for logs.",
         default=LOGS_PATH,
-    )
-    
-    parser.add_argument(
-        "--register_alignment",
-        action=argparse.BooleanOptionalAction,
-        help="If set, use masks that have been rotated such that the right ventricle points upwards.",
-        default=False,
-    )
-    
-    parser.add_argument(
-        "--augment",
-        action=argparse.BooleanOptionalAction,
-        help="If set, augment training data with small random rotation.",
-        default=False,
     )
 
     return parser.parse_args()
