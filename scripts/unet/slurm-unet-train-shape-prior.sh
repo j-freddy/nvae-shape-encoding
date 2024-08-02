@@ -15,7 +15,7 @@ source activate
 
 seeds=("1969 1970 1971 1972 1973")
 
-logdir="logs-unet-temp"
+logdir="logs-unet-alpha-1"
 
 # Train
 
@@ -28,7 +28,7 @@ do
         --augment \
         --seed $seed \
         --model_name $model_name \
-        --alpha 0 \
+        --alpha 1 \
         --logs $logdir
 done
 
