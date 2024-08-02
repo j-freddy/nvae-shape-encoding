@@ -591,7 +591,17 @@ class NVAE(L.LightningModule):
         
         print(f"Val loss: {loss}")
         
-    def test_step(self, feats: torch.Tensor):
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        """
+        Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
+        Dice scores.
+        """
+        _, feats, _, _ = batch
+        
+        # 3D data module ensures 1 batch only, but each data point is 4D of
+        # shape (S, C, W, H) where S is the number of slices.
+        feats = feats.squeeze(0)
+        
         self.log_reconstruction_metrics(feats)
         self.log_generation_metrics(feats)
         
@@ -619,6 +629,7 @@ class NVAE(L.LightningModule):
             feats,
             feats_hat_onehot,
             self.device,
+            is_3d=True,
             dice_per_class=True,
         )
         

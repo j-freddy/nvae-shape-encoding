@@ -395,11 +395,9 @@ class ACDCMaskDataModule(LightningDataModule):
     data point only consists of the one-hot mask tensor values per slice
     (4x128x128).
     
-    Rotation augmentation can be used for training VAE and NVAE. It acts to
-    diversify the dataset and thus, if applied during training, should also be
-    applied during validation and testing. Similarly, if alignment registration
-    is applied during training, it should also be applied during validation and
-    testing.
+    Rotation augmentation and registration alignment was experimented with
+    extensively for training VAE and NVAE, but was not found to have noticeable
+    improvements. They remain as options for this data module.
     
     SimCLR augmentation is used for training SimCLR. It should also be applied
     during validation. Testing does not exist for pretraining and
