@@ -18,11 +18,11 @@ source activate
 # ==============================================================================
 
 logdir="logs-unet"
-model_name="softmax"
+model_name="shape-prior-alpha-0"
 
 # Train
 python -m arch.unet.train \
-    --epochs 50 \
+    --epochs 100 \
     --alpha 0 \
     --model_name $model_name \
     --logs $logdir

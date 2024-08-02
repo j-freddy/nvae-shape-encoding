@@ -44,15 +44,7 @@ class ACUNet(UNet):
 
         for z, z_hat in zip(zs, zs_hat):
             assert z.shape == z_hat.shape
-            
-            batch_size, z_channels, w, h = z.shape
-            latent_size = batch_size * z_channels * w * h
-            
-            # Since CE is averaged over batch but not mask size, let's multiply
-            # by number of pixels in mask
-            mask_size = ACDC.WIDTH * ACDC.WIDTH
-            
-            l2_loss = F.mse_loss(z, z_hat) / latent_size * mask_size
+            l2_loss = F.mse_loss(z, z_hat)
             l2_losses.append(l2_loss)
         
         l2_losses = torch.stack(l2_losses)
