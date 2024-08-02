@@ -178,7 +178,17 @@ class VAE(L.LightningModule):
         
         print(f"Val loss: {loss}")
     
-    def test_step(self, x: torch.Tensor):
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        """
+        Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
+        Dice scores.
+        """
+        _, x, _, _ = batch
+        
+        # 3D data module ensures 1 batch only, but each data point is 4D of
+        # shape (S, C, W, H) where S is the number of slices.
+        x = x.squeeze(0)
+        
         self.log_reconstruction_metrics(x)
         self.log_generation_metrics(x)
         

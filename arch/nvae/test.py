@@ -4,7 +4,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.nvae.nvae import NVAE
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCMaskDataModule
+from data_modules.acdc import ACDC3DDataModule, ACDCMaskDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -35,7 +35,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=8)
+    data_module = ACDC3DDataModule()
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
