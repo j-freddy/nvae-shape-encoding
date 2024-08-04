@@ -5,10 +5,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from utils.const import ACDC, MASK_NUM_CLASSES, SEED, MaskClassLabel
-
-def clamp(x: float, low: float, high: float) -> float:
-    return max(low, min(x, high))
+from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
 def setup_device() -> torch.device:
     """
@@ -35,6 +32,18 @@ def setup_device() -> torch.device:
         torch.backends.cudnn.benchmark = False
 
     return device
+
+def listdir(dir: str) -> list[str]:
+    ids = os.listdir(dir)
+
+    # Exclude .DS_Store on macOS
+    if ".DS_Store" in ids:
+        ids.remove(".DS_Store")
+
+    return ids
+
+def clamp(x: float, low: float, high: float) -> float:
+    return max(low, min(x, high))
 
 def mask_class_id_to_idx(class_id: MaskClassLabel) -> int:
     return class_id.value
