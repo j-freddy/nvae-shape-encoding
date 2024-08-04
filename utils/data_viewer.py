@@ -1,12 +1,9 @@
 import argparse
 import os
 import lightning as L
-from matplotlib import pyplot as plt
-import numpy as np
 import torch
-from torchvision.utils import make_grid
 
-from utils.const import ACDC, OUT_PATH, SEED
+from utils.const import OUT_PATH, SEED
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import setup_device, show_samples, show_scans_and_masks
