@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.const import ACDC, FRDS_MODEL_PATH
+from utils.const import ACDC, FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
@@ -224,7 +224,7 @@ class VAE(L.LightningModule):
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
-            class_label = ACDC.mask_classes[i + 1]
+            class_label = MASK_CLASSES[i + 1]
             self.log(f"loss/dsc_{class_label}", dice_score)
     
     def log_generation_metrics(self, x: torch.Tensor):

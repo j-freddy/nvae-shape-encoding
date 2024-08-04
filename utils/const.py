@@ -25,24 +25,23 @@ class CIFAR10:
         SIMCLR = "simclr_cifar10"
         UNET = "unet_cifar10"
 
+CARDIAC_WIDTH = 128
+MASK_NUM_CLASSES = 4
+MASK_CLASSES = ["BG", "RV", "MYO", "LV"]
+
+class MaskClassLabel(Enum):
+    BG = 0
+    RV = 1
+    MYO = 2
+    LV = 3
 @dataclass
 class ACDC:
     """
     ACDC constants.
     """
-    WIDTH = 128
-    NUM_CLASSES = 4
-    
+
     conditions = ["NOR", "MINF", "DCM", "HCM", "RV"]
     condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
-
-    mask_classes = ["BG", "RV", "MYO", "LV"]
-
-    class MaskClassLabel(Enum):
-        BG = 0
-        RV = 1
-        MYO = 2
-        LV = 3
 
     class DIR:
         VAE = "vae_acdc"
@@ -62,3 +61,9 @@ class ACDC:
     class ALIGNED:
         TRAIN_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_train.pt")
         TEST_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_test.pt")
+
+@dataclass
+class MnMs:
+    """
+    MnMs constants.
+    """

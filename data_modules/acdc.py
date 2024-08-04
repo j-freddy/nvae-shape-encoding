@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
-from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
+from utils.const import ACDC, CARDIAC_WIDTH, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
@@ -112,7 +112,7 @@ def preprocess(subject: tio.Subject) -> tio.Subject:
             (width + padding, width + padding, num_slices),
             mask_name="mask",
         ),
-        tio.Resize((ACDC.WIDTH, ACDC.WIDTH, num_slices)),
+        tio.Resize((CARDIAC_WIDTH, CARDIAC_WIDTH, num_slices)),
         tio.RescaleIntensity((0, 1), percentiles=(1, 99)),
     ])
     
