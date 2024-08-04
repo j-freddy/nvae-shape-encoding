@@ -67,3 +67,15 @@ class MnMs:
     """
     MnMs constants.
     """
+    
+    @dataclass
+    class RAW:
+        INFO_FILE = os.path.join(DATA_PATH, "MnMs", "211230_M&Ms_Dataset_information_diagnosis_opendataset.csv")
+        TRAIN_PATH_LABELLED = os.path.join(DATA_PATH, "MnMs", "Training", "Labeled")
+        TRAIN_PATH_UNLABELLED = os.path.join(DATA_PATH, "MnMs", "Training", "Unlabeled")
+        VAL_PATH = os.path.join(DATA_PATH, "MnMs", "Validation")
+        TEST_PATH = os.path.join(DATA_PATH, "MnMs", "Testing")
+    
+    TRAIN_PATH = os.path.join(DATA_PATH, "mnms_processed_train.pt")
+    VAL_PATH = os.path.join(DATA_PATH, "mnms_processed_val.pt")
+    TEST_PATH = os.path.join(DATA_PATH, "mnms_processed_test.pt")
