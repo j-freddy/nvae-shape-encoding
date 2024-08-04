@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.const import ACDC, FRDS_MODEL_PATH
+from utils.const import ACDC, CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
@@ -115,7 +115,7 @@ class NVAE(L.LightningModule):
         
         self.save_hyperparameters()
         
-        self.img_width = ACDC.WIDTH
+        self.img_width = CARDIAC_WIDTH
         self.num_layers = len(self.hparams.num_groups_per_layer)
         self.num_latent_layers = len(self.hparams.beta_per_layer)
         
@@ -637,7 +637,7 @@ class NVAE(L.LightningModule):
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
-            class_label = ACDC.mask_classes[i + 1]
+            class_label = MASK_CLASSES[i + 1]
             self.log(f"loss/dsc_{class_label}", dice_score)
 
     def log_generation_metrics(self, feats: torch.Tensor):
