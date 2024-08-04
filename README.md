@@ -68,13 +68,9 @@ python -m arch.vae.train \
     --beta 0 \
     --gamma 200 \
     --loss_reg info_vae
-# Test (~5 minutes)
-# A typical checkpoint path is:
-# logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
-python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
 ```
 
-Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
+Use [TensorBoard](#tensorboard) to see the train graphs.
 
 For more examples, see the respective sections (e.g. [Nouveau
 VAE](#nouveau-variational-autoencoder)).
@@ -204,7 +200,7 @@ options:
                         If set, augment training data with small random rotation.
 ```
 
-See `arch/vae` for further analysis on trained models.
+See `analysis/vae` for further analysis on trained models.
 
 ### Nouveau Variational Autoencoder
 
@@ -275,7 +271,7 @@ options:
   --logs LOGS           Root save directory for logs.
 ```
 
-See `arch/nvae` for further analysis on trained models.
+See `analysis/nvae` for further analysis on trained models.
 
 ### U-Net
 
@@ -311,9 +307,9 @@ TODO
 
 TODO
 
-<!-- TODO arch/unet doesn't exist -->
+<!-- TODO analysis/unet doesn't exist -->
 
-See `arch/unet` for further analysis on trained models.
+See `analysis/unet` for further analysis on trained models.
 
 ### SimCLR
 
@@ -378,7 +374,7 @@ options:
                         the out directory.
 ```
 
-See `arch/simclr` for further analysis on trained models.
+See `analysis/simclr` for further analysis on trained models.
 
 ### TensorBoard
 
