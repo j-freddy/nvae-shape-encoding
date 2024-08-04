@@ -34,6 +34,15 @@ class MaskClassLabel(Enum):
     RV = 1
     MYO = 2
     LV = 3
+CARDIAC_WIDTH = 128
+MASK_NUM_CLASSES = 4
+MASK_CLASSES = ["BG", "RV", "MYO", "LV"]
+
+class MaskClassLabel(Enum):
+    BG = 0
+    RV = 1
+    MYO = 2
+    LV = 3
 @dataclass
 class ACDC:
     """
