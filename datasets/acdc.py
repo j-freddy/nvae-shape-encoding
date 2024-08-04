@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import v2
 
-from utils.const import ACDC
+from utils.const import ACDC, CARDIAC_WIDTH
 from utils.custom_augmentations import RandomGammaCorrection
 
 class ACDCDataset(Dataset):
@@ -105,7 +105,7 @@ class ACDCMaskDataset(Dataset):
             transforms.RandomRotation(degrees=180),
             transforms.RandomHorizontalFlip(),
             transforms.RandomResizedCrop(
-                size=ACDC.WIDTH,
+                size=CARDIAC_WIDTH,
                 scale=(0.8, 1.0),
                 ratio=(1, 1),
                 interpolation=transforms.InterpolationMode.NEAREST,
