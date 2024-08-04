@@ -18,7 +18,7 @@ source activate
 # Train baseline model with different seeds.
 # ==============================================================================
 
-seeds=("1969 1970 1971 1972 1973")
+seeds=("1970 1971 1972 1973 1974")
 
 logdir="logs-unet-baseline"
 

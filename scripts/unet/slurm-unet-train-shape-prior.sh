@@ -13,7 +13,7 @@ cd nvae-shape-encoding
 export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
-seeds=("1969 1970 1971 1972 1973")
+seeds=("1970 1971 1972 1973 1974")
 
 logdir="logs-unet-alpha-0.1"
 
