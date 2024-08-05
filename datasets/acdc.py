@@ -3,7 +3,8 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import v2
 
-from utils.const import CARDIAC_WIDTH
+from utils.const import ACDC, CARDIAC_WIDTH
+from utils.custom_augmentations import RandomGammaCorrection
 
 class ACDCDataset(Dataset):
     """
