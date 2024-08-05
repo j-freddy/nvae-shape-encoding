@@ -47,17 +47,17 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "info-adversarial-vae"
-    metrics = ["gen/frds", "gen/fid", "gen/anatomically_valid", "loss/dsc",]
+    log_subdir = "best"
+    metrics = ["dsc/test", "dsc/test_RV", "dsc/test_MYO", "dsc/test_LV", "gen/anatomically_valid"]
 
     df = get_tensorboard_data(
-        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.VAE, log_subdir),
+        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.UNET, log_subdir),
         metrics=metrics,
     )
 
-    df.sort_values(by="gen/frds", inplace=True, ascending=True)
+    df.sort_values(by="model_name", inplace=True, ascending=True)
 
     print(df.head())
 
     # Save dataframe to a csv file
-    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.VAE, f"{log_subdir}.csv"))
+    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.UNET, f"{log_subdir}.csv"))
