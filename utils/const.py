@@ -67,7 +67,13 @@ class MnMs:
     """
     MnMs constants.
     """
+
+    conditions = ["DCM", "HCM", "HHD", "NOR", "Other", "ARV", "AHS", "IHD", "LVNC"]
+    condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
     
+    vendors = ["A", "B", "C", "D"]
+    centres = [1, 2, 3, 4, 5, 6]
+
     @dataclass
     class RAW:
         INFO_FILE = os.path.join(DATA_PATH, "MnMs", "211230_M&Ms_Dataset_information_diagnosis_opendataset.csv")

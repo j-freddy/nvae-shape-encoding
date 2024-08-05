@@ -5,8 +5,10 @@ import pandas as pd
 import torch
 import torchio as tio
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
+from datasets.mnms import MnMsDataset
 from utils.const import MnMs
 from utils.utils import listdir
 
@@ -62,6 +64,11 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
             ed_mask=subject_ed.mask,
             es_scan=subject_es.scan,
             es_mask=subject_es.mask,
+            height=float(info_df.loc[patient_id, "Height"]),
+            weight=float(info_df.loc[patient_id, "Weight"]),
+            condition=info_df.loc[patient_id, "Pathology"],
+            vendor=info_df.loc[patient_id, "Vendor"],
+            centre=int(info_df.loc[patient_id, "Centre"]),
         )
         
         subjects.append(subject)
@@ -87,20 +94,29 @@ def download_and_preprocess_acdc() -> tio.SubjectsDataset:
     return data_train
 
 class MnMsDataModule(LightningDataModule):
-    def __init__(self, batch_size: int=32, filter_empty: bool=False):
+    def __init__(
+        self,
+        batch_size: int=32,
+        filter_empty: bool=False,
+        from_vendor: str=None,
+        from_centre: int=None,
+        augment: bool=False,
+        augment_test: bool=False,
+    ):
         super().__init__()
         
         self.batch_size = batch_size
         
         data_train = download_and_preprocess_acdc()
-        data_train = self._get_data_as_slice(data_train, filter_empty)
+        data_train = self._get_data_as_slice(
+            data_train,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
         scans, masks, _, _ = data_train
-        print(scans.shape)
-        print(masks.shape)
-        import sys
-        sys.exit()
         
-        # self.data_train = ACDCDataset(*data_train, augment=augment)
+        self.data_train = MnMsDataset(*data_train, augment=augment)
     
     def _get_data_as_slice_from_subject(
         self,
@@ -129,9 +145,7 @@ class MnMsDataModule(LightningDataModule):
         
         scans = torch.stack(scans)
         masks = torch.stack(masks)
-        # TODO Update
-        # conditions = ACDC.condition_to_idx[subject.condition] * torch.ones(scans.shape[0])
-        conditions = 0 * torch.ones(scans.shape[0])
+        conditions = MnMs.condition_to_idx[subject.condition] * torch.ones(scans.shape[0])
         
         return scans, masks, conditions
         
@@ -139,6 +153,8 @@ class MnMsDataModule(LightningDataModule):
         self,
         data: tio.SubjectsDataset,
         filter_empty: bool=True,
+        from_vendor: str=None,
+        from_centre: int=None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scans = []
         masks = []
@@ -146,6 +162,12 @@ class MnMsDataModule(LightningDataModule):
         eds = []
         
         for subject in data:
+            if from_vendor is not None and subject.vendor != from_vendor:
+                continue
+            
+            if from_centre is not None and subject.centre != from_centre:
+                continue
+            
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
                 subject,
                 is_ed=True,
@@ -181,3 +203,6 @@ class MnMsDataModule(LightningDataModule):
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()
+
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
