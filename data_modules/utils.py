@@ -6,9 +6,13 @@ from utils.const import CARDIAC_WIDTH
 def preprocess(subject: tio.Subject) -> tio.Subject:
     mask = subject.mask.data[0, :, :, :]
     _, _, num_slices = mask.shape
+    
+    print(f"mask.shape: {mask.shape}")
 
     # :2 to ignore slice index
     nonzero_coords = torch.nonzero(mask)[:, :2]
+    
+    print(f"nonzero_coords.shape: {nonzero_coords.shape}")
 
     # Get bounding box
     min_x = torch.min(nonzero_coords[:, 1]).item()

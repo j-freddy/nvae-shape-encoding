@@ -75,7 +75,7 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
     
     return tio.SubjectsDataset(subjects)
 
-def download_and_preprocess_acdc() -> tio.SubjectsDataset:
+def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, tio.SubjectsDataset]:
     info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
 
     if os.path.exists(MnMs.TRAIN_PATH):
@@ -90,8 +90,31 @@ def download_and_preprocess_acdc() -> tio.SubjectsDataset:
         data_train = get_dataset(MnMs.RAW.TRAIN_PATH_LABELLED, info_df)
         torch.save(data_train, MnMs.TRAIN_PATH)
     
-    # TODO Other datasets
-    return data_train
+    if os.path.exists(MnMs.VAL_PATH):
+        print("Preprocessed validation data found. Loading...")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_val = torch.load(MnMs.VAL_PATH)
+    else:
+        print("Preprocessed validation data not found. Preprocessing...")
+        
+        data_val = get_dataset(MnMs.RAW.VAL_PATH, info_df)
+        torch.save(data_val, MnMs.VAL_PATH)
+    
+    if os.path.exists(MnMs.TEST_PATH):
+        print("Preprocessed test data found. Loading...")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(MnMs.TEST_PATH)
+    else:
+        print("Preprocessed test data not found. Preprocessing...")
+        
+        data_test = get_dataset(MnMs.RAW.TEST_PATH, info_df)
+        torch.save(data_test, MnMs.TEST_PATH)
+    
+    return data_train, data_val, data_test
 
 class MnMsDataModule(LightningDataModule):
     def __init__(
@@ -107,16 +130,32 @@ class MnMsDataModule(LightningDataModule):
         
         self.batch_size = batch_size
         
-        data_train = download_and_preprocess_acdc()
+        data_train, data_val, data_test = download_and_preprocess_acdc()
+        
         data_train = self._get_data_as_slice(
             data_train,
             filter_empty,
             from_vendor,
             from_centre,
         )
-        scans, masks, _, _ = data_train
+        
+        data_val = self._get_data_as_slice(
+            data_val,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
+        
+        data_test = self._get_data_as_slice(
+            data_test,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
         
         self.data_train = MnMsDataset(*data_train, augment=augment)
+        self.data_val = MnMsDataset(*data_val, augment=False)
+        self.data_test = MnMsDataset(*data_test, augment=augment_test)
     
     def _get_data_as_slice_from_subject(
         self,
@@ -206,3 +245,9 @@ class MnMsDataModule(LightningDataModule):
 
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
+
+    def val_dataloader(self, shuffle=False):
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
