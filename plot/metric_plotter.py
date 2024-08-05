@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import os
 import pandas as pd
 
-from utils.const import ACDC, LOGS_PATH
+from utils.const import ACDC, LOGS_PATH, OUT_PATH
 
 def filter_entries(dfs: list[pd.DataFrame]) -> list[pd.DataFrame]:
     """
@@ -60,13 +60,14 @@ if __name__ == '__main__':
     # dfs = filter_entries(dfs)
 
     for label, df in zip(labels, dfs):
-        # Filter all rows with FID >= 25
-        df = df[df["gen/fid"] < 25]
-        plt.scatter(df["gen/fid"], df["gen/anatomically_valid"], alpha=0.5, label=label)
+        # Filter all rows with FRDS >= 300
+        df = df[df["gen/frds"] < 300]
+        plt.scatter(df["gen/frds"], df["gen/anatomically_valid"], alpha=0.5, label=label)
     
-    plt.xlabel("FID")
+    plt.xlabel("FRDS")
     plt.ylabel("% Anatomically Valid")
     
     plt.tight_layout()
     plt.legend()
+    plt.savefig(os.path.join(OUT_PATH, "figure.png"), dpi=400)
     plt.show()
