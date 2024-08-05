@@ -12,6 +12,7 @@ def plot(path: str, y_label: str, label: str):
     format and plot it with matplotlib.
     """
     data = pd.read_csv(path)
+    # data = data[data["Step"] >= 2140]
     
     # TensorBoard keys
     steps = data["Step"].values
@@ -31,11 +32,14 @@ def plot_multiple(paths: list[str], y_label: str, labels: list[str]):
     format and plot it with matplotlib.
     """
     data = [pd.read_csv(path) for path in paths]
-    data = [df[df["Step"] >= 2140] for df in data]
+    # data = [df[df["Step"] >= 2140] for df in data]
     
     for i, df in enumerate(data):
         steps = df["Step"].values
         values = df["Value"].values
+        
+        if i == 1:
+            values = 126717 * values
 
         plt.plot(steps, values, label=labels[i])
     
@@ -48,24 +52,14 @@ def plot_multiple(paths: list[str], y_label: str, labels: list[str]):
 
 if __name__ == '__main__':
     names = [
-        "run-default-tag-loss_kl_div_group_6.csv",
-        "run-default-tag-loss_kl_div_group_5.csv",
-        "run-default-tag-loss_kl_div_group_4.csv",
-        "run-default-tag-loss_kl_div_group_3.csv",
-        "run-default-tag-loss_kl_div_group_2.csv",
-        "run-default-tag-loss_kl_div_group_1.csv",
-        "run-default-tag-loss_kl_div_group_0.csv",
+        "baseline.csv",
+        "shape-prior.csv",
     ]
     
     labels = [
-        "Layer 1 Group 1",
-        "Layer 2 Group 1",
-        "Layer 2 Group 2",
-        "Layer 3 Group 1",
-        "Layer 3 Group 2",
-        "Layer 3 Group 3",
-        "Layer 3 Group 4",
+        "Baseline",
+        "190511 x Shape Prior",
     ]
     
     paths = [os.path.join(OUT_PATH, "csv", name) for name in names]
-    plot_multiple(paths, y_label="KL Divergence", labels=labels)
+    plot_multiple(paths, y_label="Loss", labels=labels)
