@@ -34,15 +34,6 @@ class MaskClassLabel(Enum):
     RV = 1
     MYO = 2
     LV = 3
-CARDIAC_WIDTH = 128
-MASK_NUM_CLASSES = 4
-MASK_CLASSES = ["BG", "RV", "MYO", "LV"]
-
-class MaskClassLabel(Enum):
-    BG = 0
-    RV = 1
-    MYO = 2
-    LV = 3
 @dataclass
 class ACDC:
     """
@@ -76,7 +67,13 @@ class MnMs:
     """
     MnMs constants.
     """
+
+    conditions = ["DCM", "HCM", "HHD", "NOR", "Other", "ARV", "AHS", "IHD", "LVNC"]
+    condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
     
+    vendors = ["A", "B", "C", "D"]
+    centres = [1, 2, 3, 4, 5, 6]
+
     @dataclass
     class RAW:
         INFO_FILE = os.path.join(DATA_PATH, "MnMs", "211230_M&Ms_Dataset_information_diagnosis_opendataset.csv")
