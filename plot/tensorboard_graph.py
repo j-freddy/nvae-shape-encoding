@@ -58,7 +58,7 @@ if __name__ == '__main__':
     
     labels = [
         "Baseline",
-        "190511 x Shape Prior",
+        "126717 x Shape Prior",
     ]
     
     paths = [os.path.join(OUT_PATH, "csv", name) for name in names]
