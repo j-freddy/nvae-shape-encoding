@@ -27,7 +27,7 @@ class ACUNet(UNet):
         # The shape prior factor constant is how much larger the cross-entropy
         # loss is compared to the L2 shape prior loss, averaged over the
         # entirety of training time
-        self.shape_prior_factor = 0.309
+        self.shape_prior_factor = 190511
     
     def loss(
         self,
