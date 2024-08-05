@@ -5,10 +5,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from utils.const import ACDC, SEED
-
-def clamp(x: float, low: float, high: float) -> float:
-    return max(low, min(x, high))
+from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
 def setup_device() -> torch.device:
     """
@@ -36,7 +33,19 @@ def setup_device() -> torch.device:
 
     return device
 
-def acdc_class_id_to_idx(class_id: ACDC.MaskClassLabel) -> int:
+def listdir(dir: str) -> list[str]:
+    ids = os.listdir(dir)
+
+    # Exclude .DS_Store on macOS
+    if ".DS_Store" in ids:
+        ids.remove(".DS_Store")
+
+    return ids
+
+def clamp(x: float, low: float, high: float) -> float:
+    return max(low, min(x, high))
+
+def mask_class_id_to_idx(class_id: MaskClassLabel) -> int:
     return class_id.value
 
 def show_samples(
@@ -133,7 +142,7 @@ def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     x_hat_argmax = torch.argmax(x_hat, dim=1)
     x_hat_hard = F.one_hot(
         x_hat_argmax.long(),
-        num_classes=ACDC.NUM_CLASSES,
+        num_classes=MASK_NUM_CLASSES,
     ).permute(0, 3, 1, 2)
     
     return x_hat_hard

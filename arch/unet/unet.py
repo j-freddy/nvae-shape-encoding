@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.const import ACDC
+from utils.const import ACDC, MASK_CLASSES
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
@@ -204,7 +204,7 @@ class UNet(L.LightningModule):
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
-            class_label = ACDC.mask_classes[i + 1]
+            class_label = MASK_CLASSES[i + 1]
             self.log(f"dsc/test_{class_label}", dice_score)
         
         # Compute anatomical validity

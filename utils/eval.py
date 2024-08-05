@@ -8,7 +8,7 @@ from torchvision import transforms
 from torchvision.models import inception_v3
 
 from arch.simclr.utils import load_simclr_backbone
-from utils.const import ACDC
+from utils.const import ACDC, MASK_NUM_CLASSES
 from utils.utils import one_hot_to_image
 
 def compute_fid(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
@@ -220,7 +220,7 @@ def compute_dice_score(
     dl = DiceLoss(reduction="mean")
     dice_score_per_class = []
     
-    for component_idx in range(1, ACDC.NUM_CLASSES):
+    for component_idx in range(1, MASK_NUM_CLASSES):
         x_component = x[:, component_idx].unsqueeze(1)
         x_hat_onehot_component = x_hat_onehot[:, component_idx].unsqueeze(1)
         
