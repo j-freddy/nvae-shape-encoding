@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
 from datasets.mnms import MnMsDataset
-from utils.const import MnMs
+from utils.const import MaskClassLabel, MnMs
 from utils.utils import listdir
 
 def get_scan_and_mask(
@@ -18,6 +18,16 @@ def get_scan_and_mask(
     frame_ed: str,
     frame_es: str,
 ) -> tuple[tio.Subject, tio.Subject]:
+    def swap_lv_rv_id(mask: torch.Tensor) -> torch.Tensor:
+        """
+        ACDC dataset uses RV = 1 and LV = 3, but MnMs uses RV = 3 and LV = 1.
+        During preprocessing, we swap the IDs to make it consistent with ACDC.
+        """
+        mask[mask == MaskClassLabel.LV.value] = -1
+        mask[mask == MaskClassLabel.RV.value] = MaskClassLabel.LV.value
+        mask[mask == -1] = MaskClassLabel.RV.value
+        return mask
+    
     patient_dir = os.path.join(dir, patient_id)
     
     path_scan = os.path.join(patient_dir, f"{patient_id}_sa.nii.gz")
@@ -27,9 +37,9 @@ def get_scan_and_mask(
     mask = tio.LabelMap(path_mask)
     
     scan_ed = tio.ScalarImage(tensor=scan.data[frame_ed].unsqueeze(0))
-    mask_ed = tio.LabelMap(tensor=mask.data[frame_ed].unsqueeze(0))
+    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_ed].unsqueeze(0)))
     scan_es = tio.ScalarImage(tensor=scan.data[frame_es].unsqueeze(0))
-    mask_es = tio.LabelMap(tensor=mask.data[frame_es].unsqueeze(0))
+    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_es].unsqueeze(0)))
     
     subject_ed = tio.Subject(
         scan=scan_ed,
