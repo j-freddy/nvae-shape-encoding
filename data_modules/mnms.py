@@ -5,9 +5,11 @@ import pandas as pd
 import torch
 import torchio as tio
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
-from utils.const import MnMs
+from datasets.mnms import MnMsDataset
+from utils.const import MaskClassLabel, MnMs
 from utils.utils import listdir
 
 def get_scan_and_mask(
@@ -16,6 +18,16 @@ def get_scan_and_mask(
     frame_ed: str,
     frame_es: str,
 ) -> tuple[tio.Subject, tio.Subject]:
+    def swap_lv_rv_id(mask: torch.Tensor) -> torch.Tensor:
+        """
+        ACDC dataset uses RV = 1 and LV = 3, but MnMs uses RV = 3 and LV = 1.
+        During preprocessing, we swap the IDs to make it consistent with ACDC.
+        """
+        mask[mask == MaskClassLabel.LV.value] = -1
+        mask[mask == MaskClassLabel.RV.value] = MaskClassLabel.LV.value
+        mask[mask == -1] = MaskClassLabel.RV.value
+        return mask
+    
     patient_dir = os.path.join(dir, patient_id)
     
     path_scan = os.path.join(patient_dir, f"{patient_id}_sa.nii.gz")
@@ -25,9 +37,9 @@ def get_scan_and_mask(
     mask = tio.LabelMap(path_mask)
     
     scan_ed = tio.ScalarImage(tensor=scan.data[frame_ed].unsqueeze(0))
-    mask_ed = tio.LabelMap(tensor=mask.data[frame_ed].unsqueeze(0))
+    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_ed].unsqueeze(0)))
     scan_es = tio.ScalarImage(tensor=scan.data[frame_es].unsqueeze(0))
-    mask_es = tio.LabelMap(tensor=mask.data[frame_es].unsqueeze(0))
+    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_es].unsqueeze(0)))
     
     subject_ed = tio.Subject(
         scan=scan_ed,
@@ -62,13 +74,18 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
             ed_mask=subject_ed.mask,
             es_scan=subject_es.scan,
             es_mask=subject_es.mask,
+            height=float(info_df.loc[patient_id, "Height"]),
+            weight=float(info_df.loc[patient_id, "Weight"]),
+            condition=info_df.loc[patient_id, "Pathology"],
+            vendor=info_df.loc[patient_id, "Vendor"],
+            centre=int(info_df.loc[patient_id, "Centre"]),
         )
         
         subjects.append(subject)
     
     return tio.SubjectsDataset(subjects)
 
-def download_and_preprocess_acdc() -> tio.SubjectsDataset:
+def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, tio.SubjectsDataset]:
     info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
 
     if os.path.exists(MnMs.TRAIN_PATH):
@@ -83,24 +100,72 @@ def download_and_preprocess_acdc() -> tio.SubjectsDataset:
         data_train = get_dataset(MnMs.RAW.TRAIN_PATH_LABELLED, info_df)
         torch.save(data_train, MnMs.TRAIN_PATH)
     
-    # TODO Other datasets
-    return data_train
+    if os.path.exists(MnMs.VAL_PATH):
+        print("Preprocessed validation data found. Loading...")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_val = torch.load(MnMs.VAL_PATH)
+    else:
+        print("Preprocessed validation data not found. Preprocessing...")
+        
+        data_val = get_dataset(MnMs.RAW.VAL_PATH, info_df)
+        torch.save(data_val, MnMs.VAL_PATH)
+    
+    if os.path.exists(MnMs.TEST_PATH):
+        print("Preprocessed test data found. Loading...")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(MnMs.TEST_PATH)
+    else:
+        print("Preprocessed test data not found. Preprocessing...")
+        
+        data_test = get_dataset(MnMs.RAW.TEST_PATH, info_df)
+        torch.save(data_test, MnMs.TEST_PATH)
+    
+    return data_train, data_val, data_test
 
 class MnMsDataModule(LightningDataModule):
-    def __init__(self, batch_size: int=32, filter_empty: bool=False):
+    def __init__(
+        self,
+        batch_size: int=32,
+        filter_empty: bool=False,
+        from_vendor: str=None,
+        from_centre: int=None,
+        augment: bool=False,
+        augment_test: bool=False,
+    ):
         super().__init__()
         
         self.batch_size = batch_size
         
-        data_train = download_and_preprocess_acdc()
-        data_train = self._get_data_as_slice(data_train, filter_empty)
-        scans, masks, _, _ = data_train
-        print(scans.shape)
-        print(masks.shape)
-        import sys
-        sys.exit()
+        data_train, data_val, data_test = download_and_preprocess_acdc()
         
-        # self.data_train = ACDCDataset(*data_train, augment=augment)
+        data_train = self._get_data_as_slice(
+            data_train,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
+        
+        data_val = self._get_data_as_slice(
+            data_val,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
+        
+        data_test = self._get_data_as_slice(
+            data_test,
+            filter_empty,
+            from_vendor,
+            from_centre,
+        )
+        
+        self.data_train = MnMsDataset(*data_train, augment=augment)
+        self.data_val = MnMsDataset(*data_val, augment=False)
+        self.data_test = MnMsDataset(*data_test, augment=augment_test)
     
     def _get_data_as_slice_from_subject(
         self,
@@ -129,9 +194,7 @@ class MnMsDataModule(LightningDataModule):
         
         scans = torch.stack(scans)
         masks = torch.stack(masks)
-        # TODO Update
-        # conditions = ACDC.condition_to_idx[subject.condition] * torch.ones(scans.shape[0])
-        conditions = 0 * torch.ones(scans.shape[0])
+        conditions = MnMs.condition_to_idx[subject.condition] * torch.ones(scans.shape[0])
         
         return scans, masks, conditions
         
@@ -139,6 +202,8 @@ class MnMsDataModule(LightningDataModule):
         self,
         data: tio.SubjectsDataset,
         filter_empty: bool=True,
+        from_vendor: str=None,
+        from_centre: int=None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scans = []
         masks = []
@@ -146,6 +211,12 @@ class MnMsDataModule(LightningDataModule):
         eds = []
         
         for subject in data:
+            if from_vendor is not None and subject.vendor != from_vendor:
+                continue
+            
+            if from_centre is not None and subject.centre != from_centre:
+                continue
+            
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
                 subject,
                 is_ed=True,
@@ -181,3 +252,12 @@ class MnMsDataModule(LightningDataModule):
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()
+
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
+
+    def val_dataloader(self, shuffle=False):
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)

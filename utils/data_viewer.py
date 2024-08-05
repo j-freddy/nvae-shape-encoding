@@ -3,10 +3,11 @@ import os
 import lightning as L
 import torch
 
-from utils.const import OUT_PATH, SEED
+from data_modules.mnms import MnMsDataModule
+from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import setup_device, show_samples, show_scans_and_masks
+from utils.utils import mask_class_id_to_idx, setup_device, show_samples, show_scans_and_masks
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -15,7 +16,7 @@ def parse_args() -> argparse.Namespace:
         "--dataset",
         type=str,
         help="Which dataset to use.",
-        choices=["cifar10", "acdc"],
+        choices=["cifar10", "acdc", "mnms"],
         default="acdc",
     )
     
@@ -96,7 +97,7 @@ def view_acdc_scans(save: bool):
     # View samples
     loader_test = data_module.test_dataloader(shuffle=True)
     
-    samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
+    samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
     scans, masks, _, _ = samples
     
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
@@ -167,6 +168,46 @@ def view_acdc_masks(save: bool):
             save_path=save_path,
             display=not save,
         )
+        
+def view_mnms_scans(save: bool):
+    # Seed
+    L.seed_everything(SEED)
+    
+    data_module = MnMsDataModule(
+        batch_size=24,
+        filter_empty=flags.filter_empty,
+        augment_test=flags.augment,
+    )
+    
+    print(f"Number of train samples: {len(data_module.data_train)}")
+    print(f"Number of test samples: {len(data_module.data_test)}")
+    
+    # Reseed
+    L.seed_everything(SEED)
+    
+    # View samples
+    loader_test = data_module.test_dataloader(shuffle=True)
+    
+    samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
+    scans, masks, _, _ = samples
+    
+    # Uncomment this to view each channel separately
+    # class_idx = mask_class_id_to_idx(MaskClassLabel.LV)
+    # masks = masks[:, class_idx, :, :].unsqueeze(1)
+    
+    # Or recombine the channels
+    masks = torch.argmax(masks, dim=1).unsqueeze(1)
+    
+    save_path = os.path.join(OUT_PATH, "mnms_data.png") if save else None
+    
+    show_scans_and_masks(
+        scans,
+        masks,
+        ncol=6,
+        figsize=(24, 16) if save else (6, 4),
+        save_path=save_path,
+        display=not save,
+    )
 
 def main(flags: argparse.Namespace):
     # Setup device
@@ -183,6 +224,9 @@ def main(flags: argparse.Namespace):
                 view_acdc_scans(flags.save)
             else:
                 view_acdc_masks(flags.save)
+        
+        case "mnms":
+            view_mnms_scans(flags.save)
 
         case _:
             raise ValueError(f"Unknown dataset: {flags.dataset}")

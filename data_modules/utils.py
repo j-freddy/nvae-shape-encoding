@@ -5,18 +5,22 @@ from utils.const import CARDIAC_WIDTH
 
 def preprocess(subject: tio.Subject) -> tio.Subject:
     mask = subject.mask.data[0, :, :, :]
-    _, _, num_slices = mask.shape
+    og_width, og_height, num_slices = mask.shape
 
     # :2 to ignore slice index
     nonzero_coords = torch.nonzero(mask)[:, :2]
 
-    # Get bounding box
-    min_x = torch.min(nonzero_coords[:, 1]).item()
-    max_x = torch.max(nonzero_coords[:, 1]).item()
-    min_y = torch.min(nonzero_coords[:, 0]).item()
-    max_y = torch.max(nonzero_coords[:, 0]).item()
-    
-    width = max(max_x - min_x, max_y - min_y)
+    # Edge case: No non-zero coordinates
+    if nonzero_coords.shape[0] == 0:
+        width = max(og_width, og_height)
+    else:
+        # Get bounding box
+        min_x = torch.min(nonzero_coords[:, 1]).item()
+        max_x = torch.max(nonzero_coords[:, 1]).item()
+        min_y = torch.min(nonzero_coords[:, 0]).item()
+        max_y = torch.max(nonzero_coords[:, 0]).item()
+        
+        width = max(max_x - min_x, max_y - min_y)
     
     # With rotation augmentation, padding is required to prevent cropping
 
