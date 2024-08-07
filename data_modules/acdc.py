@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from data_modules.utils import preprocess
-from utils.const import ACDC, CARDIAC_WIDTH, DATA_PATH, SCRIPTS_PATH
+from utils.const import ACDC, CARDIAC_WIDTH, DATA_PATH, MASK_NUM_CLASSES, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot_to_image
 
@@ -172,6 +172,18 @@ class ACDCDataModule(LightningDataModule):
         augment: bool=False,
         augment_test: bool=False,
     ):
+        """
+        Args:
+            batch_size (int): Batch size. Default: 32.
+            filter_empty: Whether to remove slices with empty masks. Default:
+                False.
+            register_alignment: Whether to register at slice level such that RV
+                points upwards. Default: False.
+            augment: Whether to apply data augmentation on train set. Default:
+                False.
+            augment_test: Whether to apply data augmentation on test set.
+                Default: False.
+        """
         super().__init__()
         
         self.batch_size = batch_size
@@ -315,7 +327,7 @@ class ACDCDataModule(LightningDataModule):
         masks = torch.squeeze(masks, dim=1)
         masks_onehot = F.one_hot(
             masks.long(),
-            num_classes=len(masks.unique())
+            num_classes=MASK_NUM_CLASSES
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()
@@ -375,9 +387,30 @@ class ACDCMaskDataModule(LightningDataModule):
         augment_rotation_test: bool=False,
         augment_simclr: bool=False,
         augment_simclr_test: bool=False,
-        # If True, return the original mask as well as the augmented pair
         return_original: bool=False,
     ):
+        """
+        Args:
+            batch_size (int): Batch size. Default: 32.
+            filter_empty: Whether to remove slices with empty masks. Default:
+                False.
+            register_alignment: Whether to register at slice level such that RV
+                points upwards. Default: False.
+            as_image: By default, masks are one-hot encoded as 4x128x128. If
+                set, the masks are converted to RGB images (3x128x128) where RV,
+                MYO, LV correspond to red, green, blue respectively. Default:
+                False.
+            augment_rotation: Whether to apply rotation augmentation on train
+                set. Default: False.
+            augment_rotation_test: Whether to apply rotation augmentation on
+                test set. Default: False.
+            augment_simclr: Whether to apply SimCLR augmentation pipeline on
+                train set. Default: False.
+            augment_simclr_test: Whether to apply SimCLR augmentation pipeline
+                on test set. Default: False.
+            return_original: If set, return the original mask as well as the
+                augmented pair. Default: False.
+        """
         assert not (augment_rotation and augment_simclr)
         assert not (augment_rotation_test and augment_simclr_test)
         
@@ -470,7 +503,7 @@ class ACDC3DDataModule(LightningDataModule):
         masks = torch.squeeze(masks, dim=1)
         masks_onehot = F.one_hot(
             masks.long(),
-            num_classes=len(masks.unique())
+            num_classes=MASK_NUM_CLASSES
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()

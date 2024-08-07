@@ -90,7 +90,6 @@ class ACDCMaskDataset(Dataset):
         masks: torch.Tensor,
         augment_rotation: bool=False,
         augment_simclr: bool=False,
-        # If True, return the original mask as well as the augmented pair
         return_original: bool=False,
     ):
         self.masks = masks
