@@ -334,7 +334,7 @@ class ACDCDataModule(LightningDataModule):
     
     def _split_train_val(
         self,
-        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         perc: float=0.9,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         # Shuffle data

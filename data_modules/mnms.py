@@ -198,7 +198,7 @@ class MnMsDataModule(LightningDataModule):
         filter_empty: bool=False,
         from_vendor: str=None,
         from_centre: int=None,
-        num_subjects: int=None,
+        num_subjects: int=-1,
         sort_by_validity: bool=False,
         augment: bool=False,
         augment_test: bool=False,
@@ -213,8 +213,8 @@ class MnMsDataModule(LightningDataModule):
             from_centre: Use data only from the specified centre. If None, use
                 data from all centres. Default: None.
             num_subjects: Number of subjects to use for both training and
-                validation. The subjects are randomly sampled. If None, use all
-                available data. Default: None.
+                validation. The subjects are randomly sampled. If -1, use all
+                available data. Default: -1.
             sort_by_validity: If set, instead of randomly sampling subjects,
                 prioritise subjects with high percentage of anatomically valid
                 masks. Default: False.
@@ -229,7 +229,7 @@ class MnMsDataModule(LightningDataModule):
         
         data_train, data_val, data_test = download_and_preprocess_acdc()
         
-        if num_subjects is not None:
+        if num_subjects != -1:
             # Merge train and validation data together
             data = tio.SubjectsDataset(data_train + data_val)
 
@@ -242,22 +242,22 @@ class MnMsDataModule(LightningDataModule):
                 sort_by_validity,
             )
             
-            import sys
-            sys.exit()
-        
-        data_train = self._get_data_as_slice(
-            data_train,
-            filter_empty,
-            from_vendor,
-            from_centre,
-        )
-        
-        data_val = self._get_data_as_slice(
-            data_val,
-            filter_empty,
-            from_vendor,
-            from_centre,
-        )
+            data_train, data_val = self._split_train_val(data)
+        else:
+            # Get entire dataset from specified vendor/centre/all
+            data_train = self._get_data_as_slice(
+                data_train,
+                filter_empty,
+                from_vendor,
+                from_centre,
+            )
+            
+            data_val = self._get_data_as_slice(
+                data_val,
+                filter_empty,
+                from_vendor,
+                from_centre,
+            )
         
         data_test = self._get_data_as_slice(
             data_test,
@@ -363,12 +363,6 @@ class MnMsDataModule(LightningDataModule):
         if num_subjects is not None:
             data = self._sample_data(data, num_subjects, sort_by_validity)
         
-        for subject in data:
-            print(subject.anatomical_validity_of_masks)
-        
-        import sys
-        sys.exit()
-        
         # Get data as slice
         for subject in data:
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
@@ -406,6 +400,22 @@ class MnMsDataModule(LightningDataModule):
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()
+
+    def _split_train_val(
+        self,
+        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        perc: float=0.9,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Shuffle data
+        idx = torch.randperm(len(data[0]))
+        data = [d[idx] for d in data]
+        
+        # Split data
+        split_idx = int(len(data[0]) * perc)
+        data_train = [d[:split_idx] for d in data]
+        data_val = [d[split_idx:] for d in data]
+        
+        return data_train, data_val
 
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
