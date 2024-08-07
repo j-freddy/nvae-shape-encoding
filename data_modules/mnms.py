@@ -37,10 +37,22 @@ def get_scan_and_mask(
     scan = tio.ScalarImage(path_scan)
     mask = tio.LabelMap(path_mask)
     
-    scan_ed = tio.ScalarImage(tensor=scan.data[frame_ed].unsqueeze(0))
-    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_ed].unsqueeze(0)))
-    scan_es = tio.ScalarImage(tensor=scan.data[frame_es].unsqueeze(0))
-    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_es].unsqueeze(0)))
+    scan_data = scan.data
+    mask_data = mask.data
+    
+    # SimpleITK output shape is [num_frames, H, W, num_slices] but nibabel
+    # output shape is [H, W, num_slices, num_frames]
+
+    # noqa: Hacky way to check if nibabel was used to load data, then correct
+    # shape by permuting
+    if torch.all(mask_data[frame_ed] == 0):
+        scan_data = scan_data.permute(3, 0, 1, 2)
+        mask_data = mask_data.permute(3, 0, 1, 2)
+    
+    scan_ed = tio.ScalarImage(tensor=scan_data[frame_ed].unsqueeze(0))
+    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask_data[frame_ed].unsqueeze(0)))
+    scan_es = tio.ScalarImage(tensor=scan_data[frame_es].unsqueeze(0))
+    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask_data[frame_es].unsqueeze(0)))
     
     subject_ed = tio.Subject(
         scan=scan_ed,
