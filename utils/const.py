@@ -72,7 +72,7 @@ class MnMs:
     condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
     
     vendors = ["A", "B", "C", "D"]
-    centres = [1, 2, 3, 4, 5, 6]
+    centres = [1, 2, 3, 4, 5]
 
     @dataclass
     class RAW:

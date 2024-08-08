@@ -4,7 +4,7 @@ import lightning as L
 import torch
 
 from data_modules.mnms import MnMsDataModule
-from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel
+from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel, MnMs
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import mask_class_id_to_idx, setup_device, show_samples, show_scans_and_masks
@@ -18,6 +18,14 @@ def parse_args() -> argparse.Namespace:
         help="Which dataset to use.",
         choices=["cifar10", "acdc", "mnms"],
         default="acdc",
+    )
+    
+    parser.add_argument(
+        "--centre",
+        type=int,
+        help="If using M&Ms and set, only show scans from the specified centre.",
+        choices=MnMs.centres,
+        default=None,
     )
     
     parser.add_argument(
@@ -169,13 +177,14 @@ def view_acdc_masks(save: bool):
             display=not save,
         )
         
-def view_mnms_scans(save: bool):
+def view_mnms_scans(from_centre: int, save: bool):
     # Seed
     L.seed_everything(SEED)
     
     data_module = MnMsDataModule(
         batch_size=24,
         filter_empty=flags.filter_empty,
+        from_centre=from_centre,
         augment_test=flags.augment,
     )
     
@@ -226,7 +235,7 @@ def main(flags: argparse.Namespace):
                 view_acdc_masks(flags.save)
         
         case "mnms":
-            view_mnms_scans(flags.save)
+            view_mnms_scans(flags.centre, flags.save)
 
         case _:
             raise ValueError(f"Unknown dataset: {flags.dataset}")
