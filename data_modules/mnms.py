@@ -110,6 +110,7 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
         anatomical_validity = (anatomical_validity_ed + anatomical_validity_es) / 2
         
         subject = tio.Subject(
+            patient_id=patient_id,
             ed_scan=subject_ed.scan,
             ed_mask=subject_ed.mask,
             es_scan=subject_es.scan,
@@ -330,6 +331,9 @@ class MnMsDataModule(LightningDataModule):
             scan = subject_scan_data[:, :, :, slice]
             mask = subject_mask_data[:, :, :, slice]
             
+            if torch.all(scan == 0):
+                continue
+            
             if filter_empty and torch.all(mask == 0):
                 continue
 
@@ -362,6 +366,9 @@ class MnMsDataModule(LightningDataModule):
         # Sample @num_subjects subjects
         if num_subjects is not None:
             data = self._sample_data(data, num_subjects, sort_by_validity)
+                
+            # Debug: Filter by patient ID: G4S9U3 only
+            data = tio.SubjectsDataset([s for s in data if s.patient_id == "G4S9U3"])
         
         # Get data as slice
         for subject in data:
