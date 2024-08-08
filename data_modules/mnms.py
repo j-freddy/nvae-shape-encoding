@@ -366,9 +366,6 @@ class MnMsDataModule(LightningDataModule):
         # Sample @num_subjects subjects
         if num_subjects is not None:
             data = self._sample_data(data, num_subjects, sort_by_validity)
-                
-            # Debug: Filter by patient ID: G4S9U3 only
-            data = tio.SubjectsDataset([s for s in data if s.patient_id == "G4S9U3"])
         
         # Get data as slice
         for subject in data:
