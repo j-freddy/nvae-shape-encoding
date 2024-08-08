@@ -4,6 +4,7 @@ import lightning as L
 import torch
 
 from data_modules.mnms import MnMsDataModule
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel, MnMs
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
@@ -26,6 +27,20 @@ def parse_args() -> argparse.Namespace:
         help="If using M&Ms and set, only show scans from the specified centre.",
         choices=MnMs.centres,
         default=None,
+    )
+    
+    parser.add_argument(
+        "--num_subjects",
+        type=int,
+        help="Few-shot learning: Number of subjects to use. If -1, use all subjects.",
+        default=-1,
+    )
+    
+    parser.add_argument(
+        "--sort_by_validity",
+        action=argparse.BooleanOptionalAction,
+        help="Few-shot learning: If set, use subjects with highest % anatomical validity.",
+        default=False,
     )
     
     parser.add_argument(
@@ -85,7 +100,7 @@ def view_cifar10():
     images, _ = samples
     show_samples(images, ncol=8, figsize=(8, 2))
 
-def view_acdc_scans(save: bool):
+def view_acdc_scans():
     # Seed
     L.seed_everything(SEED)
     
@@ -110,15 +125,15 @@ def view_acdc_scans(save: bool):
     
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
     
-    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if flags.save else None
     
     show_scans_and_masks(
         scans,
         masks,
         ncol=6,
-        figsize=(24, 16) if save else (6, 4),
+        figsize=(24, 16) if flags.save else (6, 4),
         save_path=save_path,
-        display=not save,
+        display=not flags.save,
     )
 
 def view_acdc_masks(save: bool):
@@ -144,7 +159,7 @@ def view_acdc_masks(save: bool):
     # View samples
     loader_test = data_module.test_dataloader(shuffle=True)
     
-    save_path = os.path.join(OUT_PATH, "acdc_data.png") if save else None
+    save_path = os.path.join(OUT_PATH, "acdc_data.png") if flags.save else None
     
     if not flags.augment_simclr:
         samples: torch.Tensor = next(iter(loader_test))
@@ -160,9 +175,9 @@ def view_acdc_masks(save: bool):
             samples,
             rgb=flags.augment_simclr,
             ncol=6,
-            figsize=(18, 12) if save else (6, 4),
+            figsize=(18, 12) if flags.save else (6, 4),
             save_path=save_path,
-            display=not save,
+            display=not flags.save,
         )
     else:
         samples_pair: list[torch.Tensor] = next(iter(loader_test))
@@ -172,19 +187,21 @@ def view_acdc_masks(save: bool):
             samples,
             rgb=flags.augment_simclr,
             ncol=12,
-            figsize=(48, 12) if save else (12, 3),
+            figsize=(48, 12) if flags.save else (12, 3),
             save_path=save_path,
-            display=not save,
+            display=not flags.save,
         )
         
-def view_mnms_scans(from_centre: int, save: bool):
+def view_mnms_scans():
     # Seed
     L.seed_everything(SEED)
     
     data_module = MnMsDataModule(
         batch_size=24,
         filter_empty=flags.filter_empty,
-        from_centre=from_centre,
+        from_centre=flags.centre,
+        num_subjects=flags.num_subjects,
+        sort_by_validity=flags.sort_by_validity,
         augment_test=flags.augment,
     )
     
@@ -195,9 +212,11 @@ def view_mnms_scans(from_centre: int, save: bool):
     L.seed_everything(SEED)
     
     # View samples
-    loader_test = data_module.test_dataloader(shuffle=True)
+    loader = data_module.test_dataloader(shuffle=True) \
+        if flags.num_subjects == -1 \
+        else data_module.train_dataloader(shuffle=True)
     
-    samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader_test))
+    samples: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = next(iter(loader))
     scans, masks, _, _ = samples
     
     # Uncomment this to view each channel separately
@@ -207,15 +226,15 @@ def view_mnms_scans(from_centre: int, save: bool):
     # Or recombine the channels
     masks = torch.argmax(masks, dim=1).unsqueeze(1)
     
-    save_path = os.path.join(OUT_PATH, "mnms_data.png") if save else None
+    save_path = os.path.join(OUT_PATH, "mnms_data.png") if flags.save else None
     
     show_scans_and_masks(
         scans,
         masks,
         ncol=6,
-        figsize=(24, 16) if save else (6, 4),
+        figsize=(24, 16) if flags.save else (6, 4),
         save_path=save_path,
-        display=not save,
+        display=not flags.save,
     )
 
 def main(flags: argparse.Namespace):
@@ -230,12 +249,12 @@ def main(flags: argparse.Namespace):
 
         case "acdc":
             if flags.show_scans:
-                view_acdc_scans(flags.save)
+                view_acdc_scans()
             else:
-                view_acdc_masks(flags.save)
+                view_acdc_masks()
         
         case "mnms":
-            view_mnms_scans(flags.centre, flags.save)
+            view_mnms_scans()
 
         case _:
             raise ValueError(f"Unknown dataset: {flags.dataset}")
