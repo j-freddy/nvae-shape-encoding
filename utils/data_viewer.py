@@ -4,7 +4,6 @@ import lightning as L
 import torch
 
 from data_modules.mnms import MnMsDataModule
-from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel, MnMs
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
