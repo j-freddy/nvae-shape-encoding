@@ -31,14 +31,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num_subjects",
         type=int,
-        help="Few-shot learning: Number of subjects to use. If -1, use all subjects.",
+        help="Few-shot learning for M&Ms: Number of subjects to use. If -1, use all subjects.",
         default=-1,
     )
     
     parser.add_argument(
         "--sort_by_validity",
         action=argparse.BooleanOptionalAction,
-        help="Few-shot learning: If set, use subjects with highest % anatomical validity.",
+        help="Few-shot learning for M&Ms: If set, use subjects with highest % anatomical validity.",
         default=False,
     )
     

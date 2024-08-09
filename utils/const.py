@@ -19,6 +19,8 @@ class CIFAR10:
     
     CIFAR-10 constants.
     """
+
+    @dataclass
     class DIR:
         VAE = "vae_cifar10"
         NVAE = "nvae_cifar10"
@@ -43,6 +45,7 @@ class ACDC:
     conditions = ["NOR", "MINF", "DCM", "HCM", "RV"]
     condition_to_idx = {condition: i for i, condition in enumerate(conditions)}
 
+    @dataclass
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
@@ -73,6 +76,10 @@ class MnMs:
     
     vendors = ["A", "B", "C", "D"]
     centres = [1, 2, 3, 4, 5]
+
+    @dataclass
+    class DIR:
+        UNET = "unet_mnms"
 
     @dataclass
     class RAW:
