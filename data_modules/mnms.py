@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
 from datasets.mnms import MnMsDataset
-from utils.const import MaskClassLabel, MnMs
+from utils.anatomical_validity_checker import AnatomicalValidityChecker
+from utils.const import MASK_NUM_CLASSES, MaskClassLabel, MnMs
 from utils.utils import listdir
 
 def get_scan_and_mask(
@@ -36,10 +37,22 @@ def get_scan_and_mask(
     scan = tio.ScalarImage(path_scan)
     mask = tio.LabelMap(path_mask)
     
-    scan_ed = tio.ScalarImage(tensor=scan.data[frame_ed].unsqueeze(0))
-    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_ed].unsqueeze(0)))
-    scan_es = tio.ScalarImage(tensor=scan.data[frame_es].unsqueeze(0))
-    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask.data[frame_es].unsqueeze(0)))
+    scan_data = scan.data
+    mask_data = mask.data
+    
+    # SimpleITK output shape is [num_frames, H, W, num_slices] but nibabel
+    # output shape is [H, W, num_slices, num_frames]
+
+    # noqa: Hacky way to check if nibabel was used to load data, then correct
+    # shape by permuting
+    if torch.all(mask_data[frame_ed] == 0):
+        scan_data = scan_data.permute(3, 0, 1, 2)
+        mask_data = mask_data.permute(3, 0, 1, 2)
+    
+    scan_ed = tio.ScalarImage(tensor=scan_data[frame_ed].unsqueeze(0))
+    mask_ed = tio.LabelMap(tensor=swap_lv_rv_id(mask_data[frame_ed].unsqueeze(0)))
+    scan_es = tio.ScalarImage(tensor=scan_data[frame_es].unsqueeze(0))
+    mask_es = tio.LabelMap(tensor=swap_lv_rv_id(mask_data[frame_es].unsqueeze(0)))
     
     subject_ed = tio.Subject(
         scan=scan_ed,
@@ -54,6 +67,27 @@ def get_scan_and_mask(
     return subject_ed, subject_es
 
 def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
+    def one_hot(masks: torch.Tensor) -> torch.Tensor:
+        masks = torch.squeeze(masks, dim=1)
+        masks_onehot = F.one_hot(
+            masks.long(),
+            num_classes=MASK_NUM_CLASSES
+        ).permute(0, 3, 1, 2)
+        
+        return masks_onehot.float()
+    
+    def get_anatomical_validity_of_masks(subject: tio.Subject) -> float:
+        masks = one_hot(subject.mask.data.permute(3, 0, 1, 2))
+        
+        num_valid = 0
+    
+        for mask in masks:
+            AV = AnatomicalValidityChecker(mask)
+            if AV.count_violations() == 0:
+                num_valid += 1
+        
+        return num_valid / len(masks)
+    
     subjects = []
 
     patient_ids = listdir(dir)
@@ -69,7 +103,14 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
         subject_ed = preprocess(subject_ed)
         subject_es = preprocess(subject_es)
         
+        anatomical_validity_ed = get_anatomical_validity_of_masks(subject_ed)
+        anatomical_validity_es = get_anatomical_validity_of_masks(subject_es)
+        
+        # A subject has same number of slices so we can take geometric mean
+        anatomical_validity = (anatomical_validity_ed + anatomical_validity_es) / 2
+        
         subject = tio.Subject(
+            patient_id=patient_id,
             ed_scan=subject_ed.scan,
             ed_mask=subject_ed.mask,
             es_scan=subject_es.scan,
@@ -79,6 +120,7 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
             condition=info_df.loc[patient_id, "Pathology"],
             vendor=info_df.loc[patient_id, "Vendor"],
             centre=int(info_df.loc[patient_id, "Centre"]),
+            anatomical_validity_of_masks=anatomical_validity,
         )
         
         subjects.append(subject)
@@ -127,34 +169,96 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
     return data_train, data_val, data_test
 
 class MnMsDataModule(LightningDataModule):
+    """
+    Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation
+    Challenge (ACDC) data module.
+    
+    Data is preprocessed to crop to the bounding box around the heart based on
+    the provided GT segmentation masks. Each data point is a 4-tuple consisting
+    of a single slice with the following information:
+    (1) Scan tensor (1x128x128)
+    (2) One-hot encoded GT Mask tensor (4x128x128)
+    (3) Condition tensor (1)
+    (4) Whether the scan is ED/1 or ES/0 (1)
+
+    The condition tensor is an integer with the following indexing:
+    - 1: DCM
+    - 2: HCM
+    - 3: HHD
+    - 4: NOR
+    - 5: Other
+    - 6: ARV
+    - 7: AHS
+    - 8: IHD
+    - 9: LVNC
+    """
+    
     def __init__(
         self,
         batch_size: int=32,
         filter_empty: bool=False,
         from_vendor: str=None,
         from_centre: int=None,
+        num_subjects: int=-1,
+        sort_by_validity: bool=False,
         augment: bool=False,
         augment_test: bool=False,
     ):
+        """
+        Args:
+            batch_size (int): Batch size. Default: 32.
+            filter_empty: Whether to remove slices with empty masks. Default:
+                False.
+            from_vendor: Use data only from the specified vendor. If None, use
+                data from all vendors. Default: None.
+            from_centre: Use data only from the specified centre. If None, use
+                data from all centres. Default: None.
+            num_subjects: Number of subjects to use for both training and
+                validation. The subjects are randomly sampled. If -1, use all
+                available data. Default: -1.
+            sort_by_validity: If set, instead of randomly sampling subjects,
+                prioritise subjects with high percentage of anatomically valid
+                masks. Default: False.
+            augment: Whether to apply data augmentation on train
+                set. Default: False.
+            augment_test: Whether to apply data augmentation on
+                test set. Default: False.
+        """
         super().__init__()
         
         self.batch_size = batch_size
         
         data_train, data_val, data_test = download_and_preprocess_acdc()
         
-        data_train = self._get_data_as_slice(
-            data_train,
-            filter_empty,
-            from_vendor,
-            from_centre,
-        )
-        
-        data_val = self._get_data_as_slice(
-            data_val,
-            filter_empty,
-            from_vendor,
-            from_centre,
-        )
+        if num_subjects != -1:
+            # Merge train and validation data together
+            data = tio.SubjectsDataset(data_train + data_val)
+
+            data = self._get_data_as_slice(
+                data,
+                filter_empty,
+                from_vendor,
+                from_centre,
+                num_subjects,
+                sort_by_validity,
+            )
+            
+            data_train, data_val = self._split_train_val(data)
+        else:
+            # Get entire dataset from specified vendor/centre/all
+            data_train = self._get_data_as_slice(
+                data_train,
+                filter_empty,
+                from_vendor,
+                from_centre,
+            )
+            
+            data_val = self._get_data_as_slice(
+                data_val,
+                filter_empty,
+                from_vendor,
+                from_centre,
+            )
         
         data_test = self._get_data_as_slice(
             data_test,
@@ -166,6 +270,47 @@ class MnMsDataModule(LightningDataModule):
         self.data_train = MnMsDataset(*data_train, augment=augment)
         self.data_val = MnMsDataset(*data_val, augment=False)
         self.data_test = MnMsDataset(*data_test, augment=augment_test)
+    
+    def _filter_data(
+        self,
+        data: tio.SubjectsDataset,
+        from_vendor: str=None,
+        from_centre: int=None,
+    ) -> tio.SubjectsDataset:
+        """
+        Filter by vendor and centre.
+        """
+        data_filtered = []
+        
+        for subject in data:
+            if from_vendor is not None and subject.vendor != from_vendor:
+                continue
+            
+            if from_centre is not None and subject.centre != from_centre:
+                continue
+            
+            data_filtered.append(subject)
+        
+        return tio.SubjectsDataset(data_filtered)
+
+    def _sample_data(
+        self,
+        data: tio.SubjectsDataset,
+        num_subjects: int,
+        sort_by_validity: bool=False,
+    ) -> tio.SubjectsDataset:
+        if sort_by_validity:
+            data = sorted(
+                data,
+                key=lambda subject: subject.anatomical_validity_of_masks,
+                reverse=True,
+            )
+            data = data[:num_subjects]
+        else:
+            idx = torch.randperm(len(data))[:num_subjects]
+            data = tio.SubjectsDataset([data[i] for i in idx])
+        
+        return data
     
     def _get_data_as_slice_from_subject(
         self,
@@ -186,6 +331,9 @@ class MnMsDataModule(LightningDataModule):
             scan = subject_scan_data[:, :, :, slice]
             mask = subject_mask_data[:, :, :, slice]
             
+            if torch.all(scan == 0):
+                continue
+            
             if filter_empty and torch.all(mask == 0):
                 continue
 
@@ -204,19 +352,23 @@ class MnMsDataModule(LightningDataModule):
         filter_empty: bool=True,
         from_vendor: str=None,
         from_centre: int=None,
+        num_subjects: int=None,
+        sort_by_validity: bool=False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scans = []
         masks = []
         conditions = []
         eds = []
         
+        # Filter by vendor and centre
+        data = self._filter_data(data, from_vendor, from_centre)
+        
+        # Sample @num_subjects subjects
+        if num_subjects is not None:
+            data = self._sample_data(data, num_subjects, sort_by_validity)
+        
+        # Get data as slice
         for subject in data:
-            if from_vendor is not None and subject.vendor != from_vendor:
-                continue
-            
-            if from_centre is not None and subject.centre != from_centre:
-                continue
-            
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
                 subject,
                 is_ed=True,
@@ -248,10 +400,26 @@ class MnMsDataModule(LightningDataModule):
         masks = torch.squeeze(masks, dim=1)
         masks_onehot = F.one_hot(
             masks.long(),
-            num_classes=len(masks.unique())
+            num_classes=MASK_NUM_CLASSES
         ).permute(0, 3, 1, 2)
         
         return masks_onehot.float()
+
+    def _split_train_val(
+        self,
+        data: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        perc: float=0.9,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Shuffle data
+        idx = torch.randperm(len(data[0]))
+        data = [d[idx] for d in data]
+        
+        # Split data
+        split_idx = int(len(data[0]) * perc)
+        data_train = [d[:split_idx] for d in data]
+        data_val = [d[split_idx:] for d in data]
+        
+        return data_train, data_val
 
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
