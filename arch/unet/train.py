@@ -102,7 +102,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
-    
     match flags.dataset:
         case "acdc":
             dataset_dir = ACDC.DIR.UNET

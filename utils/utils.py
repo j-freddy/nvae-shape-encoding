@@ -147,6 +147,19 @@ def discretise(x_hat: torch.Tensor) -> torch.Tensor:
     
     return x_hat_hard
 
+def one_hot(masks: torch.Tensor) -> torch.Tensor:
+    """
+    Given a segmentation map with shape [B, 1, H, W], return the one-hot encoded
+    representation with shape [B, num_classes, H, W].
+    """
+    masks = torch.squeeze(masks, dim=1)
+    masks_onehot = F.one_hot(
+        masks.long(),
+        num_classes=MASK_NUM_CLASSES,
+    ).permute(0, 3, 1, 2)
+    
+    return masks_onehot
+
 def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
     """
     Given a one-hot encoded segmentation map, return the image representation.
