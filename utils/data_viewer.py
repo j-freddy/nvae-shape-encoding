@@ -135,7 +135,7 @@ def view_acdc_scans():
         display=not flags.save,
     )
 
-def view_acdc_masks(save: bool):
+def view_acdc_masks():
     # Seed
     L.seed_everything(SEED)
     

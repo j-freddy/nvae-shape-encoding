@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import warnings
 from lightning import LightningDataModule
@@ -284,11 +285,62 @@ class MnMsDataModule(LightningDataModule):
         
         return tio.SubjectsDataset(data_filtered)
 
+    def _sample_stratified(
+        self,
+        sorted_data: tio.SubjectsDataset,
+        num_subjects: int,
+        centre: int,
+    ) -> tio.SubjectsDataset:
+        """
+        Stratified sampling for 5 subjects only.
+        
+        Prioritising:
+        1. Proportion of subjects from each condition
+        2. Subjects with highest % anatomically valid masks
+        
+        noqa: Some code is written from manual inspection of sampled data to
+        ensure the prioritisation.
+        """
+        
+        # noqa: Few-shot stratified sampling for 5 subjects only
+        assert num_subjects == 5
+        
+        # Do not choose more than 1 subject from the same condition
+        sampled_data = []
+        conditions_count = defaultdict(lambda: 0)
+        chosen_subjects_id = set()
+        
+        limit = 2 if centre == 2 else 1
+        
+        for subject in sorted_data:
+            if conditions_count[subject.condition] < limit:
+                sampled_data.append(subject)
+                conditions_count[subject.condition] += 1
+                chosen_subjects_id.add(subject.patient_id)
+            
+            if len(sampled_data) == num_subjects:
+                break
+        
+        # If not enough subjects, add remaining subjects in order of % AV
+        if len(sampled_data) < num_subjects:
+            for subject in sorted_data:
+                if subject.patient_id in chosen_subjects_id:
+                    continue
+                
+                sampled_data.append(subject)
+                
+                if len(sampled_data) == num_subjects:
+                    break
+        
+        return tio.SubjectsDataset(sampled_data)
+
     def _sample_data(
         self,
         data: tio.SubjectsDataset,
         num_subjects: int,
         sort_by_validity: bool=False,
+        stratified: bool=True,
+        centre: int=None,
     ) -> tio.SubjectsDataset:
         if sort_by_validity:
             data = sorted(
@@ -296,7 +348,11 @@ class MnMsDataModule(LightningDataModule):
                 key=lambda subject: subject.anatomical_validity_of_masks,
                 reverse=True,
             )
-            data = data[:num_subjects]
+            
+            if stratified:
+                data = self._sample_stratified(data, num_subjects, centre)
+            else:
+                data = data[:num_subjects]
         else:
             idx = torch.randperm(len(data))[:num_subjects]
             data = tio.SubjectsDataset([data[i] for i in idx])
@@ -356,7 +412,20 @@ class MnMsDataModule(LightningDataModule):
         
         # Sample @num_subjects subjects
         if num_subjects is not None:
-            data = self._sample_data(data, num_subjects, sort_by_validity)
+            data = self._sample_data(
+                data,
+                num_subjects,
+                sort_by_validity,
+                centre=from_centre,
+            )
+        
+        print(len(data))
+        
+        for subject in data:
+            print(subject.condition)
+        
+        import sys
+        sys.exit()
         
         # Get data as slice
         for subject in data:
