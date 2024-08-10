@@ -313,7 +313,6 @@ python -m utils.data_viewer \
 # Train an ACU-Net model with good configurations
 python -m arch.unet.train \
     --epochs 50 \
-    --loss_reg cross_entropy \
     --dataset mnms \
     --centre 1 \
     --num_subjects 5 \
@@ -321,9 +320,9 @@ python -m arch.unet.train \
     --augment
 # Test (~5 minutes)
 # A typical checkpoint path is:
-# logs/unet_mnms/version_0/checkpoints/epoch=45-step=4922.ckpt
+# logs/unet_mnms/version_0/checkpoints/epoch=25-step=156.ckpt
 python -m arch.unet.test \
-    --model_path path/to/unet/checkpoint.ckpt \
+    --model_path logs/unet_mnms/cross-entropy-centre-1-few/checkpoints/epoch=25-step=156.ckpt \
     --dataset mnms \
     --centre 1
 ```

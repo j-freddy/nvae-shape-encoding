@@ -158,6 +158,13 @@ def main(flags: argparse.Namespace):
         alpha=flags.alpha,
     )
     
+    # By default, Lightning logs every 50 steps.
+    log_every_n_steps = 50
+    
+    # Few-shot learning: log more frequently (but slower training)
+    if flags.num_subjects != -1 and flags.num_subjects < 20:
+        log_every_n_steps = 6
+    
     trainer = L.Trainer(
         accelerator="auto",
         devices="auto",
@@ -171,7 +178,8 @@ def main(flags: argparse.Namespace):
         callbacks=[
             ModelCheckpoint(monitor="loss/val", mode="min"),
             LearningRateMonitor("epoch"),
-        ]
+        ],
+        log_every_n_steps=log_every_n_steps,
     )
     
     trainer.fit(model, data_module)
