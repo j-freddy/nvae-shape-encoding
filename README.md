@@ -322,7 +322,7 @@ python -m arch.unet.train \
 # A typical checkpoint path is:
 # logs/unet_mnms/version_0/checkpoints/epoch=25-step=156.ckpt
 python -m arch.unet.test \
-    --model_path logs/unet_mnms/cross-entropy-centre-1-few/checkpoints/epoch=25-step=156.ckpt \
+    --model_path path/to/unet/checkpoint.ckpt \
     --dataset mnms \
     --centre 1
 ```
