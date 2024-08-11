@@ -120,7 +120,10 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
     return tio.SubjectsDataset(subjects)
 
 def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, tio.SubjectsDataset]:
-    info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
+    if not os.path.exists(MnMs.TRAIN_PATH) or \
+        not os.path.exists(MnMs.VAL_PATH) or \
+        not os.path.exists(MnMs.TEST_PATH):
+        info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
 
     if os.path.exists(MnMs.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
