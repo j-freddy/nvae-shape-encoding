@@ -14,18 +14,18 @@ export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
 # ==============================================================================
-# [M&Ms U-Net Train Baseline]
+# [M&Ms U-Net Train Shape Prior]
 # M&Ms dataset for domain adaptation and few shot learning experiments.
 # ==============================================================================
 
-logdir="logs-unet-mnms-baseline"
+logdir="logs-unet-mnms-shape-prior"
 
 # Train on full dataset
 
 model_name="all-data"
 python -m arch.unet.train \
     --epochs 100 \
-    --loss_reg "cross_entropy" \
+    --loss_reg "shape_prior" \
     --dataset mnms \
     --augment \
     --model_name $model_name \
@@ -48,7 +48,7 @@ do
     model_name="centre-${centre}-5-subjects"
     python -m arch.unet.train \
         --epochs 100 \
-        --loss_reg "cross_entropy" \
+        --loss_reg "shape_prior" \
         --dataset mnms \
         --centre $centre \
         --num_subjects 5 \
