@@ -28,7 +28,6 @@ python -m arch.unet.train \
     --loss_reg "cross_entropy" \
     --dataset mnms \
     --augment \
-    --seed $seed \
     --model_name $model_name \
     --logs $logdir
 
