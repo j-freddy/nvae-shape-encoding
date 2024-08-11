@@ -596,18 +596,21 @@ class NVAE(L.LightningModule):
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        _, feats, _, _ = batch
+        _, feats, condition, ed = batch
+        
+        condition_label = f"condition_{int(condition)}"
+        phase_label = "ed" if ed else "es"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
         feats = feats.squeeze(0)
         
-        self.log_reconstruction_metrics(feats)
-        self.log_generation_metrics(feats)
+        self.log_reconstruction_metrics(feats, condition_label, phase_label)
+        self.log_generation_metrics(feats, condition_label, phase_label)
         
         self.feats_buffer.append(feats)
 
-    def log_reconstruction_metrics(self, feats: torch.Tensor):
+    def log_reconstruction_metrics(self, feats: torch.Tensor, condition: str, phase: str):
         """
         Log reconstruction metrics to TensorBoard. This includes average
         reconstruction loss and Dice score across the batch.
@@ -634,13 +637,17 @@ class NVAE(L.LightningModule):
         )
         
         self.log("loss/dsc", dice_score)
+        self.log(f"loss/dsc_{phase}", dice_score)
+        self.log(f"loss/dsc_{condition}", dice_score)
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
             class_label = MASK_CLASSES[i + 1]
             self.log(f"loss/dsc_{class_label}", dice_score)
+            self.log(f"loss/dsc_{phase}", dice_score)
+            self.log(f"loss/dsc_{condition}", dice_score)
 
-    def log_generation_metrics(self, feats: torch.Tensor):
+    def log_generation_metrics(self, feats: torch.Tensor, condition: str, phase: str):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
         Distance with SimCLR (FRDS) metric across the batch.
@@ -663,6 +670,8 @@ class NVAE(L.LightningModule):
                 num_valid += 1
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{phase}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{condition}", num_valid / num_samples)
         
         # Keep track of all generations to compute FRDS
         self.feats_fake_buffer.append(feats_fake)
