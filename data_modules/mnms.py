@@ -422,14 +422,6 @@ class MnMsDataModule(LightningDataModule):
                 centre=from_centre,
             )
         
-        print(len(data))
-        
-        for subject in data:
-            print(subject.condition)
-        
-        import sys
-        sys.exit()
-        
         # Get data as slice
         for subject in data:
             ed_scans, ed_masks, ed_conditions = self._get_data_as_slice_from_subject(
