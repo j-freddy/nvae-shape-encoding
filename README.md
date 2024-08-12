@@ -277,24 +277,54 @@ See `analysis/nvae` for further analysis on trained models.
 
 As an extension of the main work on NVAE, an application involves using its
 learned latent spaces as a shape prior in the objective function of U-Net to
-improve segmentation quality. The U-Net takes in a cardiac scan as input and
-outputs a segmentation mask. The code is located in `arch/unet/` and the entry
-points are `train.py` and `test.py`.
+improve segmentation quality. This anatomically constrained U-Net (ACU-Net)
+takes in a cardiac scan as input and outputs a segmentation mask. The code is
+located in `arch/unet/` and the entry points are `train.py` and `test.py`.
 
 The baseline is a U-Net model trained with a cross-entropy objective without the
 shape prior.
 
+In this repository, experiments are conducted primarily with the ACDC dataset. The U-Net environment also supports the M&Ms dataset for domain adaptation and few-short learning experiments.
+
 #### Example
+
+Example for ACDC dataset.
 
 ```sh
 # View data samples
 python -m utils.data_viewer --dataset acdc --show_scans
-# Train a U-Net model with shape prior, with good configurations (~60 minutes)
-python -m arch.unet.train
+# Train an ACU-Net model with good configurations (~60 minutes)
+python -m arch.unet.train --augment
 # Test (~5 minutes)
 # A typical checkpoint path is:
 # logs/unet_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
 python -m arch.unet.test --model_path path/to/unet/checkpoint.ckpt
+```
+
+Example for M&Ms dataset.
+
+```sh
+# View data samples
+python -m utils.data_viewer \
+    --dataset mnms \
+    --centre 1 \
+    --num_subjects 5 \
+    --sort_by_validity
+# Train an ACU-Net model with good configurations
+python -m arch.unet.train \
+    --epochs 50 \
+    --dataset mnms \
+    --centre 1 \
+    --num_subjects 5 \
+    --sort_by_validity \
+    --augment
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/unet_mnms/version_0/checkpoints/epoch=25-step=156.ckpt
+python -m arch.unet.test \
+    --model_path path/to/unet/checkpoint.ckpt \
+    --dataset mnms \
+    --centre 1
 ```
 
 Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.

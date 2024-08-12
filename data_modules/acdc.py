@@ -12,7 +12,7 @@ import torchvision.transforms.functional as TF
 from data_modules.utils import preprocess
 from utils.const import ACDC, CARDIAC_WIDTH, DATA_PATH, MASK_NUM_CLASSES, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
-from utils.utils import one_hot_to_image
+from utils.utils import one_hot, one_hot_to_image
 
 def get_info(patient_id: str, test: bool=False) -> dict:
     info_file = os.path.join(
@@ -317,20 +317,11 @@ class ACDCDataModule(LightningDataModule):
             eds.append(torch.zeros(es_scans.shape[0]))
         
         scans = torch.cat(scans)
-        masks = self._one_hot(torch.cat(masks))
+        masks = one_hot(torch.cat(masks)).float()
         conditions = torch.cat(conditions)
         eds = torch.cat(eds)
         
         return scans, masks, conditions, eds
-
-    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
-        masks = torch.squeeze(masks, dim=1)
-        masks_onehot = F.one_hot(
-            masks.long(),
-            num_classes=MASK_NUM_CLASSES
-        ).permute(0, 3, 1, 2)
-        
-        return masks_onehot.float()
     
     def _split_train_val(
         self,
@@ -480,7 +471,7 @@ class ACDC3DDataModule(LightningDataModule):
             
             # ED
             subject_scan_data = subject.ed_scan.data.permute(3, 0, 1, 2)
-            subject_mask_data = self._one_hot(subject.ed_mask.data.permute(3, 0, 1, 2))
+            subject_mask_data = one_hot(subject.ed_mask.data.permute(3, 0, 1, 2)).float()
             condition = ACDC.condition_to_idx[subject.condition]
             
             scans.append(subject_scan_data)
@@ -490,7 +481,7 @@ class ACDC3DDataModule(LightningDataModule):
             
             # ES
             subject_scan_data = subject.es_scan.data.permute(3, 0, 1, 2)
-            subject_mask_data = self._one_hot(subject.es_mask.data.permute(3, 0, 1, 2))
+            subject_mask_data = one_hot(subject.es_mask.data.permute(3, 0, 1, 2)).float()
             
             scans.append(subject_scan_data)
             masks.append(subject_mask_data)
@@ -498,15 +489,6 @@ class ACDC3DDataModule(LightningDataModule):
             eds.append(0)
         
         return scans, masks, conditions, eds
-
-    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
-        masks = torch.squeeze(masks, dim=1)
-        masks_onehot = F.one_hot(
-            masks.long(),
-            num_classes=MASK_NUM_CLASSES
-        ).permute(0, 3, 1, 2)
-        
-        return masks_onehot.float()
     
     def train_dataloader(self):
         assert False, "ACDC3DDataModule is only used for testing"

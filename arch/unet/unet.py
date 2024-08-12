@@ -177,7 +177,10 @@ class UNet(L.LightningModule):
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        x, y, _, _ = batch
+        x, y, condition, ed = batch
+
+        condition_label = f"condition_{int(condition)}"
+        phase_label = "ed" if ed else "es"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
@@ -201,11 +204,15 @@ class UNet(L.LightningModule):
         )
 
         self.log("dsc/test", dice_score)
+        self.log(f"dsc/test_{phase_label}", dice_score)
+        self.log(f"dsc/test_{condition_label}", dice_score)
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
             class_label = MASK_CLASSES[i + 1]
             self.log(f"dsc/test_{class_label}", dice_score)
+            self.log(f"dsc/test_{phase_label}_{class_label}", dice_score)
+            self.log(f"dsc/test_{condition_label}_{class_label}", dice_score)
         
         # Compute anatomical validity
         num_valid = 0
@@ -216,6 +223,8 @@ class UNet(L.LightningModule):
                 num_valid += 1
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{phase_label}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{condition_label}", num_valid / num_samples)
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)

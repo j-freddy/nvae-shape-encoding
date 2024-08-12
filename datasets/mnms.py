@@ -59,3 +59,42 @@ class MnMsDataset(Dataset):
             mask = self.augmentation_pipeline_mask(mask)
         
         return scan, mask, condition, ed
+
+class MnMs3DDataset(Dataset):
+    """
+    Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation
+    Challenge (M&Ms) 3D dataset.
+    
+    See MnMs3DDataModule docstring.
+    """
+
+    def __init__(
+        self,
+        scans: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        conditions: list[int],
+        eds: list[int],
+    ):
+        assert len(scans) == len(masks) == len(conditions) == len(eds)
+        
+        self.scans = scans
+        self.masks = masks
+        self.conditions = conditions
+        self.eds = eds
+        
+        self.num_channels = scans[0].shape[1]
+        self.num_classes = masks[0].shape[1]
+    
+    def __len__(self) -> int:
+        return len(self.scans)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        scan = self.scans[idx]
+        mask = self.masks[idx]
+        condition = self.conditions[idx]
+        ed = self.eds[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        
+        return scan, mask, condition, ed

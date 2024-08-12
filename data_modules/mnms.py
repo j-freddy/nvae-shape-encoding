@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import warnings
 from lightning import LightningDataModule
@@ -8,10 +9,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
-from datasets.mnms import MnMsDataset
+from datasets.mnms import MnMs3DDataset, MnMsDataset
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.const import MASK_NUM_CLASSES, MaskClassLabel, MnMs
-from utils.utils import listdir
+from utils.utils import listdir, one_hot
 
 def get_scan_and_mask(
     patient_id: str,
@@ -67,17 +68,8 @@ def get_scan_and_mask(
     return subject_ed, subject_es
 
 def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
-    def one_hot(masks: torch.Tensor) -> torch.Tensor:
-        masks = torch.squeeze(masks, dim=1)
-        masks_onehot = F.one_hot(
-            masks.long(),
-            num_classes=MASK_NUM_CLASSES
-        ).permute(0, 3, 1, 2)
-        
-        return masks_onehot.float()
-    
     def get_anatomical_validity_of_masks(subject: tio.Subject) -> float:
-        masks = one_hot(subject.mask.data.permute(3, 0, 1, 2))
+        masks = one_hot(subject.mask.data.permute(3, 0, 1, 2)).float()
         
         num_valid = 0
     
@@ -128,7 +120,10 @@ def get_dataset(dir: str, info_df: pd.DataFrame) -> tio.SubjectsDataset:
     return tio.SubjectsDataset(subjects)
 
 def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDataset, tio.SubjectsDataset]:
-    info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
+    if not os.path.exists(MnMs.TRAIN_PATH) or \
+        not os.path.exists(MnMs.VAL_PATH) or \
+        not os.path.exists(MnMs.TEST_PATH):
+        info_df = pd.read_csv(MnMs.RAW.INFO_FILE, index_col="External code")
 
     if os.path.exists(MnMs.TRAIN_PATH):
         print("Preprocessed training data found. Loading...")
@@ -171,7 +166,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
 class MnMsDataModule(LightningDataModule):
     """
     Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation
-    Challenge (ACDC) data module.
+    Challenge (M&Ms) data module.
     
     Data is preprocessed to crop to the bounding box around the heart based on
     the provided GT segmentation masks. Each data point is a 4-tuple consisting
@@ -293,11 +288,62 @@ class MnMsDataModule(LightningDataModule):
         
         return tio.SubjectsDataset(data_filtered)
 
+    def _sample_stratified(
+        self,
+        sorted_data: tio.SubjectsDataset,
+        num_subjects: int,
+        centre: int,
+    ) -> tio.SubjectsDataset:
+        """
+        Stratified sampling for 5 subjects only.
+        
+        Prioritising:
+        1. Proportion of subjects from each condition
+        2. Subjects with highest % anatomically valid masks
+        
+        noqa: Some code is written from manual inspection of sampled data to
+        ensure the prioritisation.
+        """
+        
+        # noqa: Few-shot stratified sampling for 5 subjects only
+        assert num_subjects == 5
+        
+        # Do not choose more than 1 subject from the same condition
+        sampled_data = []
+        conditions_count = defaultdict(lambda: 0)
+        chosen_subjects_id = set()
+        
+        limit = 2 if centre == 2 else 1
+        
+        for subject in sorted_data:
+            if conditions_count[subject.condition] < limit:
+                sampled_data.append(subject)
+                conditions_count[subject.condition] += 1
+                chosen_subjects_id.add(subject.patient_id)
+            
+            if len(sampled_data) == num_subjects:
+                break
+        
+        # If not enough subjects, add remaining subjects in order of % AV
+        if len(sampled_data) < num_subjects:
+            for subject in sorted_data:
+                if subject.patient_id in chosen_subjects_id:
+                    continue
+                
+                sampled_data.append(subject)
+                
+                if len(sampled_data) == num_subjects:
+                    break
+        
+        return tio.SubjectsDataset(sampled_data)
+
     def _sample_data(
         self,
         data: tio.SubjectsDataset,
         num_subjects: int,
         sort_by_validity: bool=False,
+        stratified: bool=True,
+        centre: int=None,
     ) -> tio.SubjectsDataset:
         if sort_by_validity:
             data = sorted(
@@ -305,7 +351,11 @@ class MnMsDataModule(LightningDataModule):
                 key=lambda subject: subject.anatomical_validity_of_masks,
                 reverse=True,
             )
-            data = data[:num_subjects]
+            
+            if stratified:
+                data = self._sample_stratified(data, num_subjects, centre)
+            else:
+                data = data[:num_subjects]
         else:
             idx = torch.randperm(len(data))[:num_subjects]
             data = tio.SubjectsDataset([data[i] for i in idx])
@@ -365,7 +415,12 @@ class MnMsDataModule(LightningDataModule):
         
         # Sample @num_subjects subjects
         if num_subjects is not None:
-            data = self._sample_data(data, num_subjects, sort_by_validity)
+            data = self._sample_data(
+                data,
+                num_subjects,
+                sort_by_validity,
+                centre=from_centre,
+            )
         
         # Get data as slice
         for subject in data:
@@ -390,20 +445,11 @@ class MnMsDataModule(LightningDataModule):
             eds.append(torch.zeros(es_scans.shape[0]))
         
         scans = torch.cat(scans)
-        masks = self._one_hot(torch.cat(masks))
+        masks = one_hot(torch.cat(masks)).float()
         conditions = torch.cat(conditions)
         eds = torch.cat(eds)
         
         return scans, masks, conditions, eds
-
-    def _one_hot(self, masks: torch.Tensor) -> torch.Tensor:
-        masks = torch.squeeze(masks, dim=1)
-        masks_onehot = F.one_hot(
-            masks.long(),
-            num_classes=MASK_NUM_CLASSES
-        ).permute(0, 3, 1, 2)
-        
-        return masks_onehot.float()
 
     def _split_train_val(
         self,
@@ -426,6 +472,99 @@ class MnMsDataModule(LightningDataModule):
 
     def val_dataloader(self, shuffle=False):
         return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+
+class MnMs3DDataModule(LightningDataModule):
+    """
+    Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation
+    Challenge (M&Ms) 3D data module.
+    
+    This is only used during testing to evaluate the 3D DSC metric, and thus
+    the training and validation set is not implemented.
+    """
+    
+    def __init__(self, from_vendor: str=None, from_centre: int=None):
+        super().__init__()
+        
+        self.batch_size = 1
+        
+        _, _, data_test = download_and_preprocess_acdc()
+        data_test = self._get_data_as_volume(
+            data_test,
+            from_vendor,
+            from_centre,
+        )
+
+        self.data_test = MnMs3DDataset(*data_test)
+
+    def _filter_data(
+        self,
+        data: tio.SubjectsDataset,
+        from_vendor: str=None,
+        from_centre: int=None,
+    ) -> tio.SubjectsDataset:
+        """
+        Filter by vendor and centre.
+        """
+        data_filtered = []
+        
+        for subject in data:
+            if from_vendor is not None and subject.vendor != from_vendor:
+                continue
+            
+            if from_centre is not None and subject.centre != from_centre:
+                continue
+            
+            data_filtered.append(subject)
+        
+        return tio.SubjectsDataset(data_filtered)
+
+    def _get_data_as_volume(
+        self,
+        data: tio.SubjectsDataset,
+        from_vendor: str=None,
+        from_centre: int=None,
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[int]]:
+        scans = []
+        masks = []
+        conditions = []
+        eds = []
+        
+        # Filter by vendor and centre
+        data = self._filter_data(data, from_vendor, from_centre)
+        
+        for subject in data:
+            # Unprocessed M&Ms is [C, H, W, S] and we want [S, C, H, W]
+            # where S is the number of slices
+            
+            # ED
+            subject_scan_data = subject.ed_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = one_hot(subject.ed_mask.data.permute(3, 0, 1, 2)).float()
+            condition = MnMs.condition_to_idx[subject.condition]
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(1)
+            
+            # ES
+            subject_scan_data = subject.es_scan.data.permute(3, 0, 1, 2)
+            subject_mask_data = one_hot(subject.es_mask.data.permute(3, 0, 1, 2)).float()
+            
+            scans.append(subject_scan_data)
+            masks.append(subject_mask_data)
+            conditions.append(condition)
+            eds.append(0)
+        
+        return scans, masks, conditions, eds
+
+    def train_dataloader(self):
+        assert False, "MnMs3DDataModule is only used for testing"
+
+    def val_dataloader(self):
+        assert False, "MnMs3DDataModule is only used for testing"
     
     def test_dataloader(self, shuffle=False):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
