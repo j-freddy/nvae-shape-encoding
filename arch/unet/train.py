@@ -99,6 +99,13 @@ def parse_args() -> argparse.Namespace:
         default=LOGS_PATH,
     )
     
+    parser.add_argument(
+        "--pretrained_model_path",
+        type=str,
+        help="If set, load a pretrained model from this path and continue training.",
+        default=None,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -151,12 +158,15 @@ def main(flags: argparse.Namespace):
     # Train
     Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
     
-    model = Model(
-        in_channels=data_module.data_test.num_channels,
-        out_channels=data_module.data_test.num_classes,
-        loss_reg=flags.loss_reg,
-        alpha=flags.alpha,
-    )
+    if flags.pretrained_model_path:
+        model = Model.load_from_checkpoint(flags.pretrained_model_path)
+    else:
+        model = Model(
+            in_channels=data_module.data_test.num_channels,
+            out_channels=data_module.data_test.num_classes,
+            loss_reg=flags.loss_reg,
+            alpha=flags.alpha,
+        )
     
     # By default, Lightning logs every 50 steps.
     log_every_n_steps = 50
