@@ -231,8 +231,8 @@ class VAE(L.LightningModule):
             # i + 1 as excluding background class
             class_label = MASK_CLASSES[i + 1]
             self.log(f"loss/dsc_{class_label}", dice_score)
-            self.log(f"loss/dsc_{phase}", dice_score)
-            self.log(f"loss/dsc_{condition}", dice_score)
+            self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
+            self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
     
     def log_generation_metrics(self, x: torch.Tensor, condition: str, phase: str):
         """
@@ -259,8 +259,6 @@ class VAE(L.LightningModule):
                 num_valid += 1
         
         self.log("gen/anatomically_valid", num_valid / num_samples)
-        self.log(f"gen/anatomically_valid_{phase}", num_valid / num_samples)
-        self.log(f"gen/anatomically_valid_{condition}", num_valid / num_samples)
         
         # Keep track of all generations to compute FRDS
         self.x_fake_logits_buffer.append(x_fake_logits)
