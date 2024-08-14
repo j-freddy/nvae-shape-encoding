@@ -13,4 +13,4 @@ cd nvae-shape-encoding
 export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
-python -m arch.nvae.test --model_path "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt"
+python -m arch.unet.test --model_path "logs-archive/logs-archive-aug-8/logs-unet-baseline/unet_acdc/baseline-seed-1970/checkpoints/epoch=58-step=3186.ckpt"
