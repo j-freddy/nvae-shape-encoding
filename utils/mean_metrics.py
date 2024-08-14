@@ -1,18 +1,22 @@
 import pandas as pd
 
 if __name__ == "__main__":
-    path = "logs/unet_mnms/shape-prior.csv"
+    path = "logs/unet_acdc/best.csv"
     df = pd.read_csv(path, index_col="model_name")
 
-    # Filter out rows that start with "centre-1"
+    labels = ["baseline", "shape-prior"]
 
-    for centre_id in range(1, 6):
-        df_centre = df[df.index.str.startswith(f"centre-{centre_id}")]
+    for label in labels:
+        df_centre = df[df.index.str.startswith(label)]
         
         # Take the average of each column
         avg = df_centre.mean()
         
+        # Compute standard deviation
+        std = df_centre.std()
+        
         # Report the results to 3 significant figures
-        print(f"Centre {centre_id}")
+        print(label)
         print(avg.round(3))
+        print(std.round(3))
         print("\n")
