@@ -74,6 +74,7 @@ class MnMs3DDataset(Dataset):
         masks: list[torch.Tensor],
         conditions: list[int],
         eds: list[int],
+        centres: list[int],
     ):
         assert len(scans) == len(masks) == len(conditions) == len(eds)
         
@@ -81,6 +82,7 @@ class MnMs3DDataset(Dataset):
         self.masks = masks
         self.conditions = conditions
         self.eds = eds
+        self.centres = centres
         
         self.num_channels = scans[0].shape[1]
         self.num_classes = masks[0].shape[1]
@@ -88,13 +90,14 @@ class MnMs3DDataset(Dataset):
     def __len__(self) -> int:
         return len(self.scans)
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scan = self.scans[idx]
         mask = self.masks[idx]
         condition = self.conditions[idx]
         ed = self.eds[idx]
+        centre = self.centres[idx]
         
         # Values should be preprocessed as 0, 1 before passing into pipeline
         assert set(mask.unique().tolist()).issubset({0, 1})
         
-        return scan, mask, condition, ed
+        return scan, mask, condition, ed, centre

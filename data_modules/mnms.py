@@ -526,11 +526,12 @@ class MnMs3DDataModule(LightningDataModule):
         data: tio.SubjectsDataset,
         from_vendor: str=None,
         from_centre: int=None,
-    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[int]]:
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[int], list[int]]:
         scans = []
         masks = []
         conditions = []
         eds = []
+        centres = []
         
         # Filter by vendor and centre
         data = self._filter_data(data, from_vendor, from_centre)
@@ -557,8 +558,9 @@ class MnMs3DDataModule(LightningDataModule):
             masks.append(subject_mask_data)
             conditions.append(condition)
             eds.append(0)
+            centres.append(subject.centre)
         
-        return scans, masks, conditions, eds
+        return scans, masks, conditions, eds, centres
 
     def train_dataloader(self):
         assert False, "MnMs3DDataModule is only used for testing"

@@ -172,15 +172,16 @@ class UNet(L.LightningModule):
         self.log("dsc/val", dice_score)
         print(f"Val DSC: {dice_score}")
     
-    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         """
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        x, y, condition, ed = batch
+        x, y, condition, ed, centre = batch
 
         condition_label = f"condition_{int(condition)}"
         phase_label = "ed" if ed else "es"
+        self.centre_label = f"centre_{int(centre)}"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
@@ -203,16 +204,16 @@ class UNet(L.LightningModule):
             dice_per_class=True,
         )
 
-        self.log("dsc/test", dice_score)
-        self.log(f"dsc/test_{phase_label}", dice_score)
-        self.log(f"dsc/test_{condition_label}", dice_score)
+        self.log(f"dsc/test_{self.centre_label}", dice_score)
+        self.log(f"dsc/test_{phase_label}_{self.centre_label}", dice_score)
+        self.log(f"dsc/test_{condition_label}_{self.centre_label}", dice_score)
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
             class_label = MASK_CLASSES[i + 1]
-            self.log(f"dsc/test_{class_label}", dice_score)
-            self.log(f"dsc/test_{phase_label}_{class_label}", dice_score)
-            self.log(f"dsc/test_{condition_label}_{class_label}", dice_score)
+            self.log(f"dsc/test_{class_label}_{self.centre_label}", dice_score)
+            self.log(f"dsc/test_{phase_label}_{class_label}_{self.centre_label}", dice_score)
+            self.log(f"dsc/test_{condition_label}_{class_label}_{self.centre_label}", dice_score)
         
         # Compute anatomical validity
         num_valid = 0
@@ -222,9 +223,9 @@ class UNet(L.LightningModule):
             if AV.count_violations() == 0:
                 num_valid += 1
         
-        self.log("gen/anatomically_valid", num_valid / num_samples)
-        self.log(f"gen/anatomically_valid_{phase_label}", num_valid / num_samples)
-        self.log(f"gen/anatomically_valid_{condition_label}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{self.centre_label}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{phase_label}_{self.centre_label}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_{condition_label}_{self.centre_label}", num_valid / num_samples)
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)
@@ -233,6 +234,7 @@ class UNet(L.LightningModule):
         self,
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
+        
     ):
         num_data = y.shape[0]
         samples_idx = torch.randperm(num_data)[:40]
@@ -241,7 +243,7 @@ class UNet(L.LightningModule):
         
         samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(y, y_hat_logits)
         show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+        self.logger.experiment.add_figure(f"img/reconstructions_{self.centre_label}", plt.gcf())
     
     def on_test_end(self):
         y = torch.cat(self.y_buffer, dim=0)
