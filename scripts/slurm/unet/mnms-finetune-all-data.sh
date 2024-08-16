@@ -16,7 +16,7 @@ source activate
 centres=("1 2 3 4 5")
 seeds=("1970" "1971" "1972" "1973" "1974")
 
-logdir="logs-mnms-finetune"
+logdir="logs-mnms-finetune-all-data"
 
 pretrained_paths_baseline=(
     "logs/unet_acdc/best/baseline-seed-1970/checkpoints/epoch=59-step=3240.ckpt"
@@ -36,46 +36,37 @@ pretrained_paths_shape_prior=(
 
 # Train
 
-for centre in $centres
+for i in {0..4}
 do
-    for i in {0..4}
-    do
-        seed=${seeds[i]}
-        
-        # Baseline
-        model_name="baseline-centre-${centre}-seed-${seed}"
-        pretrained_model_path=${pretrained_paths_baseline[i]}
+    seed=${seeds[i]}
+    
+    # Baseline
+    model_name="baseline-seed-${seed}"
+    pretrained_model_path=${pretrained_paths_baseline[i]}
 
-        python -m arch.unet.train \
-            --epochs 50 \
-            --loss_reg "cross_entropy" \
-            --dataset mnms \
-            --centre $centre \
-            --num_subjects 5 \
-            --sort_by_validity \
-            --augment \
-            --pretrained_model_path $pretrained_model_path \
-            --seed $seed \
-            --model_name $model_name \
-            --logs $logdir
+    python -m arch.unet.train \
+        --epochs 50 \
+        --loss_reg "cross_entropy" \
+        --dataset mnms \
+        --augment \
+        --pretrained_model_path $pretrained_model_path \
+        --seed $seed \
+        --model_name $model_name \
+        --logs $logdir
 
-        # Shape prior
-        model_name="shape-prior-centre-${centre}-seed-${seed}"
-        pretrained_model_path=${pretrained_paths_shape_prior[i]}
+    # Shape prior
+    model_name="shape-prior-seed-${seed}"
+    pretrained_model_path=${pretrained_paths_shape_prior[i]}
 
-        python -m arch.unet.train \
-            --epochs 50 \
-            --loss_reg "shape_prior" \
-            --dataset mnms \
-            --centre $centre \
-            --num_subjects 5 \
-            --sort_by_validity \
-            --augment \
-            --pretrained_model_path $pretrained_model_path \
-            --seed $seed \
-            --model_name $model_name \
-            --logs $logdir
-    done
+    python -m arch.unet.train \
+        --epochs 50 \
+        --loss_reg "shape_prior" \
+        --dataset mnms \
+        --augment \
+        --pretrained_model_path $pretrained_model_path \
+        --seed $seed \
+        --model_name $model_name \
+        --logs $logdir
 done
 
 # Evaluate
@@ -85,9 +76,9 @@ do
     for i in {0..4}
     do
         seed=${seeds[i]}
-
+        
         # Baseline
-        model_name="baseline-centre-${centre}-seed-${seed}"
+        model_name="shape-prior-seed-${seed}"
         # Get saved model path
         model_path=$(ls ${logdir}/unet_mnms/${model_name}/checkpoints/*.ckpt)
 
@@ -98,7 +89,7 @@ do
             --logs $logdir
 
         # Shape prior
-        model_name="shape-prior-centre-${centre}-seed-${seed}"
+        model_name="baseline-seed-${seed}"
         # Get saved model path
         model_path=$(ls ${logdir}/unet_mnms/${model_name}/checkpoints/*.ckpt)
 
