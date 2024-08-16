@@ -4,8 +4,9 @@ logs/*/*
 out/
 venv/
 
-sandbox.py
 sandbox.ipynb
+sandbox.py
+sandbox.sh
 todo.md
 
 # Keep track of csv logs
