@@ -549,6 +549,7 @@ class MnMs3DDataModule(LightningDataModule):
             masks.append(subject_mask_data)
             conditions.append(condition)
             eds.append(1)
+            centres.append(subject.centre)
             
             # ES
             subject_scan_data = subject.es_scan.data.permute(3, 0, 1, 2)
