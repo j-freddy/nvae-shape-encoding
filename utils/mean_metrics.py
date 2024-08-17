@@ -1,7 +1,7 @@
 import pandas as pd
 
 if __name__ == "__main__":
-    path = "logs/unet_acdc/best.csv"
+    path = "logs/unet_mnms/finetune.csv"
     df = pd.read_csv(path, index_col="model_name")
 
     labels = ["baseline", "shape-prior"]

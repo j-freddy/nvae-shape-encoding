@@ -47,8 +47,17 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "finetune"
-    metrics = ["dsc/test", "dsc/test_RV", "dsc/test_MYO", "dsc/test_LV", "gen/anatomically_valid"]
+    log_subdir = "finetuned-on-all-data"
+    metrics = []
+    
+    for centre_idx in range(1, 6):
+        metrics.extend([
+            f"dsc/test_centre_{centre_idx}",
+            f"dsc/test_RV_centre_{centre_idx}",
+            f"dsc/test_MYO_centre_{centre_idx}",
+            f"dsc/test_LV_centre_{centre_idx}",
+            f"gen/anatomically_valid_centre_{centre_idx}",
+        ])
 
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, MnMs.DIR.UNET, log_subdir),
