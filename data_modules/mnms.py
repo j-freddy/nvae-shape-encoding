@@ -255,11 +255,12 @@ class MnMsDataModule(LightningDataModule):
                 from_centre,
             )
         
+        # Always preserve empty masks for test set
         data_test = self._get_data_as_slice(
             data_test,
-            filter_empty,
-            from_vendor,
-            from_centre,
+            filter_empty=False,
+            from_vendor=from_vendor,
+            from_centre=from_centre,
         )
         
         self.data_train = MnMsDataset(*data_train, augment=augment)
