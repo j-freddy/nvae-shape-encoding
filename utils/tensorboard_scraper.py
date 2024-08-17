@@ -50,6 +50,14 @@ if __name__ == '__main__':
     log_subdir = "finetuned-on-all-data"
     metrics = []
     
+    metrics.extend([
+        "dsc/test",
+        "dsc/test_RV",
+        "dsc/test_MYO",
+        "dsc/test_LV",
+        "gen/anatomically_valid",
+    ])
+    
     for centre_idx in range(1, 6):
         metrics.extend([
             f"dsc/test_centre_{centre_idx}",
