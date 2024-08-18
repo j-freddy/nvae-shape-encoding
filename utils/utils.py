@@ -1,4 +1,5 @@
 import os
+from matplotlib import colors
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -6,6 +7,13 @@ import torch.nn.functional as F
 from torchvision.utils import make_grid
 
 from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
+
+# Colour maps for Matplotlib
+viridis = plt.cm.viridis
+viridis_colours = viridis(np.arange(viridis.N))
+viridis_colours[0] = colors.to_rgba("#212529")
+# Grey Viridis
+giridis = colors.ListedColormap(viridis_colours)
 
 def setup_device() -> torch.device:
     """
@@ -84,7 +92,7 @@ def show_samples(
     
     plt.figure(figsize=figsize)
     plt.axis("off")
-    plt.imshow(images)
+    plt.imshow(images, cmap=giridis)
     if overlay_mask is not None:
         plt.imshow(overlay_rgba)
     plt.tight_layout()
@@ -100,27 +108,42 @@ def show_samples(
     if display:
         plt.show()
 
-def show_scans_and_masks(
+import os
+from matplotlib import colors
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from torchvision.utils import make_grid
+
+def show_scans(
     scans: torch.Tensor,
-    masks: torch.Tensor,
+    masks: torch.Tensor=None,
     ncol: int=6,
     figsize: tuple[int, int]=(6, 4),
     save_path: str=None,
     display: bool=True,
 ):
+    # Pre: scans are already normalised between [0, 1]
     scans = scans.cpu().float()
-    masks = masks.cpu().float()
-    
-    scans = make_grid(scans, nrow=ncol, padding=2, normalize=True)
-    masks = make_grid(masks, nrow=ncol, padding=2, normalize=True)
+    scans = make_grid(scans, nrow=ncol, padding=2)
     
     scans = np.transpose(scans.numpy(), (1, 2, 0))
-    masks = masks[0]
+    
+    if masks is not None:
+        masks = masks.cpu().float()
+        masks = make_grid(masks, nrow=ncol, padding=2, normalize=True)
+        masks = masks[0]
     
     plt.figure(figsize=figsize)
     plt.axis("off")
     plt.imshow(scans)
-    plt.imshow(masks, alpha=0.64)
+
+    if masks is not None:
+        alpha_channel = np.ones(masks.shape, dtype=float)
+        alpha_channel[masks == 0] = 0
+        alpha_channel[masks != 0] = 0.64
+        plt.imshow(masks, alpha=alpha_channel, cmap=giridis)
+
     plt.tight_layout()
     
     if save_path:
