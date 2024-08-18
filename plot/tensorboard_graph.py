@@ -57,8 +57,8 @@ if __name__ == '__main__':
     ]
     
     labels = [
-        "Baseline",
-        "126717 x Shape Prior",
+        "Cross-Entropy",
+        r"126717 $\times$ Shape Prior",
     ]
     
     paths = [os.path.join(OUT_PATH, "csv", name) for name in names]

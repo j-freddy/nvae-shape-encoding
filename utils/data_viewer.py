@@ -7,7 +7,7 @@ from data_modules.mnms import MnMsDataModule
 from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel, MnMs
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
 from data_modules.cifar10 import CIFAR10DataModule
-from utils.utils import mask_class_id_to_idx, setup_device, show_samples, show_scans_and_masks
+from utils.utils import mask_class_id_to_idx, setup_device, show_samples, show_scans
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -126,7 +126,7 @@ def view_acdc_scans():
     
     save_path = os.path.join(OUT_PATH, "acdc_data.png") if flags.save else None
     
-    show_scans_and_masks(
+    show_scans(
         scans,
         masks,
         ncol=6,
@@ -227,7 +227,7 @@ def view_mnms_scans():
     
     save_path = os.path.join(OUT_PATH, "mnms_data.png") if flags.save else None
     
-    show_scans_and_masks(
+    show_scans(
         scans,
         masks,
         ncol=6,
