@@ -179,7 +179,12 @@ class UNet(L.LightningModule):
         """
         x, y, condition, ed = batch
 
-        condition_label = f"condition_{int(condition)}"
+        # 0 (DCM), 1 (HCM), 3 (Healthy), 5 (ARV) overlaps with ACDCs
+        if int(condition) in {0, 1, 3, 5}:
+            condition_label = f"condition_deprecated"
+        else:
+            condition_label = "condition_other"
+
         phase_label = "ed" if ed else "es"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
@@ -203,15 +208,15 @@ class UNet(L.LightningModule):
             dice_per_class=True,
         )
 
-        self.log("dsc/test", dice_score)
-        self.log(f"dsc/test_{phase_label}", dice_score)
+        # self.log("dsc/test", dice_score)
+        # self.log(f"dsc/test_{phase_label}", dice_score)
         self.log(f"dsc/test_{condition_label}", dice_score)
         
         for i, dice_score in enumerate(dice_score_per_class):
             # i + 1 as excluding background class
             class_label = MASK_CLASSES[i + 1]
-            self.log(f"dsc/test_{class_label}", dice_score)
-            self.log(f"dsc/test_{phase_label}_{class_label}", dice_score)
+            # self.log(f"dsc/test_{class_label}", dice_score)
+            # self.log(f"dsc/test_{phase_label}_{class_label}", dice_score)
             self.log(f"dsc/test_{condition_label}_{class_label}", dice_score)
         
         # Compute anatomical validity
@@ -222,8 +227,8 @@ class UNet(L.LightningModule):
             if AV.count_violations() == 0:
                 num_valid += 1
         
-        self.log("gen/anatomically_valid", num_valid / num_samples)
-        self.log(f"gen/anatomically_valid_{phase_label}", num_valid / num_samples)
+        # self.log("gen/anatomically_valid", num_valid / num_samples)
+        # self.log(f"gen/anatomically_valid_{phase_label}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_{condition_label}", num_valid / num_samples)
         
         self.y_buffer.append(y)
@@ -248,4 +253,4 @@ class UNet(L.LightningModule):
         y_hat_logits = torch.cat(self.y_hat_logits_buffer, dim=0)
         
         # Visualise samples and reconstructions
-        self.log_reconstruction_visualisation(y, y_hat_logits)
+        # self.log_reconstruction_visualisation(y, y_hat_logits)
