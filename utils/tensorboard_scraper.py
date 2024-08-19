@@ -33,13 +33,12 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
                 print(header)
                 print(list(data_csv))
                 corrupted = True
-                break
-            
-            value = float(next(data_csv)[-1])
-            value_buffer.append(value)
+                value_buffer.append(-1)
+            else:
+                value = float(next(data_csv)[-1])
+                value_buffer.append(value)
 
-        if not corrupted:
-            df.loc[model_name] = value_buffer
+        df.loc[model_name] = value_buffer
 
         print(f"Current progress: {i + 1}/{len(experiments)}")
     
@@ -47,15 +46,14 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
-    log_subdir = "no-pretrain"
+    log_subdir = "finetune"
     metrics = []
     
     metrics.extend([
-        "dsc/test",
-        "dsc/test_RV",
-        "dsc/test_MYO",
-        "dsc/test_LV",
-        "gen/anatomically_valid",
+        "dsc/test_condition_deprecated",
+        "dsc/test_condition_other",
+        "gen/anatomically_valid_condition_deprecated",
+        "gen/anatomically_valid_condition_other",
     ])
 
     df = get_tensorboard_data(
