@@ -1,19 +1,13 @@
 import os
-from matplotlib import colors
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
-# Colour maps for Matplotlib
-viridis = plt.cm.viridis
-viridis_colours = viridis(np.arange(viridis.N))
-viridis_colours[0] = colors.to_rgba("#212529")
-# Grey Viridis
-giridis = colors.ListedColormap(viridis_colours)
+from utils.colourmap import GIRIDIS
+from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
 def setup_device() -> torch.device:
     """
@@ -92,7 +86,7 @@ def show_samples(
     
     plt.figure(figsize=figsize)
     plt.axis("off")
-    plt.imshow(images, cmap=giridis)
+    plt.imshow(images, cmap=GIRIDIS)
     if overlay_mask is not None:
         plt.imshow(overlay_rgba)
     plt.tight_layout()
@@ -142,7 +136,7 @@ def show_scans(
         alpha_channel = np.ones(masks.shape, dtype=float)
         alpha_channel[masks == 0] = 0
         alpha_channel[masks != 0] = 0.64
-        plt.imshow(masks, alpha=alpha_channel, cmap=giridis)
+        plt.imshow(masks, alpha=alpha_channel, cmap=GIRIDIS)
 
     plt.tight_layout()
     
