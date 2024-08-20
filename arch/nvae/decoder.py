@@ -247,6 +247,9 @@ class Decoder(nn.Module):
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
                 the residual distribution with respect to the prior.
         """
+        if num_shared_layers == 0:
+            raise ValueError("Cannot have 0 shared layers")
+        
         if num_shared_layers == -1:
             num_shared_layers = self.num_latent_layers
         else:
