@@ -12,8 +12,8 @@ if __name__ == "__main__":
         # Take the average of each column
         avg = df_centre.mean()
         
-        # Compute standard deviation
-        std = df_centre.std()
+        # Compute standard error
+        std = df_centre.std() / (df_centre.count() ** 0.5)
         
         # Report the results to 3 significant figures
         print(label)
