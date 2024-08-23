@@ -1,6 +1,6 @@
-# Nouveau VAE for Anatomical Shape Encoding
+# Cardiac Shape Analysis with Nouveau Variational Autoencoder
 
-Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Hierarchical Variational Autoencoders", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
+Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Nouveau Variational Autoencoder", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
 
 Time estimations in this document are based on a 16GB RAM, 8-core CPU powered
 laptop. Running with MPS (Apple silicon chip) is ~2 times faster. Running on an
