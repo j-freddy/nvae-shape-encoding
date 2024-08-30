@@ -158,9 +158,6 @@ class Encoder(nn.Module):
                 num_channels *= 2
       
         # Build compressor
-        # TODO I don't know this purpose (init_encoder0 in official
-        # implementation), it doesn't even change the number of channels so
-        # technically it's not a compressor
         true_num_channels = self._num_channels(num_channels)
         
         self.compressor = nn.Sequential(

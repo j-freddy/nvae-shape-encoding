@@ -331,8 +331,7 @@ class NVAE(L.LightningModule):
             assert width == height
             assert z_channels == self.hparams.z_channels
             kl_layers.append(self._get_layer_index(width))
-            
-            # TODO Change this for normalising flow
+
             kl_per_var = q.kl(p)
 
             kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])

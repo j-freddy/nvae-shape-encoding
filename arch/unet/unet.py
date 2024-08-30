@@ -51,8 +51,6 @@ class Up(nn.Module):
 
 class UNet(L.LightningModule):
     """
-    TODO Write Docstring
-    
     In this class, x denotes the scans and y denotes the segmentation masks.
     """
     def __init__(
