@@ -50,6 +50,7 @@ applied to unseen data, without the need for further training.
     - [U-Net](#u-net)
     - [SimCLR](#simclr)
     - [TensorBoard](#tensorboard)
+- [Acknowledgements](#acknowledgements)
 
 ## Quick Start
 
