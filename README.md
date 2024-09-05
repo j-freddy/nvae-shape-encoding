@@ -10,31 +10,34 @@ To set up this repository for usage, go through [Quick Start](#quick-start) up
 to (and including) the Install additional prerequisites step.
 
 Abstract:
-> Cardiovascular disease is the leading cause of death globally. A third of
-these deaths occur prematurely in people under the age of 70, and up to 80% of
-these deaths are preventable with early detection and intervention. Over recent
-years, there has been rapid progression in the development of automated
-techniques for cardiac magnetic resonance imaging (MRI) analysis. Accurate
-delineation of cardiac components is crucial to assist in anomaly detection and
-diagnosis, and cardiac shape analysis is an essential prerequisite.<br /><br />
+> Cardiovascular diseases (CVDs) cause over 20 million deaths annually, with a
+third occuring prematurely in people under the age of 70. However, CVDs are
+largely preventable with early detection and intervention. Over recent years,
+there has been rapid progression in the development of automated techniques
+for cardiac magnetic resonance imaging (MRI) analysis. Accurate delineation of
+cardiac components is crucial to assist in anomaly detection and diagnosis,
+and shape analysis is an essential prerequisite.<br /><br />
 The emergence of deep learning has introduced powerful frameworks capable of
 automating the process of learning compact shape representations. Variational
 autoencoders (VAEs) are a class of generative models that excel at learning
 efficient low-dimensional representations of complex data. In particular, the
-Nouveau VAE (NVAE) is a deep hierarchical VAE that has been shown to be capable
-of encoding fine-grained details in high-resolution images.<br /><br />
-This thesis explores the application of Nouveau VAE for cardiac shape analysis.
-We propose configurations of NVAE that can learn from clinically annotated
-segmentations to efficiently encode cardiac anatomic shapes, with significantly
-improved performance over existing VAE models (up to 0.108 increase in DSC for
-reconstruction and 22.0% increase in anatomical validity for generation). We
-demonstrate that the learned NVAE embeddings can be used in downstream tasks by
-using them as an anatomical constraint to improve the segmentation performance
-of a U-Net model (5.3% increase in anatomical validity). The embeddings also
-benefit in domain adaptation tasks and zero-shot inference. Furthermore, we
-propose a novel metric, the Frechet Resnet Distance with SimCLR (FRDS), which
-improves over the Frechet Inception Score in evaluating quality of synthetic
-cardiac segmentation masks.
+Nouveau VAE (NVAE) is a deep hierarchical VAE that is the state-of-the-art among
+its class in encoding fine-grained details in high-resolution images.<br /><br
+/>
+In this dissertation, we examine how the NVAE framework can be applied to
+cardiac shape analysis. We propose configurations that can learn from clinically
+annotated segmentation masks to efficiently encode cardiac anatomic shapes, with
+significantly improved performance over existing VAE models (up to 0.108 Dice
+increase for reconstructed masks and 22.0% anatomical validity increase in
+synthetic masks when used as a generative model, the latter of which ensures the
+generated shapes conform to realistic cardiac anatomy). Furthermore, we propose
+a novel metric, the Fréchet ResNet Distance with SimCLR (FRDS), which improves
+over the Fréchet Inception Distance in measuring the similarity between
+synthetic and real cardiac segmentation masks. We demonstrate that the learned
+NVAE encodings can be used in downstream tasks by using them as an anatomical
+constraint to improve the segmentation performance of a U-Net model (5.3%
+anatomical validity increase). We find these encodings to generalise well when
+applied to unseen data, without the need for further training.
 
 ## Table of Contents
 
