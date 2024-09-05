@@ -271,8 +271,6 @@ class Decoder(nn.Module):
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
-        # TODO Normalising flows skipped
-        
         # Prior for top-level z
         distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
         ps = [distr]

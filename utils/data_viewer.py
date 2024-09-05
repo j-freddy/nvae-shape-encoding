@@ -6,7 +6,6 @@ import torch
 from data_modules.mnms import MnMsDataModule
 from utils.const import ACDC, OUT_PATH, SEED, MaskClassLabel, MnMs
 from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
-from data_modules.cifar10 import CIFAR10DataModule
 from utils.utils import mask_class_id_to_idx, setup_device, show_samples, show_scans
 
 def parse_args() -> argparse.Namespace:
@@ -16,7 +15,7 @@ def parse_args() -> argparse.Namespace:
         "--dataset",
         type=str,
         help="Which dataset to use.",
-        choices=["cifar10", "acdc", "mnms"],
+        choices=["acdc", "mnms"],
         default="acdc",
     )
     
@@ -85,19 +84,6 @@ def parse_args() -> argparse.Namespace:
     )
     
     return parser.parse_args()
-
-def view_cifar10():
-    data_module = CIFAR10DataModule(preprocess=False)
-    
-    # Seed
-    L.seed_everything(SEED)
-            
-    # View samples
-    loader_test = data_module.test_dataloader()
-
-    samples: tuple[torch.Tensor, torch.Tensor] = next(iter(loader_test))
-    images, _ = samples
-    show_samples(images, ncol=8, figsize=(8, 2))
 
 def view_acdc_scans():
     # Seed
@@ -243,9 +229,6 @@ def main(flags: argparse.Namespace):
     
     # Load data
     match flags.dataset:
-        case "cifar10":
-            view_cifar10()
-
         case "acdc":
             if flags.show_scans:
                 view_acdc_scans()

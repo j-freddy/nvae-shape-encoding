@@ -8,24 +8,8 @@ OUT_PATH = "out"
 SCRIPTS_PATH = "scripts"
 SEED = 1969
 
-FRDS_MODEL_PATH = "logs/simclr_acdc/resnet-18-v2-no-elastic/checkpoints/epoch=143-step=1008.ckpt"
-NVAE_MODEL_PATH = "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt"
-
-@dataclass
-class CIFAR10:
-    """
-    Deprecated. For initial experimentation / early debugging. Main dataset is
-    ACDC.
-    
-    CIFAR-10 constants.
-    """
-
-    @dataclass
-    class DIR:
-        VAE = "vae_cifar10"
-        NVAE = "nvae_cifar10"
-        SIMCLR = "simclr_cifar10"
-        UNET = "unet_cifar10"
+FRDS_MODEL_PATH = "logs/simclr_acdc/frds-resnet-18/checkpoints/epoch=143-step=1008.ckpt"
+NVAE_MODEL_PATH = "logs/nvae_acdc/default/checkpoints/epoch=97-step=20972.ckpt"
 
 CARDIAC_WIDTH = 128
 MASK_NUM_CLASSES = 4

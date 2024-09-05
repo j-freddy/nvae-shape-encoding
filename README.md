@@ -1,28 +1,49 @@
-# Nouveau VAE for Anatomical Shape Encoding
+# Cardiac Shape Analysis with Nouveau Variational Autoencoder
 
-Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Hierarchical Variational Autoencoders", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
+Codebase for the experiments conducted for the paper "Cardiac Shape Analysis with Nouveau Variational Autoencoder", submitted as part of my dissertation for MSc degree in Computing (Artificial Intelligence and Machine Learning), Imperial College London.
 
 Time estimations in this document are based on a 16GB RAM, 8-core CPU powered
 laptop. Running with MPS (Apple silicon chip) is ~2 times faster. Running on an
 A30 GPU with 24GB RAM is ~5 times faster.
 
 To set up this repository for usage, go through [Quick Start](#quick-start) up
-to (and including) the Install dependencies step.
+to (and including) the Install additional prerequisites step.
 
 Abstract:
-<!-- TODO -->
-> Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.<br><br>
-At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.
+> Cardiovascular diseases (CVDs) cause over 20 million deaths annually, with a
+third occuring prematurely in people under the age of 70. However, CVDs are
+largely preventable with early detection and intervention. Over recent years,
+there has been rapid progression in the development of automated techniques
+for cardiac magnetic resonance imaging (MRI) analysis. Accurate delineation of
+cardiac components is crucial to assist in anomaly detection and diagnosis,
+and shape analysis is an essential prerequisite.<br /><br />
+The emergence of deep learning has introduced powerful frameworks capable of
+automating the process of learning compact shape representations. Variational
+autoencoders (VAEs) are a class of generative models that excel at learning
+efficient low-dimensional representations of complex data. In particular, the
+Nouveau VAE (NVAE) is a deep hierarchical VAE that is the state-of-the-art among
+its class in encoding fine-grained details in high-resolution images.<br /><br
+/>
+In this dissertation, we examine how the NVAE framework can be applied to
+cardiac shape analysis. We propose configurations that can learn from clinically
+annotated segmentation masks to efficiently encode cardiac anatomic shapes, with
+significantly improved performance over existing VAE models (up to 0.108 Dice
+increase for reconstructed masks and 22.0% anatomical validity increase in
+synthetic masks when used as a generative model, the latter of which ensures the
+generated shapes conform to realistic cardiac anatomy). Furthermore, we propose
+a novel metric, the Fréchet ResNet Distance with SimCLR (FRDS), which improves
+over the Fréchet Inception Distance in measuring the similarity between
+synthetic and real cardiac segmentation masks. We demonstrate that the learned
+NVAE encodings can be used in downstream tasks by using them as an anatomical
+constraint to improve the segmentation performance of a U-Net model (5.3%
+anatomical validity increase). We find these encodings to generalise well when
+applied to unseen data, without the need for further training.
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Repository Structure](#repository-structure)
+- [Trained Model Archive](#trained-model-archive)
 - [Usage Guide](#usage-guide)
     - [Variational Autoencoder](#variational-autoencoder)
     - [Nouveau Variational Autoencoder](#nouveau-variational-autoencoder)
@@ -57,6 +78,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+4. Install additional prerequisites.
+
+Some scripts require pretrained models. Download the following files from [Zenodo][zenodo-model-archive]:
+- `simclr_acdc.zip` - Required for VAE and NVAE testing.
+- `nvae_acdc.zip` - Required for Anatomically Constrained U-Net training and
+  testing.
+
+Unzip both files and place the unzipped folders in the `logs/` subdirectory.
+
+[zenodo-model-archive]: https://zenodo.org/uploads/13368002
+
 If everything has been set up correctly, the commands below should work.
 ```sh
 # View data samples
@@ -68,32 +100,38 @@ python -m arch.vae.train \
     --beta 0 \
     --gamma 200 \
     --loss_reg info_vae
+# Test (~5 minutes)
+# A typical checkpoint path is:
+# logs/vae_acdc/version_0/checkpoints/epoch=45-step=4922.ckpt
+python -m arch.vae.test --model_path path/to/vae/checkpoint.ckpt
 ```
 
-Use [TensorBoard](#tensorboard) to see the train graphs.
+Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
 
-For more examples, see the respective sections (e.g. [Nouveau
-VAE](#nouveau-variational-autoencoder)).
+For more examples, see the respective sections:
+- [Variational Autoencoder](#variational-autoencoder)
+- [Nouveau Variational Autoencoder](#nouveau-variational-autoencoder)
+- [U-Net](#u-net)
+- [SimCLR](#simclr)
+- [TensorBoard](#tensorboard)
 
 ## Repository Structure
 
-We briefly summarise the repository contents.
-
 - `analysis/` - Main evaluation metrics are calculated within the Lightning test
   step, e.g. in `arch/nvae/nvae.py`. This subdirectory contains additional
-  scripts for closer inspection of the trained models. These scripts are often
+  scripts for closer inspection of the trained models. These scripts are
   presented as Jupyter notebooks to allow easy configuration and interaction.
-  Each notebook contains comments and explanations. To run the notebooks, either replace the model path with your own trained model, or download the pretrained models [here][pretrained-models-archive].
+  Each notebook contains comments and explanations. To run the notebooks, either
+  replace the model path with your own trained model, or download the pretrained
+  models [here][zenodo-model-archive].
 - `arch/` - Implementation of frameworks. For each architecture, the train and
   test entry points are `train.py` and `test.py`.
     - `nvae/` - Nouveau-VAE (NVAE) framework.
     - `simclr/` - SimCLR framework.
     - `vae/` - Variational Autoencoder (VAE) framework.
-    - `unet/` - U-Net framework.
-- `data_modules/` - Lightning DataModule classes. The main module is
-  `ACDCMaskDataModule` in `acdc.py`, which is used for all frameworks except
-  U-Net, which uses `ACDCDataModule`. The file also contains preprocessing
-  scripts.
+    - `unet/` - U-Net and Anatomically Constrained U-Net frameworks.
+- `data_modules/` - Lightning DataModule classes. `acdc.py` and `mnms.py` are
+  used for the ACDC and M&Ms datasets, respectively. The files also contain preprocessing scripts.
 - `datasets/` - Custom Torch datasets. Augmentation pipelines are implemented
   here and run during train time (if configured).
 - `plot/` - Basic plots can be found in [TensorBoard](#tensorboard). This
@@ -111,6 +149,17 @@ Running programs can generate the following subdirectories.
 - `data/` - Downloaded datasets and preprocessed dataset checkpoints.
 - `logs/` - TensorBoard logs and model checkpoints. Also contains summary
   statistics generated from the TensorBoard scraper.
+
+## Trained Model Archive
+
+A collection of trained models and logs is available on
+[Zenodo][zenodo-model-archive]. The performance of these models is published in
+ the dissertation. To use these models, download the zip files and extract them
+into the `logs/` subdirectory. Note that this collection is not a complete
+archive and does not contain hyperparameter tuning experiments.
+
+Raw link:
+- https://zenodo.org/uploads/13368002
 
 ## Usage Guide
 
@@ -331,13 +380,54 @@ Use [TensorBoard](#tensorboard) to see the train graphs and test metrics.
 
 #### Training
 
-TODO
+```sh
+python -m arch.unet.train -h
+
+usage: train.py [-h] [--epochs EPOCHS] [--loss_reg {cross_entropy,shape_prior}] [--alpha ALPHA] [--dataset {acdc,mnms}] [--centre {1,2,3,4,5}] [--num_subjects NUM_SUBJECTS]
+                [--sort_by_validity | --no-sort_by_validity] [--filter_empty | --no-filter_empty] [--augment | --no-augment] [--seed SEED] [--model_name MODEL_NAME] [--logs LOGS]
+                [--pretrained_model_path PRETRAINED_MODEL_PATH]
+
+options:
+  -h, --help            show this help message and exit
+  --epochs EPOCHS       Max number of epochs.
+  --loss_reg {cross_entropy,shape_prior}
+                        Regulariser technique.
+  --alpha ALPHA         If using shape prior loss, the weight of cross entropy loss.
+  --dataset {acdc,mnms}
+                        Which dataset to use.
+  --centre {1,2,3,4,5}  If using M&Ms and set, only use scans from the specified centre.
+  --num_subjects NUM_SUBJECTS
+                        Few-shot learning for M&Ms: Number of subjects to use. If -1, use all subjects.
+  --sort_by_validity, --no-sort_by_validity
+                        Few-shot learning for M&Ms: If set, use subjects with highest anatomical validity.
+  --filter_empty, --no-filter_empty
+                        If set, filter out empty masks.
+  --augment, --no-augment
+                        If set, augment training data with random flips.
+  --seed SEED           Seed for train reproducibility. This only affects training, not data split.
+  --model_name MODEL_NAME
+                        Directory name of saved model checkpoints and metadata.
+  --logs LOGS           Root save directory for logs.
+  --pretrained_model_path PRETRAINED_MODEL_PATH
+                        If set, load a pretrained model from this path and continue training.
+```
 
 #### Testing
 
-TODO
+```sh
+python -m arch.unet.test -h
 
-<!-- TODO analysis/unet doesn't exist -->
+usage: test.py [-h] --model_path MODEL_PATH [--dataset {acdc,mnms}] [--centre {1,2,3,4,5}] [--logs LOGS]
+
+options:
+  -h, --help            show this help message and exit
+  --model_path MODEL_PATH
+                        Path to model checkpoint.
+  --dataset {acdc,mnms}
+                        Which dataset to use.
+  --centre {1,2,3,4,5}  If using M&Ms and set, only use scans from the specified centre.
+  --logs LOGS           Root save directory for logs.
+```
 
 See `analysis/unet` for further analysis on trained models.
 
@@ -357,8 +447,7 @@ python -m utils.data_viewer --dataset acdc --augment_simclr
 # Pretrain a ResNet-18 model with good configurations for FRDS (~90 minutes)
 python -m arch.simclr.train \
     --epochs 200 \
-    --model_name frds-resnet-18 \
-    --logs $logdir
+    --model_name frds-resnet-18
 # Run the benchmark tests (~5 minutes)
 # A typical checkpoint path is:
 # logs/simclr_acdc/version_0/checkpoints/epoch=199-step=1400.ckpt
@@ -420,4 +509,34 @@ tensorboard --logdir logs/nvae_acdc
 tensorboard --logdir logs/unet_acdc
 ```
 
-[pretrained-models-archive]: TODO
+## Acknowledgements
+
+This project is authored by Freddy Jiang and supervised by Prof. Elsa Angelini
+and Prof. Loïc Le Folgoc.
+
+Data is sourced from the Automated Cardiac Diagnosis Challenge (ACDC)[1] and the Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation
+Challenge (M&Ms)[2, 3].
+
+- https://www.creatis.insa-lyon.fr/Challenge/acdc/databases.html
+- https://www.ub.edu/mnms/
+
+The implementation of Nouveau VAE in this repository is written from scratch in PyTorch Lightning and is based on the official implementation ([codebase][nvae-official])[4].
+
+[nvae-official]: https://github.com/NVlabs/NVAE
+
+[1]: Bernard O, Lalande A, Zotti C, Cervenansky F, Yang X, Heng PA, et al. Deep
+learning techniques for automatic MRI cardiac multi-structures segmentation and
+diagnosis: is the problem solved? IEEE transactions on medical imaging.
+2018;37(11):2514-25.
+
+[2]: Campello VM, Gkontra P, Izquierdo C, Martin-Isla C, Sojoudi A, Full PM, et
+al. Multi-centre, multi-vendor and multi-disease cardiac segmentation: the M&Ms
+challenge. IEEE Transactions on Medical Imaging. 2021;40(12):3543-54.
+
+[3]: Martín-Isla C, Campello VM, Izquierdo C, Kushibar K, Sendra-Balcells C,
+Gkontra P, et al. Deep learning segmentation of the right ventricle in cardiac
+MRI: the M&Ms challenge. IEEE Journal of Biomedical and Health Informatics.
+2023;27(7):3302-13.
+
+[4]: Vahdat A, Kautz J. NVAE: A deep hierarchical variational autoencoder.
+Advances in neural information processing systems. 2020;33:19667-79.
