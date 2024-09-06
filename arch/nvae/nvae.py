@@ -605,7 +605,7 @@ class NVAE(L.LightningModule):
         feats = feats.squeeze(0)
         
         self.log_reconstruction_metrics(feats, condition_label, phase_label)
-        self.log_generation_metrics(feats, condition_label, phase_label)
+        self.log_generation_metrics(feats)
         
         self.feats_buffer.append(feats)
 
@@ -646,7 +646,7 @@ class NVAE(L.LightningModule):
             self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
             self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
 
-    def log_generation_metrics(self, feats: torch.Tensor, condition: str, phase: str):
+    def log_generation_metrics(self, feats: torch.Tensor):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
         Distance with SimCLR (FRDS) metric across the batch.

@@ -5,13 +5,12 @@ from lightning import LightningDataModule
 import pandas as pd
 import torch
 import torchio as tio
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from data_modules.utils import preprocess
 from datasets.mnms import MnMs3DDataset, MnMsDataset
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.const import MASK_NUM_CLASSES, MaskClassLabel, MnMs
+from utils.const import MaskClassLabel, MnMs
 from utils.utils import listdir, one_hot
 
 def get_scan_and_mask(

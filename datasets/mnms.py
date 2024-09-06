@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
-from torchvision.transforms import v2
 
 class MnMsDataset(Dataset):
     """

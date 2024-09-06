@@ -5,12 +5,11 @@ from lightning import LightningDataModule
 import subprocess
 import torch
 import torchio as tio
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
 from data_modules.utils import preprocess
-from utils.const import ACDC, CARDIAC_WIDTH, DATA_PATH, MASK_NUM_CLASSES, SCRIPTS_PATH
+from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
 from utils.utils import one_hot, one_hot_to_image
 
@@ -79,8 +78,7 @@ def get_scan_and_mask(
 
 def get_dataset(test=False) -> tio.SubjectsDataset:
     subjects = []
-    
-    # noqa
+
     seq = range(101, 151) if test else range(1, 101)
     
     # Small subset to speed up preprocessing
@@ -204,7 +202,7 @@ class ACDCDataModule(LightningDataModule):
             # Always preserve empty masks for test set
             data_test = self._get_data_as_slice(data_test, filter_empty=False, register_alignment=register_alignment) 
             
-            # Save aligned masks because it takes a lot of time
+            # Save aligned masks as it takes a lot of time to preprocess
             if register_alignment:
                 torch.save(data_train, ACDC.ALIGNED.TRAIN_PATH)
                 torch.save(data_test, ACDC.ALIGNED.TEST_PATH)
