@@ -8,7 +8,7 @@ from torchvision import transforms
 from torchvision.models import inception_v3
 
 from arch.simclr.utils import load_simclr_backbone
-from utils.const import ACDC, MASK_NUM_CLASSES
+from utils.const import MASK_NUM_CLASSES
 from utils.utils import one_hot_to_image
 
 def compute_fid(real_data: torch.Tensor, fake_data: torch.Tensor) -> torch.Tensor:
@@ -151,7 +151,16 @@ def compute_frds(
     resnet_path: str,
     device: torch.device,
     is_data_onehot: bool=True,
-):  
+):
+    """
+    Frechet Resnet Distance with SimCLR (FRDS) is a novel metric to evaluate the
+    similarity between real and generated cardiac segmentation masks. It
+    replaces the Inception model in FID with a ResNet model, pretrained with
+    SimCLR on the ACDC dataset of cardiac segmentation masks.
+    
+    Like FID, FRDS is a distance metric, so a lower value indicates better
+    generation quality.
+    """
     # Load pretrained SimCLR model
     resnet_model = load_simclr_backbone(resnet_path)
     resnet_model = resnet_model.to(device)

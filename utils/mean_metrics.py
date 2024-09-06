@@ -1,6 +1,8 @@
 import pandas as pd
 
 if __name__ == "__main__":
+    # Configure path
+    # CSV file can be produced by running tensorboard_scraper.py
     path = "logs/unet_acdc/best.csv"
     df = pd.read_csv(path, index_col="model_name")
 

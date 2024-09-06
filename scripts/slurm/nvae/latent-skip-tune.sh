@@ -24,7 +24,7 @@ source activate
 #
 # Note: Clamp, SR does not noticeably improve performance.
 #
-# Time taken: OOM
+# Time taken: unknown
 # ==============================================================================
 
 # Grid size is 20
