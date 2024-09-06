@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from arch.vae.decoder import Decoder
 from arch.vae.encoder import Encoder
-from utils.const import ACDC, FRDS_MODEL_PATH, MASK_CLASSES
+from utils.const import FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
@@ -193,7 +193,7 @@ class VAE(L.LightningModule):
         x = x.squeeze(0)
         
         self.log_reconstruction_metrics(x, condition_label, phase_label)
-        self.log_generation_metrics(x, condition_label, phase_label)
+        self.log_generation_metrics(x)
         
         self.x_buffer.append(x)
     
@@ -234,7 +234,7 @@ class VAE(L.LightningModule):
             self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
             self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
     
-    def log_generation_metrics(self, x: torch.Tensor, condition: str, phase: str):
+    def log_generation_metrics(self, x: torch.Tensor):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
         Distance with SimCLR (FRDS) metric across the batch.

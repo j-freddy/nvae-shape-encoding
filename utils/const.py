@@ -8,6 +8,10 @@ OUT_PATH = "out"
 SCRIPTS_PATH = "scripts"
 SEED = 1969
 
+# See Quick Start section in README.md for instructions on how to download these
+# models. [Most] scripts will not work without these 2 models installed. FRDS
+# model is used to compute FRDS while NVAE model is used to compute shape loss
+# in ACU-Net.
 FRDS_MODEL_PATH = "logs/simclr_acdc/frds-resnet-18/checkpoints/epoch=143-step=1008.ckpt"
 NVAE_MODEL_PATH = "logs/nvae_acdc/default/checkpoints/epoch=97-step=20972.ckpt"
 

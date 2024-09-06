@@ -5,7 +5,6 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-
 from utils.colourmap import GIRIDIS
 from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
@@ -46,6 +45,9 @@ def listdir(dir: str) -> list[str]:
 
 def clamp(x: float, low: float, high: float) -> float:
     return max(low, min(x, high))
+
+def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
+    return torch.tanh(x.div(factor)) * factor
 
 def mask_class_id_to_idx(class_id: MaskClassLabel) -> int:
     return class_id.value
@@ -101,13 +103,6 @@ def show_samples(
 
     if display:
         plt.show()
-
-import os
-from matplotlib import colors
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-from torchvision.utils import make_grid
 
 def show_scans(
     scans: torch.Tensor,
@@ -183,9 +178,6 @@ def one_hot_to_image(x: torch.Tensor) -> torch.Tensor:
     The map can either be probabilistic or discrete.
     """
     return x[:, 1:, :, :].float()
-
-def soft_clamp(x: torch.Tensor, factor: float=5.0) -> torch.Tensor:
-    return torch.tanh(x.div(factor)) * factor
 
 def get_data(
     loader: torch.utils.data.DataLoader,

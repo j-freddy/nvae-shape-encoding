@@ -71,8 +71,6 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load model
-    # Inefficient: Need to load the hparams first to determine class type,
-    # then use load_from_checkpoint. So, this loads the checkpoint twice.
     checkpoint = torch.load(flags.model_path, map_location=device)
     Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
     del checkpoint

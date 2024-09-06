@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.const import ACDC, MASK_CLASSES
+from utils.const import MASK_CLASSES
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
@@ -51,8 +51,19 @@ class Up(nn.Module):
 
 class UNet(L.LightningModule):
     """
+    U-Net architecture for segmentation. 4-layer U-Net following the original
+    design as described by [1], with batch normalisation. Trained with
+    cross-entropy loss.
+    
     In this class, x denotes the scans and y denotes the segmentation masks.
+    
+    [1]: Ronneberger O, Fischer P, Brox T. U-net: Convolutional networks for
+    biomedical image segmentation. InMedical image computing and
+    computer-assisted intervention–MICCAI 2015: 18th international conference,
+    Munich, Germany, October 5-9, 2015, proceedings, part III 18 2015 (pp.
+    234-241). Springer International Publishing.
     """
+
     def __init__(
         self,
         in_channels: int=1,

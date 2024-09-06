@@ -56,8 +56,6 @@ def parse_args() -> argparse.Namespace:
         "--warmup_steps",
         type=int,
         help="Number of steps for KL divergence linear deterministic warmup.",
-        # Each epoch has 214 steps with batch size of 8 and ACDC dataset
-        # (with empty masks preserved)
         default=500,
     )
     

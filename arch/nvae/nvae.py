@@ -2,7 +2,6 @@ from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
-from monai.losses.dice import DiceLoss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.const import ACDC, CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
+from utils.const import CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
@@ -605,7 +604,7 @@ class NVAE(L.LightningModule):
         feats = feats.squeeze(0)
         
         self.log_reconstruction_metrics(feats, condition_label, phase_label)
-        self.log_generation_metrics(feats, condition_label, phase_label)
+        self.log_generation_metrics(feats)
         
         self.feats_buffer.append(feats)
 
@@ -646,7 +645,7 @@ class NVAE(L.LightningModule):
             self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
             self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
 
-    def log_generation_metrics(self, feats: torch.Tensor, condition: str, phase: str):
+    def log_generation_metrics(self, feats: torch.Tensor):
         """
         Log generation metrics to TensorBoard. This includes the Frechet Resnet
         Distance with SimCLR (FRDS) metric across the batch.

@@ -3,8 +3,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import v2
 
-from utils.const import ACDC, CARDIAC_WIDTH
-from utils.custom_augmentations import RandomGammaCorrection
+from utils.const import CARDIAC_WIDTH
 
 class ACDCDataset(Dataset):
     """
@@ -37,13 +36,7 @@ class ACDCDataset(Dataset):
         
         self.equalise_pipeline = v2.RandomEqualize(p=1.0)
         
-        self.augmentation_pipeline_scan = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            # RandomGammaCorrection(range=(0.5, 1.5)),
-            # v2.GaussianNoise(mean=0, sigma=0.1),
-        ])
-        
-        self.augmentation_pipeline_mask = transforms.Compose([
+        self.augmentation_pipeline = transforms.Compose([
             transforms.RandomHorizontalFlip(),
         ])
     
@@ -65,9 +58,9 @@ class ACDCDataset(Dataset):
         if self.augment:
             # Ensure same random augmentation is applied to both scan and mask
             state = torch.get_rng_state()
-            scan = self.augmentation_pipeline_scan(scan)
+            scan = self.augmentation_pipeline(scan)
             torch.set_rng_state(state)
-            mask = self.augmentation_pipeline_mask(mask)
+            mask = self.augmentation_pipeline(mask)
         
         return scan, mask, condition, ed
 

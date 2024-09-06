@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 
+# Collected data from FRDS benchmarking with simclr/test.py
 benchmark_data = {
     "labels": ["v4", "v2-no-elastic", "Inception", "v3", "v3-small-elastic"],
     "ideal": [11.65, 12.66, 4.48, 18.08, 18.47],

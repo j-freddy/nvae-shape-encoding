@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import requests
 
-from utils.const import ACDC, LOGS_PATH, MnMs
+from utils.const import ACDC, LOGS_PATH
 
 def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
     """
@@ -47,9 +47,12 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
+    
+    # Configure subdirectory
     log_subdir = "tune-shape-prior"
     metrics = ["dsc/test", "dsc/test_RV", "dsc/test_MYO", "dsc/test_LV", "gen/anatomically_valid"]
 
+    # Configure log_dir
     df = get_tensorboard_data(
         log_dir=os.path.join(LOGS_PATH, ACDC.DIR.UNET, log_subdir),
         metrics=metrics,
@@ -59,5 +62,5 @@ if __name__ == '__main__':
 
     print(df.head())
 
-    # Save dataframe to a csv file
+    # Save dataframe to a csv file (configure path)
     df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.UNET, f"{log_subdir}.csv"))

@@ -1,11 +1,23 @@
 import torch
 from arch.nvae.nvae import NVAE
 from arch.unet.unet import UNet
-from utils.const import ACDC, NVAE_MODEL_PATH
+from utils.const import NVAE_MODEL_PATH
 
 import torch.nn.functional as F
 
 class ACUNet(UNet):
+    """
+    Anatomically constrained U-Net (ACU-Net) for segmentation.
+    
+    This class extends the U-Net architecture (see UNet docstring) with a shape
+    regularisation term that is computed with the learned latent space of a
+    pretrained NVAE model. The shape loss term enforces correctness of global
+    structure and complements the pixel-wise cross-entropy loss, improving
+    anatomical validity of output segmentations.
+    
+    In this class, x denotes the scans and y denotes the segmentation masks.
+    """
+    
     def __init__(
         self,
         in_channels: int=1,
