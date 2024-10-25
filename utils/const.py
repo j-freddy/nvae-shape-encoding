@@ -37,6 +37,7 @@ class ACDC:
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
+        NVAESEG = "nvae_seg_acdc"
         SIMCLR = "simclr_acdc"
         UNET = "unet_acdc"
 
