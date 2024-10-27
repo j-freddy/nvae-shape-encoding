@@ -593,6 +593,8 @@ class NVAESeg(L.LightningModule):
         Args:
             feats (torch.Tensor): Batch of input samples.
         """
+        num_samples, _, _, _ = feats.shape
+        
         feats_hat_logits, _, _, _, _ = self(scans, test=True)
         
         # Compute reconstruction loss
@@ -621,6 +623,18 @@ class NVAESeg(L.LightningModule):
             self.log(f"loss/dsc_{class_label}", dice_score)
             self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
             self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
+        
+        # Compute anatomical validity
+        num_valid = 0
+        
+        for discretised_feat_fake in discretise(feats_hat_logits):
+            AV = AnatomicalValidityChecker(discretised_feat_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+
+        self.log("gen/anatomically_valid_recon", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
 
     def log_generation_metrics(self, feats: torch.Tensor):
         """
@@ -644,7 +658,7 @@ class NVAESeg(L.LightningModule):
             if AV.count_violations() == 0:
                 num_valid += 1
         
-        self.log("gen/anatomically_valid", num_valid / num_samples)
+        self.log("gen/anatomically_valid_gen", num_valid / num_samples)
         
         # Keep track of all generations to compute FRDS
         self.feats_fake_buffer.append(feats_fake)

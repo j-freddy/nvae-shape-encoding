@@ -20,7 +20,7 @@ warmup_steps_list=("6420")
 # Size=20
 betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
 
-logdir="logs-nvaeseg-tune"
+logdir="logs-nvaeseg-latent-skip-clamp"
 
 # Train
 
@@ -35,8 +35,9 @@ do
             # Train
             python -m arch.nvaeseg.train \
                 --epochs 100 \
-                --arch "default" \
+                --arch "latent-skip" \
                 --projected_channels $projected_channels \
+                --min_channels 16 \
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \
@@ -55,7 +56,7 @@ do
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
             # Get saved model path
-            model_path=$(ls ${logdir}/nvae_seg_acdc/${model_name}/checkpoints/*.ckpt)
+            model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
             python -m arch.nvaeseg.test --model_path $model_path --logs $logdir
         done
