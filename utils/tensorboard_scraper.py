@@ -59,7 +59,7 @@ if __name__ == '__main__':
         metrics=metrics,
     )
 
-    df.sort_values(by="model_name", inplace=True, ascending=True)
+    df.sort_values(by="loss/dsc", inplace=True, ascending=False)
 
     print(df.head())
 

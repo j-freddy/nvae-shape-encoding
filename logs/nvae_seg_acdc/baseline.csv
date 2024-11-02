@@ -1,0 +1,3 @@
+model_name,loss/dsc,gen/anatomically_valid_recon
+unet,0.915,0.843
+acunet,0.915,0.896
