@@ -65,7 +65,7 @@ if __name__ == '__main__':
         plt.scatter(df["loss/dsc"], df["gen/anatomically_valid_recon"], alpha=0.5, label=label)
     
     plt.xlabel("DSC")
-    plt.ylabel("% Anatomically Valid Reconstructions")
+    plt.ylabel("% Anatomically Valid Segmentations")
     
     plt.tight_layout()
     plt.legend()

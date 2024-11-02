@@ -50,8 +50,14 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "default"
-    metrics = ["loss/dsc", "gen/anatomically_valid_recon"]
+    log_subdir = "latent-skip-clamp"
+    metrics = [
+        "loss/dsc",
+        "loss/dsc_LV",
+        "loss/dsc_RV",
+        "loss/dsc_MYO",
+        "gen/anatomically_valid_recon",
+    ]
 
     # Configure log_dir
     df = get_tensorboard_data(
