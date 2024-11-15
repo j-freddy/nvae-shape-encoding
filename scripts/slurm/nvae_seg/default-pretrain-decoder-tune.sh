@@ -18,9 +18,9 @@ projected_channels_list=("4")
 # Size=1 (6420 is 214*30 so first 30 epochs)
 warmup_steps_list=("6420")
 # Size=20
-betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
+betas=("0 0.01 0.02 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 2 3 4 5 6 7 8 9 10")
 
-logdir="logs-nvaeseg-tune"
+logdir="logs-nvaeseg-pretrain-decoder-tune"
 
 # Train
 
@@ -40,7 +40,8 @@ do
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \
-                --logs $logdir
+                --logs $logdir \
+                --pretrained_nvae_model_path "logs/nvae_acdc/default/checkpoints/epoch=97-step=20972.ckpt"
         done
     done
 done
