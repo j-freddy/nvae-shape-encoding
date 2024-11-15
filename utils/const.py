@@ -14,6 +14,7 @@ SEED = 1969
 # in ACU-Net.
 FRDS_MODEL_PATH = "logs/simclr_acdc/frds-resnet-18/checkpoints/epoch=143-step=1008.ckpt"
 NVAE_MODEL_PATH = "logs/nvae_acdc/default/checkpoints/epoch=97-step=20972.ckpt"
+NVAE_LS_MODEL_PATH = "logs/nvae_acdc/latent-skip/checkpoints/epoch=98-step=21186.ckpt"
 
 CARDIAC_WIDTH = 128
 MASK_NUM_CLASSES = 4

@@ -3,12 +3,12 @@ import os
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
+import torch
 
 from arch.nvae.utils import ID_TO_ARCH
 from arch.nvaeseg.nvaeseg import NVAESeg
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCDataModule, ACDCMaskDataModule
-from arch.nvae.nvae import NVAE
+from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -101,6 +101,12 @@ def parse_args() -> argparse.Namespace:
         default=LOGS_PATH,
     )
     
+    parser.add_argument(
+        "--pretrained_nvae_model_path",
+        type=str,
+        help="If set, load a pretrained NVAE model from this path and use its decoder weights.",
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -145,6 +151,23 @@ def main(flags: argparse.Namespace):
         kl_warmup_steps=flags.warmup_steps,
         use_sr=flags.sr,
     )
+    
+    if flags.pretrained_nvae_model_path:
+        # Replace decoder weights with pretrained NVAE decoder weights
+
+        state_dict = torch.load(
+            flags.pretrained_nvae_model_path,
+            map_location=device,
+            weights_only=True,
+        )["state_dict"]
+        
+        # Preserve only decoder and conditional coder weights
+        for key in list(state_dict.keys()):
+            if not key.startswith("decoder") and not key.startswith("conditional_coder"):
+                del state_dict[key]
+        
+        model.load_state_dict(state_dict, strict=False)
+        print(f"Loaded pretrained decoder of NVAE model from {flags.pretrained_nvae_model_path}.")
     
     trainer = L.Trainer(
         accelerator="auto",
