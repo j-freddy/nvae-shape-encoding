@@ -41,7 +41,7 @@ do
                 --betas $betas_str \
                 --model_name $model_name \
                 --logs $logdir \
-                --pretrained_nvae_model_path "logs/nvae_acdc/latent-skip/checkpoints/epoch=98-step=21186.ckpt"
+                --pretrained_nvae_model_path "logs/nvae_acdc/best/latent-skip/checkpoints/epoch=98-step=21186.ckpt"
         done
     done
 done
