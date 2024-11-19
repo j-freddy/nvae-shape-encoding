@@ -22,7 +22,6 @@ def get_tensorboard_data(log_dir: str, metrics: list[str]) -> pd.DataFrame:
 
         for metric in metrics:
             url = f"http://localhost:6006/data/plugin/scalars/scalars?tag={metric}&run={model_name}&format=csv"
-            print(url)
 
             response = requests.get(url, allow_redirects=True)
             data_csv = csv.reader(response.text.splitlines(), delimiter=",")
@@ -50,7 +49,7 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "latent-skip-clamp"
+    log_subdir = "default-pretrain-decoder"
     metrics = [
         "loss/dsc",
         "loss/dsc_LV",

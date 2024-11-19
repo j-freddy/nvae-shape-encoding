@@ -42,13 +42,13 @@ if __name__ == '__main__':
 
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "default.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "latent-skip-clamp.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "default-pretrain-decoder.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "latent-skip-pretrain-decoder.csv"),
         os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "baseline.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["Default", "LatentSkip-Clamp", "Baseline"]
+    labels = ["Default Pretrain", "LatentSkip-Clamp Pretrain", "Baseline"]
     
     # Read data
     dfs = []
