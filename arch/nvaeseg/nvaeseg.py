@@ -29,6 +29,7 @@ class NVAESeg(L.LightningModule):
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
         use_sr: bool=False,
+        decoder_lr_factor: float=1,
     ):
         """
         Create an instance of the NVAESeg model. All constructor arguments are
@@ -150,19 +151,40 @@ class NVAESeg(L.LightningModule):
         return conv_layers
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adamax(
-            self.parameters(),
+        # Optimiser and scheduler for stem and encoder
+        
+        encoder_opt = torch.optim.Adamax(
+            list(self.stem.parameters()) + list(self.encoder.parameters()),
             lr=1e-2,
             eps=1e-3,
             weight_decay=3e-4,
         )
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimiser,
+        encoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            encoder_opt,
             T_max=self.hparams.max_epochs,
             eta_min=1e-4,
         )
+
+        # Optimiser and scheduler for decoder and conditional_coder
         
-        return [optimiser], [lr_scheduler]
+        decoder_opt = torch.optim.Adamax(
+            list(self.decoder.parameters()) + list(self.conditional_coder.parameters()),
+            # Much lower learning rate
+            lr=1e-2 * self.hparams.decoder_lr_factor,
+            eps=1e-3,
+            weight_decay=3e-4,
+        )
+
+        decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            decoder_opt,
+            T_max=self.hparams.max_epochs,
+            eta_min=1e-4 * self.hparams.decoder_lr_factor,
+        )
+        
+        return (
+            [encoder_opt, decoder_opt],
+            [encoder_scheduler, decoder_scheduler],
+        )
     
     def _get_layer_idx_to_latent_idx_map(self) -> dict[int, int]:
         latent_idx_to_layer_idx = [

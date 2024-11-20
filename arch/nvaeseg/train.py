@@ -107,6 +107,13 @@ def parse_args() -> argparse.Namespace:
         help="If set, load a pretrained NVAE model from this path and use its decoder weights.",
     )
     
+    parser.add_argument(
+        "--decoder_lr_factor",
+        type=float,
+        help="Scale the learning rate of the decoder (and conditional coder) by this factor with respect to the encoder (and stem).",
+        default=1.0,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -150,6 +157,7 @@ def main(flags: argparse.Namespace):
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
         use_sr=flags.sr,
+        decoder_lr_factor=flags.decoder_lr_factor,
     )
     
     if flags.pretrained_nvae_model_path:
