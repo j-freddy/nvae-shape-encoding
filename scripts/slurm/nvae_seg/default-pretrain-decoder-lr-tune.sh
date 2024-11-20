@@ -16,7 +16,8 @@ source activate
 # Grid size is 27
 projected_channels_list=("4")
 # Size=1 (6420 is 214*30 so first 30 epochs)
-warmup_steps_list=("6420")
+# Multiplying by 2 as alternating between encoder and decoder
+warmup_steps_list=("12840")
 # Size=3
 betas=("0 0.5 1")
 # Size=9
@@ -38,7 +39,7 @@ do
                 betas_str="${beta},${beta},${beta}"
                 # Train
                 python -m arch.nvaeseg.train \
-                    --epochs 100 \
+                    --epochs 200 \
                     --arch "default" \
                     --projected_channels $projected_channels \
                     --warmup_steps $warmup_steps \

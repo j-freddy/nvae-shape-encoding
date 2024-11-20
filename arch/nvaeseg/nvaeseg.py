@@ -85,6 +85,8 @@ class NVAESeg(L.LightningModule):
         
         self.save_hyperparameters()
         
+        self.automatic_optimization = False
+        
         self.img_width = CARDIAC_WIDTH
         self.num_layers = len(self.hparams.num_groups_per_layer)
         self.num_latent_layers = len(self.hparams.beta_per_layer)
@@ -509,6 +511,7 @@ class NVAESeg(L.LightningModule):
     def forward(
         self,
         scans: torch.Tensor,
+        backprop: bool=False,
         test: bool=False,
         num_shared_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
@@ -559,8 +562,15 @@ class NVAESeg(L.LightningModule):
         
         return feats_hat_logits, qs, ps, log_qs, log_ps
         
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        
         scans, feats, _, _ = batch
+        
+        optimisers = self.optimizers()
+        # Alternate between training encoder and decoder every step
+        optimiser = optimisers[(self.current_epoch + batch_idx) % 2]
+        
+        self.toggle_optimizer(optimiser)
         
         feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
         
@@ -572,6 +582,12 @@ class NVAESeg(L.LightningModule):
         
         if torch.isnan(loss):
             raise ValueError("NaN loss")
+        
+        optimiser.zero_grad()
+        self.manual_backward(loss)
+        optimiser.step()
+        
+        self.untoggle_optimizer(optimiser)
 
         return loss
     
