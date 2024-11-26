@@ -46,7 +46,8 @@ do
                     --betas $betas_str \
                     --model_name $model_name \
                     --logs $logdir \
-                    --pretrained_nvae_model_path "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt"
+                    --pretrained_nvae_model_path "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt" \
+                    --decoder_lr_factor $decoder_lr_factor
             done
         done
     done
