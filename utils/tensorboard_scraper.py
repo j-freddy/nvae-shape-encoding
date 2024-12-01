@@ -49,7 +49,7 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "default-pretrain-decoder"
+    log_subdir = "default-pretrain-decoder-lr"
     metrics = [
         "loss/dsc",
         "loss/dsc_LV",
