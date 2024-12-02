@@ -29,6 +29,7 @@ class NVAESeg(L.LightningModule):
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
         use_sr: bool=False,
+        freeze_decoder: bool=False,
     ):
         """
         Create an instance of the NVAESeg model. All constructor arguments are
@@ -76,6 +77,8 @@ class NVAESeg(L.LightningModule):
             kl_warmup_steps (int): Number of steps to perform KL annealing.
                 Each epoch has 214 steps. Default: 500.
             use_sr (bool): If True, use spectral regularisation. Default: False.
+            freeze_decoder (bool): If True, freeze the decoder and conditional 
+                coder weights. Default: False.
         """
         super().__init__()
         
@@ -130,6 +133,16 @@ class NVAESeg(L.LightningModule):
                 padding=1,
             ),
         )
+        
+        if self.hparams.freeze_decoder:
+            print("Freezing decoder and conditional coder weights.")
+            
+            self.decoder.requires_grad_(False)
+            self.conditional_coder.requires_grad_(False)
+            
+            # Do not update running estimates for BatchNorm
+            self.decoder.eval()
+            self.conditional_coder.eval()
                 
         # Convolutional layers are used for spectral regularisation
         self.conv_layers = self._get_conv_layers()

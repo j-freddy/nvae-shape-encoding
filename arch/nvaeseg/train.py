@@ -107,6 +107,13 @@ def parse_args() -> argparse.Namespace:
         help="If set, load a pretrained NVAE model from this path and use its decoder weights.",
     )
     
+    parser.add_argument(
+        "--freeze_decoder",
+        action=argparse.BooleanOptionalAction,
+        help="If set, freeze the decoder and conditional coder weights.",
+        default=False,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -150,6 +157,7 @@ def main(flags: argparse.Namespace):
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
         use_sr=flags.sr,
+        freeze_decoder=flags.freeze_decoder,
     )
     
     if flags.pretrained_nvae_model_path:
