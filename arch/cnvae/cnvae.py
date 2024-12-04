@@ -32,7 +32,6 @@ class CNVAE(L.LightningModule):
         max_epochs: int=50,
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
-        use_sr: bool=False,
         freeze_decoder: bool=False,
     ):
         """
@@ -80,7 +79,6 @@ class CNVAE(L.LightningModule):
                 @is_layer_shared. Default: [1.0, 1.0, 1.0].
             kl_warmup_steps (int): Number of steps to perform KL annealing.
                 Each epoch has 214 steps. Default: 500.
-            use_sr (bool): If True, use spectral regularisation. Default: False.
             freeze_decoder (bool): If True, freeze the decoder and conditional 
                 coder weights. Default: False.
         """
@@ -132,6 +130,18 @@ class CNVAE(L.LightningModule):
         
         # TODO The Decoder will be different, so create a new Decoder class
     
+    def get_image_stem(self):
+        return self.bottom_up["image"]["stem"]
+
+    def get_image_encoder(self):
+        return self.bottom_up["image"]["encoder"]
+
+    def get_mask_stem(self):
+        return self.bottom_up["mask"]["stem"]
+    
+    def get_mask_encoder(self):
+        return self.bottom_up["mask"]["encoder"]
+    
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
             self.parameters(),
@@ -147,6 +157,39 @@ class CNVAE(L.LightningModule):
         
         return [optimiser], [lr_scheduler]
     
+    def forward(
+        self,
+        scans: torch.Tensor,
+        feats: torch.Tensor,
+        test: bool=False,
+        num_shared_layers: int=-1,
+    ):
+        # TODO Type this method
+        
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
+        x = self.get_image_stem()(2 * scans - 1.0)
+        y = self.get_mask_stem()(2 * feats - 1.0)
+        
+        # Pass through encoder
+        x, xs, img_enc_combiner_cells = self.get_image_encoder()(x)
+        y, ys, mask_enc_combiner_cells = self.get_mask_encoder()(y)
+        
+        # Reverse buffers and modules for decoder
+        
+        xs = xs[::-1]
+        img_enc_combiner_cells = img_enc_combiner_cells[::-1]
+        img_enc_samplers = self.get_image_encoder().samplers[::-1]
+        
+        ys = ys[::-1]
+        mask_enc_combiner_cells = mask_enc_combiner_cells[::-1]
+        mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
+        
+        print(scans.shape)
+        print(feats.shape)
+        
+        import sys
+        sys.exit()
+            
     def _get_layer_idx_to_latent_idx_map(self) -> dict[int, int]:
         latent_idx_to_layer_idx = [
             i for i, is_latent in enumerate(self.hparams.is_layer_shared)
@@ -167,11 +210,7 @@ class CNVAE(L.LightningModule):
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         scans, feats, _, _ = batch
         
-        print(scans.shape)
-        print(feats.shape)
-        
-        import sys
-        sys.exit()
+        self(scans, feats)
         
         loss = 0
         return loss

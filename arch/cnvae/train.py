@@ -68,13 +68,6 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--sr",
-        action=argparse.BooleanOptionalAction,
-        help="If set, use spectral regularisation in the loss.",
-        default=False,
-    )
-    
-    parser.add_argument(
         "--filter_empty",
         action=argparse.BooleanOptionalAction,
         help="If set, filter out empty masks.",
@@ -156,7 +149,6 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
-        use_sr=flags.sr,
         freeze_decoder=flags.freeze_decoder,
     )
     
