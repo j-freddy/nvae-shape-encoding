@@ -25,6 +25,7 @@ class MaskClassLabel(Enum):
     RV = 1
     MYO = 2
     LV = 3
+
 @dataclass
 class ACDC:
     """
@@ -39,6 +40,7 @@ class ACDC:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
         NVAESEG = "nvae_seg_acdc"
+        CNVAE = "cnvae_acdc"
         SIMCLR = "simclr_acdc"
         UNET = "unet_acdc"
 

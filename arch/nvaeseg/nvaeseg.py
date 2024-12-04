@@ -15,6 +15,10 @@ from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconst
 from utils.utils import clamp, discretise, show_samples
 
 class NVAESeg(L.LightningModule):
+    """
+    Nouveau VAE adapted for segmentation.
+    """
+    
     def __init__(
         self,
         in_channels: int=1,
