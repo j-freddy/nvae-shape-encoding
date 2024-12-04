@@ -98,23 +98,39 @@ class CNVAE(L.LightningModule):
         
         self.layer_idx_to_latent_idx = self._get_layer_idx_to_latent_idx_map()
         
-        # Table 6: # initial channels in enc. (NVAE paper)
-        self.stem = nn.Conv2d(
-            self.hparams.in_channels,
-            max(self.hparams.initial_channels, self.hparams.min_channels),
-            kernel_size=3,
-            padding=1,
-            bias=True,
-        )
+        # Conditional NVAE has 2 encoders that take in the image and the mask
+        # respectively
         
-        self.encoder = Encoder(
-            num_groups_per_layer=self.hparams.num_groups_per_layer,
-            is_layer_shared=self.hparams.is_layer_shared,
-            initial_channels=self.hparams.initial_channels,
-            min_channels=self.hparams.min_channels,
-            z_channels=self.hparams.z_channels,
-            initial_downsample_factor=self.hparams.initial_downsample_factor,
-        )
+        self.bottom_up = nn.ModuleDict({
+            "image": nn.ModuleDict(),
+            "mask": nn.ModuleDict(),
+        })
+        
+        for key in self.bottom_up.keys():
+            # The mask encoder has the same number of channels as the output
+            in_channels = self.hparams.in_channels if key == "image" else self.hparams.out_channels
+            
+            # Table 6: # initial channels in enc. (NVAE paper)
+            self.bottom_up[key]["stem"] = nn.Conv2d(
+                in_channels,
+                max(self.hparams.initial_channels, self.hparams.min_channels),
+                kernel_size=3,
+                padding=1,
+                bias=True,
+            )
+            
+            self.bottom_up[key]["encoder"] = Encoder(
+                num_groups_per_layer=self.hparams.num_groups_per_layer,
+                is_layer_shared=self.hparams.is_layer_shared,
+                initial_channels=self.hparams.initial_channels,
+                min_channels=self.hparams.min_channels,
+                z_channels=self.hparams.z_channels,
+                initial_downsample_factor=self.hparams.initial_downsample_factor,
+            )
+        
+        top_latent_dim = self._get_latent_dim(self.num_layers - 1)
+        
+        # TODO The Decoder will be different, so create a new Decoder class
     
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
@@ -142,12 +158,22 @@ class CNVAE(L.LightningModule):
         }
         
         return mapping
+
+    def _get_latent_dim(self, layer: int) -> int:
+        # Layer 0 is the shallowest layer
+        # Layer @(num_layers - 1) is the deepest (topmost) layer
+        return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        loss = 0
-        print("Hello, world!")
+        scans, feats, _, _ = batch
+        
+        print(scans.shape)
+        print(feats.shape)
+        
         import sys
         sys.exit()
+        
+        loss = 0
         return loss
 
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
