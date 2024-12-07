@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from arch.nvae.decoder import Decoder
+from arch.cnvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
 from utils.const import CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
@@ -128,7 +128,27 @@ class CNVAE(L.LightningModule):
         
         top_latent_dim = self._get_latent_dim(self.num_layers - 1)
         
-        # TODO The Decoder will be different, so create a new Decoder class
+        self.decoder = Decoder(
+            num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
+            is_layer_shared=self.hparams.is_layer_shared[::-1],
+            initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.num_layers - 1)),
+            min_channels=self.hparams.min_channels,
+            top_latent_shape=(top_latent_dim, top_latent_dim),
+            # Since there are 2 encoders with concatenated outputs
+            z_channels=self.hparams.z_channels * 2,
+            final_upsample_factor=self.hparams.initial_downsample_factor,
+        )
+        
+        # This is the opposite of the stem
+        self.conditional_coder = nn.Sequential(
+            nn.ELU(),
+            nn.Conv2d(
+                max(self.hparams.initial_channels, self.hparams.min_channels),
+                self.hparams.out_channels,
+                kernel_size=3,
+                padding=1,
+            ),
+        )
     
     def get_image_stem(self):
         return self.bottom_up["image"]["stem"]
@@ -184,11 +204,24 @@ class CNVAE(L.LightningModule):
         mask_enc_combiner_cells = mask_enc_combiner_cells[::-1]
         mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
         
-        print(scans.shape)
-        print(feats.shape)
+        # Pass through decoder
+        x_hat_logits = self.decoder(
+            x,
+            xs,
+            y,
+            ys,
+            img_enc_combiner_cells,
+            img_enc_samplers,
+            mask_enc_combiner_cells,
+            mask_enc_samplers,
+            test=test,
+            num_shared_layers=num_shared_layers,
+        )
         
-        import sys
-        sys.exit()
+        # Compute logits
+        feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
+        
+        return feats_hat_logits
             
     def _get_layer_idx_to_latent_idx_map(self) -> dict[int, int]:
         latent_idx_to_layer_idx = [
