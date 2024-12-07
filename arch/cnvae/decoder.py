@@ -213,30 +213,22 @@ class Decoder(nn.Module):
         assert x.shape[0] == y.shape[0]
         batch_size = x.shape[0]
         
-        # Sample mu, logsig of the topmost latent layer
-        
-        latent_repr_q_x = img_enc_samplers[0](x)
+        # Top-level prior: Sample mu, logsig of the topmost latent layer
+        latent_repr_x = img_enc_samplers[0](x)
         # [8, 20, 4, 4]
-        mu_q_x, logsig_q_x = torch.chunk(latent_repr_q_x, 2, dim=1)
+        mu_q, logsig_q = torch.chunk(latent_repr_x, 2, dim=1)
         
-        latent_repr_q_y = mask_enc_samplers[0](y)
-        # [8, 20, 4, 4]
-        mu_q_y, logsig_q_y = torch.chunk(latent_repr_q_y, 2, dim=1)
-        
-        print(f"mu_q_x: {mu_q_x.shape}")
-        print(f"logsig_q_x: {logsig_q_x.shape}")
-        print(f"mu_q_y: {mu_q_y.shape}")
-        print(f"logsig_q_y: {logsig_q_y.shape}")
-        
-        mu_q = torch.cat([mu_q_x, mu_q_y], dim=1)
-        # [8, 40, 4, 4]
-        logsig_q = torch.cat([logsig_q_x, logsig_q_y], dim=1)
+        # TODO Top-level prior should draw information from mask
+        # comb_feats = combiner_cells...
+        # latent_repr_y = mask_enc_samplers[0](comb_feats)
+        [8, 20, 4, 4]
+        # dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
         
         print(f"mu_q: {mu_q.shape}")
         print(f"logsig_q: {logsig_q.shape}")
         
-        # Approximate posterior for top-level
-
+        # Top-level approximate posterior
+        # distr = Normal(mu_q + dmu_q, logsig_q + dlogsig_q)
         distr = Normal(mu_q, logsig_q)
         # [8, 40, 4, 4]
         z = distr.sample(test)
@@ -269,7 +261,7 @@ class Decoder(nn.Module):
                 if idx_dec > 0:
                     # Sample prior
                     latent_repr_p = self.samplers[idx_dec - 1](y_hat)
-                    # [8, 40, 4, 4]
+                    # [8, 20, 4, 4]
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
                     print(f"mu_p: {mu_p.shape}")
@@ -277,34 +269,37 @@ class Decoder(nn.Module):
                     
                     if idx_dec < self.cumulative_groups_per_layer[num_shared_layers - 1]:
                         # Prior from image encoder
-                        x_comb_feats = img_enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], y_hat)
-                        latent_repr_x_q = img_enc_samplers[idx_dec](x_comb_feats)
+                        comb_feats_x = img_enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], y_hat)
+                        latent_repr_x = img_enc_samplers[idx_dec](comb_feats_x)
                         # [8, 20, _, _]
-                        mu_x_q, logsig_x_q = torch.chunk(latent_repr_x_q, 2, dim=1)
+                        dmu_p, dlogsig_p = torch.chunk(latent_repr_x, 2, dim=1)
                         
-                        print(f"Image encoder prior mu_q: {mu_x_q.shape}")
-                        print(f"Image encoder prior logsig_q: {logsig_x_q.shape}")
+                        print(f"Image encoder prior dmu_p: {dmu_p.shape}")
+                        print(f"Image encoder prior dlogsig_p: {dlogsig_p.shape}")
+                        
+                        import sys
+                        sys.exit()
                         
                         # Variational posterior from mask encoder
-                        y_comb_feats = mask_enc_combiner_cells[idx_dec - 1](ys[idx_dec - 1], y_hat)
-                        latent_repr_y_q = mask_enc_samplers[idx_dec](y_comb_feats)
+                        comb_feats_x_y = mask_enc_combiner_cells[idx_dec - 1](ys[idx_dec - 1], y_hat)
+                        latent_repr_x_y = mask_enc_samplers[idx_dec](comb_feats_x_y)
                         # [8, 20, _, _]
-                        mu_y_q, logsig_y_q = torch.chunk(latent_repr_y_q, 2, dim=1)
+                        dmu_q, dlogsig_q = torch.chunk(latent_repr_x_y, 2, dim=1)
 
-                        print(f"Mask encoder prior mu_q: {mu_y_q.shape}")
-                        print(f"Mask encoder prior logsig_q: {logsig_y_q.shape}")
+                        print(f"Mask encoder prior mu_q: {dmu_q.shape}")
+                        print(f"Mask encoder prior logsig_q: {dlogsig_q.shape}")
+
                     else:
-                        mu_q = torch.zeros_like(mu_p)
-                        logsig_q = torch.zeros_like(logsig_p)
+                        dmu_p = torch.zeros_like(mu_p)
+                        dlogsig_p = torch.zeros_like(logsig_p)
+                        dmu_q = torch.zeros_like(mu_p)
+                        dlogsig_q = torch.zeros_like(logsig_p)
 
                     # Residual distribution i.e. approximate posterior
-                    
-                    # TODO
-                    
-                    import sys
-                    sys.exit()
-                    
-                    distr = Normal(mu_p + mu_q, logsig_p + logsig_q)
+                    distr = Normal(
+                        mu_p + dmu_p + dmu_q,
+                        logsig_p + dlogsig_p + dlogsig_q,
+                    )
                     z = distr.sample(deterministic=test)
                     qs.append(distr)
                     log_qs.append(distr.log_p(z))

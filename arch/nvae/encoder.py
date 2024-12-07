@@ -53,6 +53,22 @@ class EncoderCombinerCell(nn.Module):
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         return x1 + self.net(x2)
 
+class ExtendedEncoderCombinerCell(nn.Module):
+    """
+    Extended encoder combiner cell.
+    
+    This class has 2 convnets and allowing 3 tensors to be combined.
+    """
+    
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+
+        self.net1 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.net2 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+    
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor, x3: torch.Tensor) -> torch.Tensor:
+        return x1 + self.net1(x2) + self.net2(x3)
+
 class Encoder(nn.Module):
     """
     NVAE Encoder.
@@ -61,6 +77,9 @@ class Encoder(nn.Module):
     - https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
     
     Also see init_encoder_tower() in official NVAE code.
+    
+    Extended to support ExtendedEncoderCombinerCell for Conditional NVAE. See
+    CNVAE class.
     """
     
     def __init__(
@@ -72,6 +91,7 @@ class Encoder(nn.Module):
         min_channels: int=16,
         z_channels: int=20,
         initial_downsample_factor: int=2,
+        use_extended_combiner: bool=False,
     ):
         super().__init__()
         
@@ -79,6 +99,10 @@ class Encoder(nn.Module):
         
         self.min_channels = min_channels
         self.num_latent_layers = len(num_groups_per_layer)
+        
+        CombinerCell = ExtendedEncoderCombinerCell \
+            if use_extended_combiner \
+            else EncoderCombinerCell
         
         # Build preprocessing modules
         
@@ -140,7 +164,7 @@ class Encoder(nn.Module):
                     
                     # Add enc combiner if not last group in last layer
                     if not (s == self.num_latent_layers - 1 and g == num_groups_per_layer[s] - 1):
-                        self.tower.append(EncoderCombinerCell(true_num_channels, true_num_channels))
+                        self.tower.append(CombinerCell(true_num_channels, true_num_channels))
         
             if s < self.num_latent_layers - 1:
                 # Downsample
@@ -173,7 +197,7 @@ class Encoder(nn.Module):
         self,
         x: torch.Tensor,
         print_logs: bool=False,
-    ) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell | ExtendedEncoderCombinerCell]]:
         x = self.preprocess(x)
         if print_logs:
             print(x.shape)
@@ -187,7 +211,7 @@ class Encoder(nn.Module):
         # Go through the tower and checkpoint combiner cells as it requires
         # sampled variables in the decoder pass
         for cell in self.tower:
-            if isinstance(cell, EncoderCombinerCell):
+            if isinstance(cell, EncoderCombinerCell) or isinstance(cell, ExtendedEncoderCombinerCell):
                 xs.append(x)
                 combiner_cells.append(cell)
             else:
