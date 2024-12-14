@@ -169,58 +169,36 @@ class Decoder(nn.Module):
         img_enc_samplers: list[nn.Module],
         mask_enc_combiner_cells: list[nn.Module],
         mask_enc_samplers: list[nn.Module],
-        test: bool=False,
-        num_shared_layers: int=-1,
         return_latents: bool=False,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         """
-        Forward pass: NVAE Decoder.
+        Forward pass: CNVAE Decoder. This method should be called during
+        training (and validation) only. For inference, use the inference()
+        method.
         
         Args:
             x (torch.Tensor): Top-level image encoding.
             xs (list[torch.Tensor]): Non-top-level image encodings.
             y (torch.Tensor): Top-level mask encoding.
             ys (list[torch.Tensor]): Non-top-level mask encodings.
-            img_enc_combiner_cells (list[nn.Module]): Image encoder combiner cells.
+            img_enc_combiner_cells (list[nn.Module]): Image encoder combiner
+                cells.
             img_enc_samplers (list[nn.Module]): Image encoder samplers.
-            mask_enc_combiner_cells (list[nn.Module]): Mask encoder combiner cells.
+            mask_enc_combiner_cells (list[nn.Module]): Mask encoder combiner
+                cells.
             mask_enc_samplers (list[nn.Module]): Mask encoder samplers.
-            test (bool): Indicates whether test mode is enabled (compared to
-                train or validation mode). If True, use deterministic sampling
-                for all non-topmost latent layers, that is, take the mean of the
-                residual distribution instead of sampling from it. Default:
-                False.
-            num_shared_layers (int): Number of latent layers shared with the
-                decoder from the topmost layer. For example, if
-                @num_shared_layers is 2, only the topmost and its immediate
-                subsequent latent layer are shared. If a latent layer is not
-                shared, the decoder does not draw information from the encoder.
-                That is, the residual distribution only consists of the prior
-                and not the variational posterior. If -1, all latent layers are
-                shared. Useful for ablation study and checking collapsed layers.
-                Default: -1.
         
         Returns:
             x (torch.Tensor): Output logits before passing through the
                 conditional coder.
-            qs (list[Normal]): Approximate posterior distributions.
-            ps (list[Normal]): Prior distributions.
-            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
+            qs (list[Normal]): Approximate posterior distributions. ps
+            (list[Normal]): Prior distributions. log_qs (list[torch.Tensor]):
+            Log probabilities of samples drawn from
                 the residual distribution with respect to the approximate
                 posterior.
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
                 the residual distribution with respect to the prior.
         """
-        
-        if num_shared_layers == 0:
-            raise ValueError("Cannot have 0 shared layers")
-        
-        if num_shared_layers == -1:
-            num_shared_layers = self.num_latent_layers
-        else:
-            assert test
-            assert num_shared_layers <= self.num_latent_layers
-        
         assert x.shape[0] == y.shape[0]
         batch_size = x.shape[0]
         
@@ -239,8 +217,8 @@ class Decoder(nn.Module):
         
         # Top-level approximate posterior
         distr = Normal(mu_p + dmu_q, logsig_p + dlogsig_q)
-        # [8, 40, 4, 4]
-        z = distr.sample(test)
+        # [8, 20, 4, 4]
+        z = distr.sample()
         
         if return_latents:
             zs = [z]
@@ -269,7 +247,7 @@ class Decoder(nn.Module):
                     # [8, 20, 4, 4] for topmost layer
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    if idx_dec < self.cumulative_groups_per_layer[num_shared_layers - 1]:
+                    if idx_dec < self.cumulative_groups_per_layer[self.num_latent_layers - 1]:
                         # Prior from image encoder
                         comb_feats_x = img_enc_combiner_cells[idx_dec - 1](
                             xs[idx_dec - 1],
@@ -299,7 +277,7 @@ class Decoder(nn.Module):
                         mu_p + dmu_p + dmu_q,
                         logsig_p + dlogsig_p + dlogsig_q,
                     )
-                    z = distr.sample(deterministic=test)
+                    z = distr.sample()
                     qs.append(distr)
                     log_qs.append(distr.log_p(z))
                     
@@ -323,85 +301,92 @@ class Decoder(nn.Module):
             return y_hat, qs, ps, log_qs, log_ps, zs
         
         return y_hat, qs, ps, log_qs, log_ps
-
-    def generate(
+    
+    def inference(
         self,
-        num_samples: int,
-        device: torch.device,
-        temp: float=1.0,
-        num_sample_layers: int=-1,
-        z: torch.Tensor=None,
+        x: torch.Tensor,
+        xs: list[torch.Tensor],
+        img_enc_combiner_cells: list[nn.Module],
+        img_enc_samplers: list[nn.Module],
+        return_latents: bool=False,
     ) -> torch.Tensor:
         """
-        Generate samples from a Gaussian prior.
+        Forward pass at test time, when the ground truth mask is not available.
         
         Args:
-            num_samples (int): Number of samples to generate.
-            device (torch.device): Device used for Torch operations.
-            temp (float): Sample temperature, i.e. standard deviation of the
-                prior. A lower temperature is often used for generations as it
-                allows the model to focus on the high probability region[1]. It
-                results in less diverse samples. Default: 1.0.
-            num_sample_layers (int): Number of latent layers from the topmost
-                layer to sample from. For example, if @num_sample_layers is 2,
-                only the topmost and its immediate subsequent latent layer are
-                sampled from. All other subsequent latent layers use
-                deterministic sampling, that is, take the mean of the prior
-                distribution instead of sampling from it. If -1, sample from all
-                latent layers. Useful for ablation study and checking collapsed
-                layers. Default: -1.
-            z (torch.Tensor): Custom fixed latent representation. If provided,
-                the model will use this as the topmost latent variable instead
-                of sampling from a Gaussian prior. Default: None.
+            x (torch.Tensor): Top-level image encoding.
+            xs (list[torch.Tensor]): Non-top-level image encodings.
+            img_enc_combiner_cells (list[nn.Module]): Image encoder combiner
+                cells.
+            img_enc_samplers (list[nn.Module]): Image encoder samplers.
         
         Returns:
-            x (torch.Tensor): Generated samples.
-            
-        [1]: Kingma DP, Dhariwal P. Glow: Generative flow with invertible 1x1
-        convolutions. Advances in neural information processing systems.
-        2018;31.
+            x (torch.Tensor): Output logits before passing through the
+                conditional coder.
         """
-        if num_sample_layers == -1:
-            num_sample_layers = self.num_latent_layers
-        else:
-            assert num_sample_layers <= self.num_latent_layers
+        batch_size = x.shape[0]
         
-        # Form posterior for top-level assuming Gaussian prior
-        if z is None:
-            top_latent_shape = (num_samples, self.z_channels, *self.top_latent_shape)
-            distr = Normal(
-                mu=torch.zeros(top_latent_shape).to(device),
-                logsig=torch.zeros(top_latent_shape).to(device),
-                temp=temp,
-            )
-
-            z = distr.sample()
+        # Top-level prior: Sample mu, logsig of the topmost latent layer
+        latent_repr_x = img_enc_samplers[0](x)
+        # [batch_size, 20, 4, 4])
+        mu_p, logsig_p = torch.chunk(latent_repr_x, 2, dim=1)
+        
+        # Top-level approximate posterior
+        distr = Normal(mu_p, logsig_p)
+        # [batch_size, 20, 4, 4]
+        z = distr.sample(deterministic=True)
+        
+        if return_latents:
+            zs = [z]
+        
+        # Prior for top-level z
+        distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
         
         # Latent group index
         idx_dec = 0
-        
         # [1, top_channels, width, height]
-        x = self.top_prior.unsqueeze(0)
-        # [num_samples, top_channels, width, height]
-        x = x.expand(num_samples, -1, -1, -1)
+        y_hat = self.top_prior.unsqueeze(0)
+        # [batch_size, top_channels, width, height]
+        # [batch_size, 128, 4, 4]
+        y_hat = y_hat.expand(batch_size, -1, -1, -1)
         
         for cell in self.tower:
             if isinstance(cell, DecoderCombinerCell):
                 if idx_dec > 0:
-                    # Form prior
-                    latent_repr_p = self.samplers[idx_dec - 1](x)
+                    # Sample prior
+                    latent_repr_p = self.samplers[idx_dec - 1](y_hat)
+                    # [batch_size, 20, 4, 4] for topmost layer
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    sample_deterministic = idx_dec >= self.cumulative_groups_per_layer[num_sample_layers - 1]
-                    distr = Normal(mu_p, logsig_p, temp=temp)
-                    z = distr.sample(sample_deterministic)
+                    if idx_dec < self.cumulative_groups_per_layer[self.num_latent_layers - 1]:
+                        # Prior from image encoder
+                        comb_feats_x = img_enc_combiner_cells[idx_dec - 1](
+                            xs[idx_dec - 1],
+                            y_hat,
+                        )
+                        latent_repr_x = img_enc_samplers[idx_dec](comb_feats_x)
+                        # [8, 20, _, _]
+                        dmu_p, dlogsig_p = torch.chunk(latent_repr_x, 2, dim=1)
+                    else:
+                        dmu_p = torch.zeros_like(mu_p)
+                        dlogsig_p = torch.zeros_like(logsig_p)
 
-                x = cell(x, z)
+                    # Residual distribution i.e. approximate posterior
+                    distr = Normal(mu_p + dmu_p, logsig_p + dlogsig_p)
+                    z = distr.sample(deterministic=True)
+                    
+                    if return_latents:
+                        zs.append(z)
+
+                y_hat = cell(y_hat, z)
                 
                 idx_dec += 1
             else:
-                x = cell(x)
+                y_hat = cell(y_hat)
+
+        y_hat = self.postprocess(y_hat)
         
-        x = self.postprocess(x)
+        if return_latents:
+            return y_hat, zs
         
-        return x
+        return y_hat

@@ -154,6 +154,21 @@ class CNVAE(L.LightningModule):
                 padding=1,
             ),
         )
+        
+        if self.hparams.freeze_decoder:
+            print("Freezing decoder and conditional coder weights.")
+            
+            self.decoder.requires_grad_(False)
+            self.conditional_coder.requires_grad_(False)
+            
+            # Do not update running estimates for BatchNorm
+            self.decoder.eval()
+            self.conditional_coder.eval()
+        
+        # To keep track of test set and generated samples during test time, to
+        # compute FRDS
+        self.scans_buffer: list[torch.Tensor] = []
+        self.feats_buffer: list[torch.Tensor] = []
     
     def get_image_stem(self):
         return self.bottom_up["image"]["stem"]
@@ -407,9 +422,12 @@ class CNVAE(L.LightningModule):
         self,
         scans: torch.Tensor,
         feats: torch.Tensor,
-        test: bool=False,
-        num_shared_layers: int=-1,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:  
+        """
+        Forward pass at train (and validation) time. For inference, use the
+        inference() method.
+        """
+        
         # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
         x = self.get_image_stem()(2 * scans - 1.0)
         y = self.get_mask_stem()(2 * feats - 1.0)
@@ -438,14 +456,41 @@ class CNVAE(L.LightningModule):
             img_enc_samplers,
             mask_enc_combiner_cells,
             mask_enc_samplers,
-            test=test,
-            num_shared_layers=num_shared_layers,
         )
         
         # Compute logits
         feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
         
         return feats_hat_logits, qs, ps, log_qs, log_ps
+    
+    def inference(self, scans: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass at test time.
+        """
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
+        x = self.get_image_stem()(2 * scans - 1.0)
+        
+        # Pass through encoder
+        x, xs, img_enc_combiner_cells = self.get_image_encoder()(x)
+        
+        # Reverse buffers and modules for decoder
+        
+        xs = xs[::-1]
+        img_enc_combiner_cells = img_enc_combiner_cells[::-1]
+        img_enc_samplers = self.get_image_encoder().samplers[::-1]
+        
+        # Pass through decoder
+        x_hat_logits = self.decoder.inference(
+            x,
+            xs,
+            img_enc_combiner_cells,
+            img_enc_samplers,
+        )
+        
+        # Compute logits
+        feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
+        
+        return feats_hat_logits
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         scans, feats, _, _ = batch
@@ -475,4 +520,90 @@ class CNVAE(L.LightningModule):
         print(f"Val loss: {loss}")
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
-        pass
+        """
+        Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
+        Dice scores.
+        """
+        scans, feats, condition, ed = batch
+        
+        condition_label = f"condition_{int(condition)}"
+        phase_label = "ed" if ed else "es"
+        
+        # 3D data module ensures 1 batch only, but each data point is 4D of
+        # shape (S, C, W, H) where S is the number of slices.
+        scans = scans.squeeze(0)
+        feats = feats.squeeze(0)
+        
+        self.log_reconstruction_metrics(scans, feats, condition_label, phase_label)
+        
+        self.scans_buffer.append(scans)
+        self.feats_buffer.append(feats)
+
+    def log_reconstruction_metrics(self, scans: torch.Tensor, feats: torch.Tensor, condition: str, phase: str):
+        """
+        Log reconstruction metrics to TensorBoard. This includes average
+        reconstruction loss and Dice score across the batch.
+        
+        Args:
+            feats (torch.Tensor): Batch of input samples.
+        """
+        num_samples, _, _, _ = feats.shape
+        
+        feats_hat_logits = self.inference(scans)
+        
+        # Compute reconstruction loss
+        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
+        self.log("loss/test_recon", recon_loss)
+        
+        # Compute Dice score
+        feats_hat = torch.softmax(feats_hat_logits, dim=1)
+        feats_hat_onehot = discretise(feats_hat)
+        
+        dice_score, dice_score_per_class = compute_dice_score(
+            feats,
+            feats_hat_onehot,
+            self.device,
+            is_3d=True,
+            dice_per_class=True,
+        )
+        
+        self.log("loss/dsc", dice_score)
+        self.log(f"loss/dsc_{phase}", dice_score)
+        self.log(f"loss/dsc_{condition}", dice_score)
+        
+        for i, dice_score in enumerate(dice_score_per_class):
+            # i + 1 as excluding background class
+            class_label = MASK_CLASSES[i + 1]
+            self.log(f"loss/dsc_{class_label}", dice_score)
+            self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
+            self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
+        
+        # Compute anatomical validity
+        num_valid = 0
+        
+        for discretised_feat_fake in discretise(feats_hat_logits):
+            AV = AnatomicalValidityChecker(discretised_feat_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+
+        self.log("gen/anatomically_valid_recon", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
+
+    def log_reconstruction_visualisation(self, scans: torch.Tensor, feats: torch.Tensor):
+        num_data = feats.shape[0]
+        samples_idx = torch.randperm(num_data)[:40]
+        scans = scans[samples_idx]
+        feats = feats[samples_idx]
+        feats_hat_logits = self.inference(scans)
+        
+        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits)
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+
+    def on_test_end(self):
+        scans = torch.cat(self.scans_buffer, dim=0)
+        feats = torch.cat(self.feats_buffer, dim=0)
+        
+        # Visualise samples and reconstructions
+        self.log_reconstruction_visualisation(scans, feats)
