@@ -199,15 +199,217 @@ class CNVAE(L.LightningModule):
         # Layer @(num_layers - 1) is the deepest (topmost) layer
         return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
     
+    def _get_layer_index(self, latent_dim: int) -> int:
+        # Inverse of _get_latent_dim
+        idx = math.log2((self.img_width // self.hparams.initial_downsample_factor) // latent_dim)
+        assert idx.is_integer()
+        return int(idx)
+    
+    def _compute_gamma(self) -> float:
+        """
+        Perform KL annealing with a linear schedule: 0 for the first 10
+        steps, then warm-up to 1 over the next @kl_warmup_steps steps.
+        
+        The coefficient is clamped at >= 0.0001 for stability.
+        
+        Returns:
+            gamma (float): KL coefficient for the current step.
+        """
+        constant_steps = 10
+        gamma = (self.global_step - constant_steps) / self.hparams.kl_warmup_steps
+        return clamp(gamma, 0.0001, 1.0)
+    
+    def _balance_kl(self, kl_divs, gamma=1.0, balance=True):
+        """
+        Perform the balancing mechanism on KL divergence terms as described in
+        the appendix of the NVAE paper. This consists of (1) scale all KL values
+        by the coefficient @gamma and (2) rescale KL values over all groups by
+        their magnitude.
+        
+        The balancing mechanism is applied only during the warm-up period. After
+        the warm-up period, gamma is 1 and the method simply returns the average
+        over all groups.
+        
+        noqa: This method should only be called during training.
+        
+        Args:
+            kl_divs (torch.Tensor): KL per group. bxg tensor for batch size b
+                and g groups.
+            gamma (float): KL coefficient for current step. gamma of 1 indicates
+                warm-up is complete and balancing mechanism is not applied.
+                Default: 1.0.
+            balance (bool): Whether to apply the balancing mechanism. This
+                should be on at train time and off at test time. Default: True.
+        
+        Returns:
+            balanced_kl_divs (torch.Tensor): Balanced KL per group, averaged
+                over the batch. g-dim tensor for g groups.
+        """
+        assert gamma <= 1.0
+        
+        if balance and gamma < 1.0:
+            # Set balancing coefficient proportional to the KL term for each
+            # group
+            gamma_i = torch.abs(kl_divs)
+            gamma_i = torch.mean(gamma_i, dim=0, keepdim=True) + 0.01
+            total_kl = torch.sum(gamma_i)
+
+            gamma_i = gamma_i * total_kl
+            # Rescale gamma_i to sum to 1
+            gamma_i = gamma_i / torch.mean(gamma_i, dim=1, keepdim=True)
+            kl_divs = kl_divs * gamma_i.detach()
+
+        return gamma * torch.mean(kl_divs, dim=0)
+    
+    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_latent_layers: torch.Tensor):
+        """
+        For each shared layer, weight the KL divergence by the corresponding
+        beta. Equivalent to beta-VAE but applied to each shared layer.
+        
+        Args:
+            balanced_kl_divs (torch.Tensor): KL per group after balancing,
+                averaged over the batch. g-dim tensor for g groups.
+            kl_latent_layers (torch.Tensor): Latent layer index for each KL term
+                in balanced_kl_divs.
+        
+        Returns:
+            weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
+                n layers.
+        """
+        weighted_kls = torch.empty(self.num_latent_layers)
+        
+        for latent_idx in range(self.num_latent_layers):
+            # Sum KL within each layer
+            balanced_kl_div_layer = balanced_kl_divs[kl_latent_layers == latent_idx].sum()
+            # Weight
+            weighted_kls[latent_idx] = self.hparams.beta_per_layer[latent_idx] * balanced_kl_div_layer
+        
+        return weighted_kls
+    
+    def _kl_divergence(
+        self,
+        qs: list[Normal],
+        ps: list[Normal],
+        log_qs: list[torch.Tensor],
+        log_ps: list[torch.Tensor],
+        log_components: bool=True,
+    ) -> torch.Tensor:
+        """
+        Compute the weighted and balanced KL divergence between the approximate
+        posterior and prior, summed over all latent layers. The KL divergence
+        of each layer is the sum over all groups within the layer.
+        """
+        # log_p, log_q and kl_diag are for metrics purposes
+        
+        # For each group, compute KL of batch
+        # For n groups, this is a n-list of b-dim tensors (b=batch size)
+        kl_divs = []
+        # Logging
+        kl_diag = []
+        # Record which layer each KL corresponds to (for logging marginal KL)
+        kl_layers = []
+        
+        log_p: float = 0
+        log_q: float = 0
+        
+        for q, p, log_q_conv, log_p_conv in zip(qs, ps, log_qs, log_ps):
+            assert q.mu.shape == p.mu.shape
+            
+            _, z_channels, width, height = q.mu.shape
+            assert width == height
+            assert z_channels == self.hparams.z_channels
+            kl_layers.append(self._get_layer_index(width))
+
+            kl_per_var = q.kl(p)
+
+            kl_div = torch.sum(kl_per_var, dim=[1, 2, 3])
+
+            kl_diag.append(torch.mean(torch.sum(kl_per_var, dim=[2, 3]), dim=0))
+            kl_divs.append(kl_div)
+            log_q += torch.sum(log_q_conv, dim=[1, 2, 3])
+            log_p += torch.sum(log_p_conv, dim=[1, 2, 3])
+        
+        kl_latent_layers = [self.layer_idx_to_latent_idx[layer_idx] for layer_idx in kl_layers]
+        kl_latent_layers = torch.tensor(kl_latent_layers)
+        
+        gamma = self._compute_gamma()
+        
+        # Stack list to bxn tensor
+        kl_divs = torch.stack(kl_divs, dim=1)
+        # Average KL over batch: n-dim tensor
+        kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
+        
+        balanced_kl_divs_batch_avg = self._balance_kl(kl_divs, gamma)
+        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_latent_layers)
+        
+        # Compute and log KL per layer
+        if log_components:
+            for latent_idx in range(self.num_latent_layers):
+                # Log the original (unbalanced) KL per layer which indicates
+                # amount of information encoded at each layer
+                kl_div_layer = kl_divs_batch_avg[kl_latent_layers == latent_idx].mean()
+                self.log(f"loss/kl_div_{latent_idx}", kl_div_layer)
+            
+            num_groups = len(kl_divs_batch_avg)
+            
+            for i in range(num_groups):
+                # Log the original KL per group
+                # Shallowest group is 0
+                # Topmost group is 6
+                group_idx = num_groups - i - 1
+                self.log(f"loss/kl_div_group_{group_idx}", kl_divs_batch_avg[i])
+    
+        return weighted_kls.sum()
+
+    def reconstruction_loss(self, x: torch.Tensor, x_hat_logits: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the reconstruction loss using cross-entropy.
+        
+        Args:
+            x (torch.Tensor): One-hot encoded input segmentations.
+            x_hat_logits (torch.Tensor): Logits of reconstruction of input.
+        
+        Returns:
+            recon_loss (torch.Tensor): Reconstruction loss.
+        """
+        batch_size = x.size(0)
+        return F.cross_entropy(x_hat_logits, x, reduction="sum") / batch_size
+    
+    def loss(
+        self,
+        x: torch.Tensor,
+        x_hat_logits: torch.Tensor,
+        qs: list[Normal],
+        ps: list[Normal],
+        log_qs: list[torch.Tensor],
+        log_ps: list[torch.Tensor],
+        log_components: bool=True,
+    ) -> torch.Tensor:
+        """
+        Compute the NVAE loss: sum of reconstruction loss and beta-weighted
+        balanced KL divergence regulariser term.
+        """
+        assert x.shape == x_hat_logits.shape
+        
+        recon_loss = self.reconstruction_loss(x, x_hat_logits)
+        balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
+        
+        print(f"Reconstruction loss: {recon_loss}")
+        print(f"Weighted KL divergence: {balanced_kl_div}")
+        
+        if log_components:
+            self.log("loss/recon", recon_loss)
+            self.log("loss/kl_div", balanced_kl_div)
+        
+        return recon_loss + balanced_kl_div
+
     def forward(
         self,
         scans: torch.Tensor,
         feats: torch.Tensor,
         test: bool=False,
         num_shared_layers: int=-1,
-    ):
-        # TODO Type this method
-        
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:  
         # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
         x = self.get_image_stem()(2 * scans - 1.0)
         y = self.get_mask_stem()(2 * feats - 1.0)
@@ -227,7 +429,7 @@ class CNVAE(L.LightningModule):
         mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
         
         # Pass through decoder
-        x_hat_logits, _, _, _, _ = self.decoder(
+        x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
             x,
             xs,
             y,
@@ -243,22 +445,34 @@ class CNVAE(L.LightningModule):
         # Compute logits
         feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
         
-        print(feats_hat_logits.shape)
-        import sys
-        sys.exit()
-        
-        return feats_hat_logits
+        return feats_hat_logits, qs, ps, log_qs, log_ps
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         scans, feats, _, _ = batch
         
-        self(scans, feats)
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans, feats)
         
-        loss = 0
+        # Compute loss
+        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        self.log("loss/train", loss)
+        
+        print(f"Train loss: {loss}")
+        
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
+
         return loss
 
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
-        pass
+        scans, feats, _, _ = batch
+        
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans, feats)
+        
+        # Compute loss
+        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        self.log("loss/val", loss)
+        
+        print(f"Val loss: {loss}")
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         pass
