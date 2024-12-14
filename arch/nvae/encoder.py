@@ -57,7 +57,7 @@ class ExtendedEncoderCombinerCell(nn.Module):
     """
     Extended encoder combiner cell.
     
-    This class has 2 convnets and allowing 3 tensors to be combined.
+    This class has 2 convnets and allows 3 tensors to be combined.
     """
     
     def __init__(self, in_channels: int, out_channels: int):

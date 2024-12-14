@@ -229,11 +229,6 @@ class Decoder(nn.Module):
         # [8, 20, 4, 4]
         mu_p, logsig_p = torch.chunk(latent_repr_x, 2, dim=1)
         
-        # [batch_size, top_channels, width, height]
-        # [8, 128, 4, 4]
-        print(f"x: {x.shape}")
-        print(f"y: {y.shape}")
-        
         # Top-level prior should draw information from mask
         [8, 20, 4, 4]
         # dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
@@ -246,8 +241,6 @@ class Decoder(nn.Module):
         distr = Normal(mu_p + dmu_q, logsig_p + dlogsig_q)
         # [8, 40, 4, 4]
         z = distr.sample(test)
-        
-        print(f"z: {z.shape}")
         
         if return_latents:
             zs = [z]
@@ -268,18 +261,13 @@ class Decoder(nn.Module):
         # [8, 128, 4, 4]
         y_hat = y_hat.expand(batch_size, -1, -1, -1)
         
-        print(f"h: {y_hat.shape}")
-        
         for cell in self.tower:
             if isinstance(cell, DecoderCombinerCell):
                 if idx_dec > 0:
                     # Sample prior
                     latent_repr_p = self.samplers[idx_dec - 1](y_hat)
-                    # [8, 20, 4, 4]
+                    # [8, 20, 4, 4] for topmost layer
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
-                    
-                    print(f"mu_p: {mu_p.shape}")
-                    print(f"logsig_p: {logsig_p.shape}")
                     
                     if idx_dec < self.cumulative_groups_per_layer[num_shared_layers - 1]:
                         # Prior from image encoder
@@ -291,9 +279,6 @@ class Decoder(nn.Module):
                         # [8, 20, _, _]
                         dmu_p, dlogsig_p = torch.chunk(latent_repr_x, 2, dim=1)
                         
-                        print(f"Image encoder prior dmu_p: {dmu_p.shape}")
-                        print(f"Image encoder prior dlogsig_p: {dlogsig_p.shape}")
-                        
                         # Variational posterior from mask encoder
                         comb_feats_x_y = mask_enc_combiner_cells[idx_dec - 1](
                             ys[idx_dec - 1],
@@ -303,9 +288,6 @@ class Decoder(nn.Module):
                         latent_repr_x_y = mask_enc_samplers[idx_dec](comb_feats_x_y)
                         # [8, 20, _, _]
                         dmu_q, dlogsig_q = torch.chunk(latent_repr_x_y, 2, dim=1)
-
-                        print(f"Mask encoder prior mu_q: {dmu_q.shape}")
-                        print(f"Mask encoder prior logsig_q: {dlogsig_q.shape}")
                     else:
                         dmu_p = torch.zeros_like(mu_p)
                         dlogsig_p = torch.zeros_like(logsig_p)
