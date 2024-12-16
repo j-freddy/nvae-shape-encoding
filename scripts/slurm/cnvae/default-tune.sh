@@ -20,7 +20,7 @@ warmup_steps_list=("6420")
 # Size=22
 betas=("0 0.01 0.02 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 2 3 4 5 6 7 8 9 10")
 
-logdir="logs-nvaeseg-freeze-decoder-tune"
+logdir="logs-cnvae-tune"
 
 # Train
 
@@ -33,16 +33,14 @@ do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
             betas_str="${beta},${beta},${beta}"
             # Train
-            python -m arch.nvaeseg.train \
+            python -m arch.cnvae.train \
                 --epochs 100 \
                 --arch "default" \
                 --projected_channels $projected_channels \
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \
-                --logs $logdir \
-                --pretrained_nvae_model_path "logs/nvae_acdc/best/default/checkpoints/epoch=97-step=20972.ckpt" \
-                --freeze_decoder
+                --logs $logdir
         done
     done
 done
@@ -59,7 +57,7 @@ do
             # Get saved model path
             model_path=$(ls ${logdir}/nvae_seg_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
-            python -m arch.nvaeseg.test --model_path $model_path --logs $logdir
+            python -m arch.cnvae.test --model_path $model_path --logs $logdir
         done
     done
 done

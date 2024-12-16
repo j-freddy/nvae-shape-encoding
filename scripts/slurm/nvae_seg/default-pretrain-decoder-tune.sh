@@ -13,11 +13,11 @@ cd nvae-shape-encoding
 export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
-# Grid size is 20
+# Grid size is 22
 projected_channels_list=("4")
 # Size=1 (6420 is 214*30 so first 30 epochs)
 warmup_steps_list=("6420")
-# Size=20
+# Size=22
 betas=("0 0.01 0.02 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 2 3 4 5 6 7 8 9 10")
 
 logdir="logs-nvaeseg-pretrain-decoder-tune"
