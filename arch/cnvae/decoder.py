@@ -210,7 +210,7 @@ class Decoder(nn.Module):
         # Top-level prior should draw information from mask
         [8, 20, 4, 4]
         # dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
-        comb_feats = self.top_combiner_cell(x, y)
+        comb_feats = self.top_combiner_cell(y, x)
         latent_repr_y = self.top_sampler(comb_feats)
         # [8, 20, _, _]
         dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
@@ -226,8 +226,8 @@ class Decoder(nn.Module):
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
-        # Prior for top-level z
-        distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
+        # (Conditional) Prior for top-level z
+        distr = Normal(mu=mu_p, logsig=logsig_p)
         ps = [distr]
         log_ps = [distr.log_p(z)]
         
@@ -285,7 +285,7 @@ class Decoder(nn.Module):
                         zs.append(z)
                     
                     # Use prior
-                    distr = Normal(mu_p, logsig_p)
+                    distr = Normal(mu_p + dmu_p, logsig_p + dlogsig_p)
                     ps.append(distr)
                     log_ps.append(distr.log_p(z))
 
@@ -331,16 +331,13 @@ class Decoder(nn.Module):
         # [batch_size, 20, 4, 4])
         mu_p, logsig_p = torch.chunk(latent_repr_x, 2, dim=1)
         
-        # Top-level approximate posterior
+        # Top-level conditional prior
         distr = Normal(mu_p, logsig_p)
         # [batch_size, 20, 4, 4]
         z = distr.sample(deterministic=True)
         
         if return_latents:
             zs = [z]
-        
-        # Prior for top-level z
-        distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
         
         # Latent group index
         idx_dec = 0
