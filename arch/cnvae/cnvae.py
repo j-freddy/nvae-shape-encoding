@@ -596,18 +596,13 @@ class CNVAE(L.LightningModule):
         feats = feats[samples_idx]
         feats_hat_logits = self.inference(scans)
         
-        (
-            samples,
-            reconstructions,
-            reconstruction_pixel_error,
-        ) = get_samples_and_reconstructions_pixel_diff(
-            feats,
-            feats_hat_logits,
-            return_reconstructions=True,
-        )
+        samples, reconstructions, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits, return_reconstructions=True)
         
         show_samples(reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
+        
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions_diff", plt.gcf())
 
     def on_test_end(self):
         scans = torch.cat(self.scans_buffer, dim=0)
