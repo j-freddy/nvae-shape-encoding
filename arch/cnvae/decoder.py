@@ -215,6 +215,10 @@ class Decoder(nn.Module):
         # [8, 20, _, _]
         dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
         
+        # TODO Revert: Removing effect of mask encoder
+        dmu_q = torch.zeros_like(mu_p)
+        dlogsig_q = torch.zeros_like(logsig_p)
+        
         # Top-level approximate posterior
         distr = Normal(mu_p + dmu_q, logsig_p + dlogsig_q)
         # [8, 20, 4, 4]
@@ -266,6 +270,10 @@ class Decoder(nn.Module):
                         latent_repr_x_y = mask_enc_samplers[idx_dec](comb_feats_x_y)
                         # [8, 20, _, _]
                         dmu_q, dlogsig_q = torch.chunk(latent_repr_x_y, 2, dim=1)
+                        
+                        # TODO Revert: Removing effect of mask encoder
+                        dmu_q = torch.zeros_like(mu_p)
+                        dlogsig_q = torch.zeros_like(logsig_p)
                     else:
                         dmu_p = torch.zeros_like(mu_p)
                         dlogsig_p = torch.zeros_like(logsig_p)
