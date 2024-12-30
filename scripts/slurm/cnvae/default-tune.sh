@@ -20,30 +20,30 @@ warmup_steps_list=("6420")
 # Size=22
 betas=("0 0.01 0.02 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 2 3 4 5 6 7 8 9 10")
 
-logdir="logs-cnvae-tune"
+logdir="logs-cnvae-tune-no-kl"
 
 # Train
 
-# for projected_channels in $projected_channels_list
-# do
-#     for warmup_steps in $warmup_steps_list
-#     do
-#         for beta in $betas
-#         do
-#             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
-#             betas_str="${beta},${beta},${beta}"
-#             # Train
-#             python -m arch.cnvae.train \
-#                 --epochs 100 \
-#                 --arch "default" \
-#                 --projected_channels $projected_channels \
-#                 --warmup_steps $warmup_steps \
-#                 --betas $betas_str \
-#                 --model_name $model_name \
-#                 --logs $logdir
-#         done
-#     done
-# done
+for projected_channels in $projected_channels_list
+do
+    for warmup_steps in $warmup_steps_list
+    do
+        for beta in $betas
+        do
+            model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
+            betas_str="${beta},${beta},${beta}"
+            # Train
+            python -m arch.cnvae.train \
+                --epochs 100 \
+                --arch "default" \
+                --projected_channels $projected_channels \
+                --warmup_steps $warmup_steps \
+                --betas $betas_str \
+                --model_name $model_name \
+                --logs $logdir
+        done
+    done
+done
 
 # Evaluate
 
