@@ -420,7 +420,6 @@ class CNVAE(L.LightningModule):
     def forward(
         self,
         scans: torch.Tensor,
-        feats: torch.Tensor,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:  
         """
         Forward pass at train (and validation) time. For inference, use the
@@ -429,21 +428,15 @@ class CNVAE(L.LightningModule):
         
         # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
         x = self.get_image_stem()(2 * scans - 1.0)
-        y = self.get_mask_stem()(2 * feats - 1.0)
         
         # Pass through encoder
         x, xs, img_enc_combiner_cells = self.get_image_encoder()(x)
-        y, ys, mask_enc_combiner_cells = self.get_mask_encoder()(y)
         
         # Reverse buffers and modules for decoder
         
         xs = xs[::-1]
         img_enc_combiner_cells = img_enc_combiner_cells[::-1]
         img_enc_samplers = self.get_image_encoder().samplers[::-1]
-        
-        ys = ys[::-1]
-        mask_enc_combiner_cells = mask_enc_combiner_cells[::-1]
-        mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
         
         # Pass through decoder
         x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
@@ -544,7 +537,8 @@ class CNVAE(L.LightningModule):
         """
         num_samples, _, _, _ = feats.shape
         
-        feats_hat_logits = self.inference(scans)
+        # feats_hat_logits = self.inference(scans)
+        feats_hat_logits, _, _, _, _ = self(scans)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
