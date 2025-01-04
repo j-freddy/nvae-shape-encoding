@@ -163,12 +163,8 @@ class Decoder(nn.Module):
         self,
         x: torch.Tensor,
         xs: list[torch.Tensor],
-        y: torch.Tensor,
-        ys: list[torch.Tensor],
         img_enc_combiner_cells: list[nn.Module],
         img_enc_samplers: list[nn.Module],
-        mask_enc_combiner_cells: list[nn.Module],
-        mask_enc_samplers: list[nn.Module],
         return_latents: bool=False,
     ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
         """
@@ -199,7 +195,7 @@ class Decoder(nn.Module):
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
                 the residual distribution with respect to the prior.
         """
-        assert x.shape[0] == y.shape[0]
+        # assert x.shape[0] == y.shape[0]
         batch_size = x.shape[0]
         
         # Top-level prior: Sample mu, logsig of the topmost latent layer
@@ -207,13 +203,11 @@ class Decoder(nn.Module):
         # [8, 20, 4, 4]
         mu_p, logsig_p = torch.chunk(latent_repr_x, 2, dim=1)
         
-        # Top-level prior should draw information from mask
-        [8, 20, 4, 4]
+        # # Top-level prior should draw information from mask
+        # comb_feats = self.top_combiner_cell(y, x)
+        # latent_repr_y = self.top_sampler(comb_feats)
+        # # [8, 20, _, _]
         # dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
-        comb_feats = self.top_combiner_cell(y, x)
-        latent_repr_y = self.top_sampler(comb_feats)
-        # [8, 20, _, _]
-        dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
         
         # TODO Revert: Removing effect of mask encoder
         dmu_q = torch.zeros_like(mu_p)
@@ -262,14 +256,14 @@ class Decoder(nn.Module):
                         dmu_p, dlogsig_p = torch.chunk(latent_repr_x, 2, dim=1)
                         
                         # Variational posterior from mask encoder
-                        comb_feats_x_y = mask_enc_combiner_cells[idx_dec - 1](
-                            ys[idx_dec - 1],
-                            xs[idx_dec - 1],
-                            y_hat,
-                        )
-                        latent_repr_x_y = mask_enc_samplers[idx_dec](comb_feats_x_y)
-                        # [8, 20, _, _]
-                        dmu_q, dlogsig_q = torch.chunk(latent_repr_x_y, 2, dim=1)
+                        # comb_feats_x_y = mask_enc_combiner_cells[idx_dec - 1](
+                        #     ys[idx_dec - 1],
+                        #     xs[idx_dec - 1],
+                        #     y_hat,
+                        # )
+                        # latent_repr_x_y = mask_enc_samplers[idx_dec](comb_feats_x_y)
+                        # # [8, 20, _, _]
+                        # dmu_q, dlogsig_q = torch.chunk(latent_repr_x_y, 2, dim=1)
                         
                         # TODO Revert: Removing effect of mask encoder
                         dmu_q = torch.zeros_like(mu_p)

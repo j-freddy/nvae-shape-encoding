@@ -449,12 +449,8 @@ class CNVAE(L.LightningModule):
         x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
             x,
             xs,
-            y,
-            ys,
             img_enc_combiner_cells,
             img_enc_samplers,
-            mask_enc_combiner_cells,
-            mask_enc_samplers,
         )
         
         # Compute logits
