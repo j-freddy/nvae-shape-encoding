@@ -372,7 +372,7 @@ class Decoder(nn.Module):
 
                     # Residual distribution i.e. approximate posterior
                     distr = Normal(mu_p + dmu_p, logsig_p + dlogsig_p)
-                    z = distr.sample(deterministic=True)
+                    z = distr.sample(deterministic=False)
                     
                     if return_latents:
                         zs.append(z)

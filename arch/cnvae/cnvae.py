@@ -537,8 +537,7 @@ class CNVAE(L.LightningModule):
         """
         num_samples, _, _, _ = feats.shape
         
-        # feats_hat_logits = self.inference(scans)
-        feats_hat_logits, _, _, _, _ = self(scans)
+        feats_hat_logits = self.inference(scans)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
