@@ -170,7 +170,7 @@ class Decoder(nn.Module):
         mask_enc_combiner_cells: list[nn.Module],
         mask_enc_samplers: list[nn.Module],
         return_latents: bool=False,
-    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
         """
         Forward pass: CNVAE Decoder. This method should be called during
         training (and validation) only. For inference, use the inference()
@@ -191,13 +191,15 @@ class Decoder(nn.Module):
         Returns:
             x (torch.Tensor): Output logits before passing through the
                 conditional coder.
-            qs (list[Normal]): Approximate posterior distributions. ps
-            (list[Normal]): Prior distributions. log_qs (list[torch.Tensor]):
-            Log probabilities of samples drawn from
-                the residual distribution with respect to the approximate
-                posterior.
+            qs (list[Normal]): Approximate posterior distributions.
+            cps (list[Normal]): Conditional prior distributions.
+            ps (list[Normal]): Prior distributions.
+            log_qs (list[torch.Tensor]): Log probabilities of samples drawn 
+                from qs.
+            log_cps (list[torch.Tensor]): Log probabilities of samples drawn
+                from cps.
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the prior.
+                ps.
         """
         assert x.shape[0] == y.shape[0]
         batch_size = x.shape[0]
@@ -226,8 +228,13 @@ class Decoder(nn.Module):
         qs = [distr]
         log_qs = [distr.log_p(z)]
         
-        # (Conditional) Prior for top-level z
+        # Record conditional prior for top-level z
         distr = Normal(mu=mu_p, logsig=logsig_p)
+        cps = [distr]
+        log_cps = [distr.log_p(z)]
+        
+        # Record unconditional prior for top-level z (no mask information)
+        distr = Normal(mu=torch.zeros_like(z), logsig=torch.zeros_like(z))
         ps = [distr]
         log_ps = [distr.log_p(z)]
         
@@ -284,8 +291,13 @@ class Decoder(nn.Module):
                     if return_latents:
                         zs.append(z)
                     
-                    # Use prior
+                    # Record conditional prior
                     distr = Normal(mu_p + dmu_p, logsig_p + dlogsig_p)
+                    cps.append(distr)
+                    log_cps.append(distr.log_p(z))
+                    
+                    # Record unconditional prior
+                    distr = Normal(mu_p, logsig_p)
                     ps.append(distr)
                     log_ps.append(distr.log_p(z))
 
@@ -298,9 +310,9 @@ class Decoder(nn.Module):
         y_hat = self.postprocess(y_hat)
         
         if return_latents:
-            return y_hat, qs, ps, log_qs, log_ps, zs
+            return y_hat, qs, cps, ps, log_qs, log_cps, log_ps, zs
         
-        return y_hat, qs, ps, log_qs, log_ps
+        return y_hat, qs, cps, ps, log_qs, log_cps, log_ps
     
     def inference(
         self,

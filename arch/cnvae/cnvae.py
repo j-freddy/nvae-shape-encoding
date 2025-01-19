@@ -29,6 +29,7 @@ class CNVAE(L.LightningModule):
         is_layer_shared: list[bool]=[True, True, True],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
+        cbeta_per_layer: list[float]=[1.0, 1.0, 1.0],
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
         freeze_decoder: bool=False,
@@ -73,9 +74,12 @@ class CNVAE(L.LightningModule):
                 128x128, the preprocess stage downsamples to 16x16. Default: 8.
             max_epochs (int): Maximum number of epochs for training. Default:
                 50.
+            cbeta_per_layer (list[float]): Beta coefficient for each shared
+                layer, for the KL divergence between the variational posterior
+                and the conditional prior. Order corresponds to the shared layers of @is_layer_shared. Default: [1.0, 1.0, 1.0].
             beta_per_layer (list[float]): Beta coefficient for each shared
-                layer. Order corresponds to the shared layers of
-                @is_layer_shared. Default: [1.0, 1.0, 1.0].
+                layer, for the KL divergence between the variational posterior
+                and the unconditional prior. Default: [1.0, 1.0, 1.0].
             kl_warmup_steps (int): Number of steps to perform KL annealing.
                 Each epoch has 214 steps. Default: 500.
             freeze_decoder (bool): If True, freeze the decoder and conditional 
@@ -86,6 +90,7 @@ class CNVAE(L.LightningModule):
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
         assert sum(is_layer_shared) == len(beta_per_layer)
+        assert len(cbeta_per_layer) == len(beta_per_layer)
         
         self.save_hyperparameters()
         
@@ -275,7 +280,12 @@ class CNVAE(L.LightningModule):
 
         return gamma * torch.mean(kl_divs, dim=0)
     
-    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_latent_layers: torch.Tensor):
+    def _weight_kl(
+        self,
+        balanced_kl_divs: torch.Tensor,
+        kl_latent_layers: torch.Tensor,
+        beta_per_layer: list[float],
+    ):
         """
         For each shared layer, weight the KL divergence by the corresponding
         beta. Equivalent to beta-VAE but applied to each shared layer.
@@ -285,6 +295,7 @@ class CNVAE(L.LightningModule):
                 averaged over the batch. g-dim tensor for g groups.
             kl_latent_layers (torch.Tensor): Latent layer index for each KL term
                 in balanced_kl_divs.
+            beta_per_layer (list[float]): Beta multiplier for each shared layer.
         
         Returns:
             weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
@@ -296,7 +307,7 @@ class CNVAE(L.LightningModule):
             # Sum KL within each layer
             balanced_kl_div_layer = balanced_kl_divs[kl_latent_layers == latent_idx].sum()
             # Weight
-            weighted_kls[latent_idx] = self.hparams.beta_per_layer[latent_idx] * balanced_kl_div_layer
+            weighted_kls[latent_idx] = beta_per_layer[latent_idx] * balanced_kl_div_layer
         
         return weighted_kls
     
@@ -306,6 +317,7 @@ class CNVAE(L.LightningModule):
         ps: list[Normal],
         log_qs: list[torch.Tensor],
         log_ps: list[torch.Tensor],
+        beta_per_layer: list[float],
         log_components: bool=True,
     ) -> torch.Tensor:
         """
@@ -354,7 +366,11 @@ class CNVAE(L.LightningModule):
         kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
         
         balanced_kl_divs_batch_avg = self._balance_kl(kl_divs, gamma)
-        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_latent_layers)
+        weighted_kls = self._weight_kl(
+            balanced_kl_divs_batch_avg,
+            kl_latent_layers,
+            beta_per_layer,
+        )
         
         # Compute and log KL per layer
         if log_components:
@@ -394,8 +410,10 @@ class CNVAE(L.LightningModule):
         x: torch.Tensor,
         x_hat_logits: torch.Tensor,
         qs: list[Normal],
+        cps: list[Normal],
         ps: list[Normal],
         log_qs: list[torch.Tensor],
+        log_cps: list[torch.Tensor],
         log_ps: list[torch.Tensor],
         log_components: bool=True,
     ) -> torch.Tensor:
@@ -406,22 +424,41 @@ class CNVAE(L.LightningModule):
         assert x.shape == x_hat_logits.shape
         
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
-        balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
+        
+        balanced_conditional_kl_div = self._kl_divergence(
+            qs,
+            cps,
+            log_qs,
+            log_cps,
+            beta_per_layer=self.hparams.cbeta_per_layer,
+            log_components=log_components,
+        )
+        
+        balanced_kl_div = self._kl_divergence(
+            qs,
+            ps,
+            log_qs,
+            log_ps,
+            beta_per_layer=self.hparams.beta_per_layer,
+            log_components=log_components,
+        )
         
         print(f"Reconstruction loss: {recon_loss}")
-        print(f"Weighted KL divergence: {balanced_kl_div}")
+        print(f"Weighted KL divergence: {balanced_conditional_kl_div}")
+        print(f"Weighted unconditional KL divergence: {balanced_kl_div}")
         
         if log_components:
             self.log("loss/recon", recon_loss)
-            self.log("loss/kl_div", balanced_kl_div)
+            self.log("loss/kl_div", balanced_conditional_kl_div)
+            self.log("loss/kl_div_unconditional", balanced_kl_div)
         
-        return recon_loss + balanced_kl_div
+        return recon_loss + balanced_conditional_kl_div + balanced_kl_div
 
     def forward(
         self,
         scans: torch.Tensor,
         feats: torch.Tensor,
-    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:  
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:  
         """
         Forward pass at train (and validation) time. For inference, use the
         inference() method.
@@ -446,7 +483,7 @@ class CNVAE(L.LightningModule):
         mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
         
         # Pass through decoder
-        x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
+        x_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self.decoder(
             x,
             xs,
             y,
@@ -460,7 +497,7 @@ class CNVAE(L.LightningModule):
         # Compute logits
         feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
         
-        return feats_hat_logits, qs, ps, log_qs, log_ps
+        return feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps
     
     def inference(self, scans: torch.Tensor) -> torch.Tensor:
         """
@@ -494,10 +531,22 @@ class CNVAE(L.LightningModule):
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         scans, feats, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans, feats)
+        feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self(
+            scans,
+            feats,
+        )
         
         # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        loss = self.loss(
+            feats,
+            feats_hat_logits,
+            qs,
+            cps,
+            ps,
+            log_qs,
+            log_cps,
+            log_ps,
+        )
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -510,10 +559,22 @@ class CNVAE(L.LightningModule):
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         scans, feats, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans, feats)
+        feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self(
+            scans,
+            feats,
+        )
         
         # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        loss = self.loss(
+            feats,
+            feats_hat_logits,
+            qs,
+            cps,
+            ps,
+            log_qs,
+            log_cps,
+            log_ps,
+        )
         self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")
