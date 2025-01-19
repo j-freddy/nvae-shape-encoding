@@ -211,11 +211,14 @@ class Decoder(nn.Module):
         
         # Top-level prior should draw information from mask
         [8, 20, 4, 4]
-        # dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
         comb_feats = self.top_combiner_cell(y, x)
         latent_repr_y = self.top_sampler(comb_feats)
         # [8, 20, _, _]
         dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
+        
+        # TODO Revert
+        dmu_q = torch.zeros_like(mu_p)
+        dlogsig_q = torch.zeros_like(logsig_p)
         
         # Top-level approximate posterior
         distr = Normal(mu_p + dmu_q, logsig_p + dlogsig_q)
@@ -278,6 +281,10 @@ class Decoder(nn.Module):
                         dlogsig_p = torch.zeros_like(logsig_p)
                         dmu_q = torch.zeros_like(mu_p)
                         dlogsig_q = torch.zeros_like(logsig_p)
+                    
+                    # TODO Revert
+                    dmu_q = torch.zeros_like(mu_p)
+                    dlogsig_q = torch.zeros_like(logsig_p)
 
                     # Residual distribution i.e. approximate posterior
                     distr = Normal(
