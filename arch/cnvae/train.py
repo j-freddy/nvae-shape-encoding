@@ -61,9 +61,16 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--cbetas",
+        type=list_float,
+        help="Beta values for KL divergence between approximate posterior and conditional prior for each layer. First layer is shallowest; last entry is topmost layer.",
+        default=[1.0, 1.0, 1.0],
+    )
+    
+    parser.add_argument(
         "--betas",
         type=list_float,
-        help="Beta values for KL divergence for each layer. First layer is shallowest; last entry is topmost layer.",
+        help="Beta values for KL divergence between approximate posterior and unconditional prior for each layer.",
         default=[1.0, 1.0, 1.0],
     )
     
@@ -147,6 +154,7 @@ def main(flags: argparse.Namespace):
         is_layer_shared=arch_config["is_layer_shared"],
         initial_downsample_factor=arch_config["initial_downsample_factor"],
         max_epochs=flags.epochs,
+        cbeta_per_layer=flags.cbetas,
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
         freeze_decoder=flags.freeze_decoder,
