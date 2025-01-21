@@ -48,9 +48,9 @@ do
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-seed-${seed}"
             # Get saved model path
-            model_path=$(ls ${logdir}/nvae_seg_acdc/${model_name}/checkpoints/*.ckpt)
+            model_path=$(ls ${logdir}/cnvae_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
-            python -m arch.nvaeseg.test --model_path $model_path --logs $logdir
+            python -m arch.cnvae.test --model_path $model_path --logs $logdir
         done
     done
 done
