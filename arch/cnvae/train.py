@@ -114,6 +114,13 @@ def parse_args() -> argparse.Namespace:
         default=False,
     )
     
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Seed for train reproducibility. This only affects training, not data split.",
+        default=SEED,
+    )
+    
     return parser.parse_args()
 
 def main(flags: argparse.Namespace):
@@ -139,7 +146,8 @@ def main(flags: argparse.Namespace):
     )
     
     # Reseed after preprocessing data
-    L.seed_everything(SEED)
+    # Accept a custom seed for training, but ensure data split is consistent
+    L.seed_everything(flags.seed)
 
     arch_config = ID_TO_ARCH[flags.arch]
 
