@@ -13,7 +13,7 @@ source activate
 projected_channels_list=("4")
 warmup_steps_list=("6420")
 seeds=("1969 1970 1971 1972 1973 1974 1975 1976 1977 1978")
-logdir="logs-cnvae-no-conditional-flow"
+logdir="logs-cnvae"
 
 # Train
 for projected_channels in $projected_channels_list

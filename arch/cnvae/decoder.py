@@ -216,10 +216,6 @@ class Decoder(nn.Module):
         # [8, 20, _, _]
         dmu_q, dlogsig_q = torch.chunk(latent_repr_y, 2, dim=1)
         
-        # TODO Revert
-        dmu_q = torch.zeros_like(mu_p)
-        dlogsig_q = torch.zeros_like(logsig_p)
-        
         # Top-level approximate posterior
         distr = Normal(mu_p + dmu_q, logsig_p + dlogsig_q)
         # [8, 20, 4, 4]
@@ -281,10 +277,6 @@ class Decoder(nn.Module):
                         dlogsig_p = torch.zeros_like(logsig_p)
                         dmu_q = torch.zeros_like(mu_p)
                         dlogsig_q = torch.zeros_like(logsig_p)
-                    
-                    # TODO Revert
-                    dmu_q = torch.zeros_like(mu_p)
-                    dlogsig_q = torch.zeros_like(logsig_p)
 
                     # Residual distribution i.e. approximate posterior
                     distr = Normal(
