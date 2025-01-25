@@ -425,32 +425,32 @@ class CNVAE(L.LightningModule):
         
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
         
-        balanced_conditional_kl_div = self._kl_divergence(
+        balanced_kl_div = self._kl_divergence(
             qs,
             cps,
             log_qs,
             log_cps,
-            beta_per_layer=self.hparams.cbeta_per_layer,
-            log_components=log_components,
-        )
-        
-        balanced_kl_div = self._kl_divergence(
-            qs,
-            ps,
-            log_qs,
-            log_ps,
             beta_per_layer=self.hparams.beta_per_layer,
             log_components=log_components,
         )
         
+        balanced_conditional_kl_div = self._kl_divergence(
+            cps,
+            ps,
+            log_cps,
+            log_ps,
+            beta_per_layer=self.hparams.cbeta_per_layer,
+            log_components=log_components,
+        )
+        
         print(f"Reconstruction loss: {recon_loss}")
-        print(f"Weighted KL divergence: {balanced_conditional_kl_div}")
-        print(f"Weighted unconditional KL divergence: {balanced_kl_div}")
+        print(f"Weighted KL divergence: {balanced_kl_div}")
+        print(f"Weighted conditional KL divergence: {balanced_conditional_kl_div}")
         
         if log_components:
             self.log("loss/recon", recon_loss)
-            self.log("loss/kl_div", balanced_conditional_kl_div)
-            self.log("loss/kl_div_unconditional", balanced_kl_div)
+            self.log("loss/kl_div", balanced_kl_div)
+            self.log("loss/kl_div_conditional", balanced_conditional_kl_div)
         
         return recon_loss + balanced_conditional_kl_div + balanced_kl_div
 

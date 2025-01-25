@@ -23,7 +23,7 @@ do
         for seed in $seeds
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-seed-${seed}"
-            cbetas_str="2,2,2"
+            cbetas_str="10,10,10"
             betas_str="10,10,10"
             # Train
             python -m arch.cnvae.train \
@@ -39,6 +39,7 @@ do
         done
     done
 done
+
 # Evaluate
 for projected_channels in $projected_channels_list
 do
