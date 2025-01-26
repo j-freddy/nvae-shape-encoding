@@ -1,4 +1,3 @@
-from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
@@ -6,17 +5,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from arch.nvae.decoder import Decoder
+from arch.cnvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.const import CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
+from utils.const import CARDIAC_WIDTH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
-from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
+from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
-class NVAESeg(L.LightningModule):
+class CNVAE(L.LightningModule):
     """
-    Nouveau VAE adapted for segmentation.
+    Conditional Nouveau VAE.
     """
     
     def __init__(
@@ -30,14 +29,14 @@ class NVAESeg(L.LightningModule):
         is_layer_shared: list[bool]=[True, True, True],
         initial_downsample_factor: int=8,
         max_epochs: int=50,
+        cbeta_per_layer: list[float]=[1.0, 1.0, 1.0],
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
-        use_sr: bool=False,
         freeze_decoder: bool=False,
     ):
         """
-        Create an instance of the NVAESeg model. All constructor arguments are
-        saved in the checkpoint as hyperparameters.
+        Create an instance of the Conditional NVAE model. All constructor
+        arguments are saved in the checkpoint as hyperparameters.
         
         Args:
             in_channels (int): Number of input channels. Corresponds to number
@@ -75,19 +74,23 @@ class NVAESeg(L.LightningModule):
                 128x128, the preprocess stage downsamples to 16x16. Default: 8.
             max_epochs (int): Maximum number of epochs for training. Default:
                 50.
+            cbeta_per_layer (list[float]): Beta coefficient for each shared
+                layer, for the KL divergence between the variational posterior
+                and the conditional prior. Order corresponds to the shared layers of @is_layer_shared. Default: [1.0, 1.0, 1.0].
             beta_per_layer (list[float]): Beta coefficient for each shared
-                layer. Order corresponds to the shared layers of
-                @is_layer_shared. Default: [1.0, 1.0, 1.0].
+                layer, for the KL divergence between the variational posterior
+                and the unconditional prior. Default: [1.0, 1.0, 1.0].
             kl_warmup_steps (int): Number of steps to perform KL annealing.
                 Each epoch has 214 steps. Default: 500.
-            use_sr (bool): If True, use spectral regularisation. Default: False.
             freeze_decoder (bool): If True, freeze the decoder and conditional 
                 coder weights. Default: False.
         """
+        
         super().__init__()
         
         assert len(num_groups_per_layer) == len(is_layer_shared)
         assert sum(is_layer_shared) == len(beta_per_layer)
+        assert len(cbeta_per_layer) == len(beta_per_layer)
         
         self.save_hyperparameters()
         
@@ -97,26 +100,44 @@ class NVAESeg(L.LightningModule):
         
         self.layer_idx_to_latent_idx = self._get_layer_idx_to_latent_idx_map()
         
-        # Table 6: # initial channels in enc. (NVAE paper)
-        self.stem = nn.Conv2d(
-            self.hparams.in_channels,
-            max(self.hparams.initial_channels, self.hparams.min_channels),
-            kernel_size=3,
-            padding=1,
-            bias=True,
-        )
+        # Conditional NVAE has 2 encoders that take in the image and the mask
+        # respectively
         
-        self.encoder = Encoder(
-            num_groups_per_layer=self.hparams.num_groups_per_layer,
-            is_layer_shared=self.hparams.is_layer_shared,
-            initial_channels=self.hparams.initial_channels,
-            min_channels=self.hparams.min_channels,
-            z_channels=self.hparams.z_channels,
-            initial_downsample_factor=self.hparams.initial_downsample_factor,
-        )
+        self.bottom_up = nn.ModuleDict({
+            "image": nn.ModuleDict(),
+            "mask": nn.ModuleDict(),
+        })
+        
+        for key in self.bottom_up.keys():
+            if key == "image":
+                in_channels = self.hparams.in_channels
+                use_extended_combiner = False
+            else:
+                # The mask encoder has the same number of channels as the output
+                in_channels = self.hparams.out_channels
+                use_extended_combiner = True
+            
+            # Table 6: # initial channels in enc. (NVAE paper)
+            self.bottom_up[key]["stem"] = nn.Conv2d(
+                in_channels,
+                max(self.hparams.initial_channels, self.hparams.min_channels),
+                kernel_size=3,
+                padding=1,
+                bias=True,
+            )
+            
+            self.bottom_up[key]["encoder"] = Encoder(
+                num_groups_per_layer=self.hparams.num_groups_per_layer,
+                is_layer_shared=self.hparams.is_layer_shared,
+                initial_channels=self.hparams.initial_channels,
+                min_channels=self.hparams.min_channels,
+                z_channels=self.hparams.z_channels,
+                initial_downsample_factor=self.hparams.initial_downsample_factor,
+                use_extended_combiner=use_extended_combiner,
+            )
         
         top_latent_dim = self._get_latent_dim(self.num_layers - 1)
-
+        
         self.decoder = Decoder(
             num_groups_per_layer=self.hparams.num_groups_per_layer[::-1],
             is_layer_shared=self.hparams.is_layer_shared[::-1],
@@ -147,25 +168,24 @@ class NVAESeg(L.LightningModule):
             # Do not update running estimates for BatchNorm
             self.decoder.eval()
             self.conditional_coder.eval()
-                
-        # Convolutional layers are used for spectral regularisation
-        self.conv_layers = self._get_conv_layers()
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
         self.scans_buffer: list[torch.Tensor] = []
         self.feats_buffer: list[torch.Tensor] = []
-        self.feats_fake_buffer: list[torch.Tensor] = []
     
-    def _get_conv_layers(self) -> list[nn.Conv2d]:
-        conv_layers = []
-        
-        for _, layer in self.named_modules():
-            if isinstance(layer, nn.Conv2d):
-                conv_layers.append(layer)
-        
-        return conv_layers
+    def get_image_stem(self):
+        return self.bottom_up["image"]["stem"]
 
+    def get_image_encoder(self):
+        return self.bottom_up["image"]["encoder"]
+
+    def get_mask_stem(self):
+        return self.bottom_up["mask"]["stem"]
+    
+    def get_mask_encoder(self):
+        return self.bottom_up["mask"]["encoder"]
+    
     def configure_optimizers(self):
         optimiser = torch.optim.Adamax(
             self.parameters(),
@@ -180,7 +200,7 @@ class NVAESeg(L.LightningModule):
         )
         
         return [optimiser], [lr_scheduler]
-    
+
     def _get_layer_idx_to_latent_idx_map(self) -> dict[int, int]:
         latent_idx_to_layer_idx = [
             i for i, is_latent in enumerate(self.hparams.is_layer_shared)
@@ -192,12 +212,12 @@ class NVAESeg(L.LightningModule):
         }
         
         return mapping
-    
+
     def _get_latent_dim(self, layer: int) -> int:
         # Layer 0 is the shallowest layer
         # Layer @(num_layers - 1) is the deepest (topmost) layer
         return (self.img_width // self.hparams.initial_downsample_factor) // (2 ** layer)
-
+    
     def _get_layer_index(self, latent_dim: int) -> int:
         # Inverse of _get_latent_dim
         idx = math.log2((self.img_width // self.hparams.initial_downsample_factor) // latent_dim)
@@ -260,7 +280,12 @@ class NVAESeg(L.LightningModule):
 
         return gamma * torch.mean(kl_divs, dim=0)
     
-    def _weight_kl(self, balanced_kl_divs: torch.Tensor, kl_latent_layers: torch.Tensor):
+    def _weight_kl(
+        self,
+        balanced_kl_divs: torch.Tensor,
+        kl_latent_layers: torch.Tensor,
+        beta_per_layer: list[float],
+    ):
         """
         For each shared layer, weight the KL divergence by the corresponding
         beta. Equivalent to beta-VAE but applied to each shared layer.
@@ -270,6 +295,7 @@ class NVAESeg(L.LightningModule):
                 averaged over the batch. g-dim tensor for g groups.
             kl_latent_layers (torch.Tensor): Latent layer index for each KL term
                 in balanced_kl_divs.
+            beta_per_layer (list[float]): Beta multiplier for each shared layer.
         
         Returns:
             weighted_kls (torch.Tensor): Weighted KL per layer. n-dim tensor for
@@ -281,7 +307,7 @@ class NVAESeg(L.LightningModule):
             # Sum KL within each layer
             balanced_kl_div_layer = balanced_kl_divs[kl_latent_layers == latent_idx].sum()
             # Weight
-            weighted_kls[latent_idx] = self.hparams.beta_per_layer[latent_idx] * balanced_kl_div_layer
+            weighted_kls[latent_idx] = beta_per_layer[latent_idx] * balanced_kl_div_layer
         
         return weighted_kls
     
@@ -291,6 +317,7 @@ class NVAESeg(L.LightningModule):
         ps: list[Normal],
         log_qs: list[torch.Tensor],
         log_ps: list[torch.Tensor],
+        beta_per_layer: list[float],
         log_components: bool=True,
     ) -> torch.Tensor:
         """
@@ -339,7 +366,11 @@ class NVAESeg(L.LightningModule):
         kl_divs_batch_avg = torch.mean(kl_divs, dim=0)
         
         balanced_kl_divs_batch_avg = self._balance_kl(kl_divs, gamma)
-        weighted_kls = self._weight_kl(balanced_kl_divs_batch_avg, kl_latent_layers)
+        weighted_kls = self._weight_kl(
+            balanced_kl_divs_batch_avg,
+            kl_latent_layers,
+            beta_per_layer,
+        )
         
         # Compute and log KL per layer
         if log_components:
@@ -360,67 +391,6 @@ class NVAESeg(L.LightningModule):
     
         return weighted_kls.sum()
 
-    def _spectral_norm(self) -> torch.Tensor:
-        # Dictionary: weight shape -> weight matrix
-        # So we can later stack weight matrices of the same shape and compute in
-        # parallel
-        weights = defaultdict(lambda: [])
-
-        for layer in self.conv_layers:
-            weight = layer.weight
-            weight_matrix = weight.view(weight.size(0), -1)
-            weights[weight_matrix.shape].append(weight_matrix)
-
-        loss = 0
-        
-        # U and V matrices of singular value decomposition
-        sr_u = {}
-        sr_v = {}
-
-        for shape in weights.keys():
-            weights[shape] = torch.stack(weights[shape], dim=0)
-
-            with torch.no_grad():
-                num_iter = 4
-
-                if shape not in sr_u:
-                    n, row, col = weights[shape].shape
-                    sr_u[shape] = F.normalize(
-                        torch.ones(n, row).normal_(0, 1).to(self.device),
-                        dim=1,
-                        eps=1e-3,
-                    )
-                    sr_v[shape] = F.normalize(
-                        torch.ones(n, col).normal_(0, 1).to(self.device),
-                        dim=1,
-                        eps=1e-3,
-                    )
-
-                    # First occurance: increase number of iterations
-                    num_iter = 40
-
-                # SVD: u^T W v
-                # Approximate u, v via power iteration
-                for _ in range(num_iter):
-                    sr_v[shape] = F.normalize(
-                        torch.matmul(sr_u[shape].unsqueeze(1),weights[shape]).squeeze(1),
-                        dim=1,
-                        eps=1e-3,
-                    )
-                    sr_u[shape] = F.normalize(
-                        torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)).squeeze(2),
-                        dim=1,
-                        eps=1e-3,
-                    )
-
-            sigma = torch.matmul(
-                sr_u[shape].unsqueeze(1),
-                torch.matmul(weights[shape], sr_v[shape].unsqueeze(2)),
-            )
-            loss += torch.sum(sigma)
-
-        return loss
-
     def reconstruction_loss(self, x: torch.Tensor, x_hat_logits: torch.Tensor) -> torch.Tensor:
         """
         Compute the reconstruction loss using cross-entropy.
@@ -440,8 +410,10 @@ class NVAESeg(L.LightningModule):
         x: torch.Tensor,
         x_hat_logits: torch.Tensor,
         qs: list[Normal],
+        cps: list[Normal],
         ps: list[Normal],
         log_qs: list[torch.Tensor],
+        log_cps: list[torch.Tensor],
         log_ps: list[torch.Tensor],
         log_components: bool=True,
     ) -> torch.Tensor:
@@ -452,115 +424,130 @@ class NVAESeg(L.LightningModule):
         assert x.shape == x_hat_logits.shape
         
         recon_loss = self.reconstruction_loss(x, x_hat_logits)
-        balanced_kl_div = self._kl_divergence(qs, ps, log_qs, log_ps, log_components)
+        
+        balanced_kl_div = self._kl_divergence(
+            qs,
+            cps,
+            log_qs,
+            log_cps,
+            beta_per_layer=self.hparams.beta_per_layer,
+            log_components=log_components,
+        )
+        
+        balanced_conditional_kl_div = self._kl_divergence(
+            cps,
+            ps,
+            log_cps,
+            log_ps,
+            beta_per_layer=self.hparams.cbeta_per_layer,
+            log_components=log_components,
+        )
         
         print(f"Reconstruction loss: {recon_loss}")
         print(f"Weighted KL divergence: {balanced_kl_div}")
+        print(f"Weighted conditional KL divergence: {balanced_conditional_kl_div}")
         
         if log_components:
             self.log("loss/recon", recon_loss)
             self.log("loss/kl_div", balanced_kl_div)
+            self.log("loss/kl_div_conditional", balanced_conditional_kl_div)
         
-        # Spectral regularisation
-        if self.hparams.use_sr:
-            weighted_sr_loss = 0.1 * self._spectral_norm()
-            print(f"Spectral regularisation loss: {weighted_sr_loss}")
-            
-            if log_components:
-                self.log("sr_loss", weighted_sr_loss)
-            
-            return recon_loss + balanced_kl_div + weighted_sr_loss
-        
-        return recon_loss + balanced_kl_div
+        return recon_loss + balanced_conditional_kl_div + balanced_kl_div
 
-    def get_latent(self, feats: torch.Tensor, test: bool=True) -> list[torch.Tensor]:
-        """
-        Given an input tensor, return its latent representations in each latent
-        layer by passing it through the encoder-decoder.
-        """
-        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
-        x = self.stem(2 * feats - 1.0)
-        
-        # Pass through encoder
-        x, xs, enc_combiner_cells = self.encoder(x)
-        
-        # Reverse buffers and modules for decoder
-        xs = xs[::-1]
-        enc_combiner_cells = enc_combiner_cells[::-1]
-        enc_samplers = self.encoder.samplers[::-1]
-        
-        # Pass through decoder
-        _, _, _, _, _, zs = self.decoder(
-            x,
-            xs,
-            enc_combiner_cells,
-            enc_samplers,
-            test=test,
-            return_latents=True,
-        )
-
-        return zs
-    
     def forward(
         self,
         scans: torch.Tensor,
-        test: bool=False,
-        num_shared_layers: int=-1,
-    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor]]:
+        feats: torch.Tensor,
+    ) -> tuple[torch.Tensor, list[Normal], list[Normal], list[Normal], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:  
         """
-        Forward pass through the NVAE encoder and decoder.
-        
-        Args:
-            scans (torch.Tensor): Input image scans.
-            test (bool): Indicates whether test mode is enabled (compared to
-                train or validation mode). Default: False.
-            num_shared_layers (int): Number of latent layers shared with the
-                decoder from the topmost layer. If -1, all layers are shared.
-                See docstring of Decoder forward pass for details. Default: -1.
-        
-        Returns:
-            feats_hat_logits (torch.Tensor): Logits of segmentation mask.
-            qs (list[Normal]): Approximate posterior distributions.
-            ps (list[Normal]): Prior distributions.
-            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the approximate
-                posterior.
-            log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the prior.
+        Forward pass at train (and validation) time. For inference, use the
+        inference() method.
         """
+        
         # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
-        x = self.stem(2 * scans - 1.0)
+        x = self.get_image_stem()(2 * scans - 1.0)
+        y = self.get_mask_stem()(2 * feats - 1.0)
         
         # Pass through encoder
-        x, xs, enc_combiner_cells = self.encoder(x)
+        x, xs, img_enc_combiner_cells = self.get_image_encoder()(x)
+        y, ys, mask_enc_combiner_cells = self.get_mask_encoder()(y)
         
         # Reverse buffers and modules for decoder
+        
         xs = xs[::-1]
-        enc_combiner_cells = enc_combiner_cells[::-1]
-        enc_samplers = self.encoder.samplers[::-1]
+        img_enc_combiner_cells = img_enc_combiner_cells[::-1]
+        img_enc_samplers = self.get_image_encoder().samplers[::-1]
+        
+        ys = ys[::-1]
+        mask_enc_combiner_cells = mask_enc_combiner_cells[::-1]
+        mask_enc_samplers = self.get_mask_encoder().samplers[::-1]
         
         # Pass through decoder
-        x_hat_logits, qs, ps, log_qs, log_ps = self.decoder(
+        x_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self.decoder(
             x,
             xs,
-            enc_combiner_cells,
-            enc_samplers,
-            test=test,
-            num_shared_layers=num_shared_layers,
+            y,
+            ys,
+            img_enc_combiner_cells,
+            img_enc_samplers,
+            mask_enc_combiner_cells,
+            mask_enc_samplers,
         )
         
         # Compute logits
         feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
         
-        return feats_hat_logits, qs, ps, log_qs, log_ps
+        return feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps
+    
+    def inference(self, scans: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass at test time.
+        """
+        # Convert one-hot encoded inputs [0, 1] to [-1, 1] for train stability
+        x = self.get_image_stem()(2 * scans - 1.0)
         
+        # Pass through encoder
+        x, xs, img_enc_combiner_cells = self.get_image_encoder()(x)
+        
+        # Reverse buffers and modules for decoder
+        
+        xs = xs[::-1]
+        img_enc_combiner_cells = img_enc_combiner_cells[::-1]
+        img_enc_samplers = self.get_image_encoder().samplers[::-1]
+        
+        # Pass through decoder
+        x_hat_logits = self.decoder.inference(
+            x,
+            xs,
+            img_enc_combiner_cells,
+            img_enc_samplers,
+        )
+        
+        # Compute logits
+        feats_hat_logits: torch.Tensor = self.conditional_coder(x_hat_logits)
+        
+        return feats_hat_logits
+    
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         scans, feats, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self(
+            scans,
+            feats,
+        )
         
         # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        loss = self.loss(
+            feats,
+            feats_hat_logits,
+            qs,
+            cps,
+            ps,
+            log_qs,
+            log_cps,
+            log_ps,
+            log_components=False,
+        )
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -569,18 +556,40 @@ class NVAESeg(L.LightningModule):
             raise ValueError("NaN loss")
 
         return loss
-    
+
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         scans, feats, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        feats_hat_logits, qs, cps, ps, log_qs, log_cps, log_ps = self(
+            scans,
+            feats,
+        )
         
         # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        loss = self.loss(
+            feats,
+            feats_hat_logits,
+            qs,
+            cps,
+            ps,
+            log_qs,
+            log_cps,
+            log_ps,
+            log_components=False,
+        )
         self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")
         
+        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
+        self.log("loss/val_recon", recon_loss)
+        
+        # Also compute loss without mask prior
+        feats_hat_logits = self.inference(scans)
+        
+        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
+        self.log("loss/val_recon_no_mask_prior", recon_loss)
+    
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         """
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
@@ -597,7 +606,6 @@ class NVAESeg(L.LightningModule):
         feats = feats.squeeze(0)
         
         self.log_reconstruction_metrics(scans, feats, condition_label, phase_label)
-        self.log_generation_metrics(feats)
         
         self.scans_buffer.append(scans)
         self.feats_buffer.append(feats)
@@ -612,7 +620,7 @@ class NVAESeg(L.LightningModule):
         """
         num_samples, _, _, _ = feats.shape
         
-        feats_hat_logits, _, _, _, _ = self(scans, test=True)
+        feats_hat_logits = self.inference(scans)
         
         # Compute reconstruction loss
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
@@ -653,66 +661,24 @@ class NVAESeg(L.LightningModule):
         self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
 
-    def log_generation_metrics(self, feats: torch.Tensor):
-        """
-        Log generation metrics to TensorBoard. This includes the Frechet Resnet
-        Distance with SimCLR (FRDS) metric across the batch.
-        
-        Args:
-            feats (torch.Tensor): Batch of input samples.
-        """
-        num_samples, _, _, _ = feats.shape
-        
-        # Generate probabilistic segmentation maps
-        x_fake = self.decoder.generate(num_samples, device=self.device)
-        feats_fake = self.conditional_coder(x_fake)
-        
-        # Percentage of anatomically valid generations
-        num_valid = 0
-        
-        for discretised_feat_fake in discretise(feats_fake):
-            AV = AnatomicalValidityChecker(discretised_feat_fake)
-            if AV.count_violations() == 0:
-                num_valid += 1
-        
-        self.log("gen/anatomically_valid_gen", num_valid / num_samples)
-        
-        # Keep track of all generations to compute FRDS
-        self.feats_fake_buffer.append(feats_fake)
-    
     def log_reconstruction_visualisation(self, scans: torch.Tensor, feats: torch.Tensor):
         num_data = feats.shape[0]
         samples_idx = torch.randperm(num_data)[:40]
         scans = scans[samples_idx]
         feats = feats[samples_idx]
-        feats_hat_logits, _, _, _, _ = self(scans, test=True)
+        feats_hat_logits = self.inference(scans)
         
-        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits)
-        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        samples, reconstructions, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits, return_reconstructions=True)
+        
+        show_samples(reconstructions, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
-    
-    def log_generation_visualisation(self, feats_fake: torch.Tensor):
-        generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
-        show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/generations", plt.gcf())
+        
+        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
+        self.logger.experiment.add_figure("img/reconstructions_diff", plt.gcf())
 
     def on_test_end(self):
         scans = torch.cat(self.scans_buffer, dim=0)
         feats = torch.cat(self.feats_buffer, dim=0)
-        feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
-        
-        frds_value = compute_frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH,
-            device=self.device,
-        )
-
-        print(f"FRDS: {frds_value}")
-        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
         # Visualise samples and reconstructions
         self.log_reconstruction_visualisation(scans, feats)
-        
-        # View generations
-        self.log_generation_visualisation(feats_fake)

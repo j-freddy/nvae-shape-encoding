@@ -42,13 +42,11 @@ if __name__ == '__main__':
 
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "default-pretrain-decoder.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "latent-skip-pretrain-decoder.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.NVAESEG, "baseline.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.CNVAE, "default.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["Default Pretrain", "LatentSkip-Clamp Pretrain", "Baseline"]
+    labels = ["Default"]
     
     # Read data
     dfs = []
@@ -62,10 +60,10 @@ if __name__ == '__main__':
     for label, df in zip(labels, dfs):
         # Filter all rows with FRDS >= 300
         # df = df[df["gen/frds"] < 300]
-        plt.scatter(df["loss/dsc"], df["gen/anatomically_valid_recon"], alpha=0.5, label=label)
+        plt.scatter(df["beta"], df["loss/dsc"], alpha=0.5, label=label)
     
-    plt.xlabel("DSC")
-    plt.ylabel("% Anatomically Valid Segmentations")
+    plt.xlabel("Beta")
+    plt.ylabel("DSC")
     
     plt.tight_layout()
     plt.legend()

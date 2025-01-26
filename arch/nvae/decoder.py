@@ -241,11 +241,10 @@ class Decoder(nn.Module):
                 conditional coder.
             qs (list[Normal]): Approximate posterior distributions.
             ps (list[Normal]): Prior distributions.
-            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the approximate
-                posterior.
+            log_qs (list[torch.Tensor]): Log probabilities of samples drawn 
+                from qs.
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the prior.
+                ps.
         """
         if num_shared_layers == 0:
             raise ValueError("Cannot have 0 shared layers")
