@@ -20,7 +20,7 @@ warmup_steps_list=("6420")
 # Size=6
 betas=("0 1 3 5 7 9")
 # Size=6
-cbetas=("0 1 3 5 7 9")
+cbetas=("0 1 5 10 20 50")
 
 logdir="logs-cnvae-tune"
 
