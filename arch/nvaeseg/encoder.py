@@ -1,0 +1,166 @@
+import math
+import torch
+import torch.nn as nn
+
+from arch.nvae.encoder import EncoderCombinerCell, EncoderResidualCell
+
+class Encoder(nn.Module):
+    """
+    NVAESeg Encoder.
+    
+    Implementation is adapted from this diagram:
+    - https://github.com/NVlabs/NVAE/blob/master/img/model_diagram.png
+    
+    Also see init_encoder_tower() in official NVAE code.
+    """
+    
+    def __init__(
+        self,
+        num_groups_per_layer: list[int],
+        # 1-to-1 map with num_groups_per_layer
+        is_layer_shared: list[bool],
+        initial_channels: int=64,
+        min_channels: int=16,
+        initial_z_channels: int=20,
+        initial_downsample_factor: int=2,
+    ):
+        super().__init__()
+        
+        assert len(num_groups_per_layer) == len(is_layer_shared)
+        
+        self.min_channels = min_channels
+        self.num_latent_layers = len(num_groups_per_layer)
+        
+        # Build preprocessing modules
+        
+        # In official NVAE implementation, by default arch_type is 'res_mbconv'
+        # and so 'down_pre' is ['res_bnswish', 'res_bnswish'] with 2 preprocess
+        # cells, 1 preprocess block and channel multiplier of 1.
+        
+        preprocess_modules = []
+        num_preprocess_layers = int(math.log2(initial_downsample_factor))
+        
+        num_channels = initial_channels
+        z_channels = initial_z_channels
+        
+        for _ in range(num_preprocess_layers):
+            true_num_channels = self._num_channels(num_channels)
+            
+            # Inverted residual cells
+            preprocess_modules.append(EncoderResidualCell(true_num_channels))
+            preprocess_modules.append(EncoderResidualCell(true_num_channels))
+            
+            # Downsample
+            preprocess_modules.append(
+                nn.Conv2d(
+                    true_num_channels,
+                    self._num_channels(num_channels * 2),
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                )
+            )
+            
+            num_channels *= 2
+        
+        self.preprocess = nn.Sequential(*preprocess_modules)
+        
+        # Build tower
+        
+        self.tower = nn.ModuleList()
+        self.samplers = nn.ModuleList()
+        
+        for s in range(self.num_latent_layers):
+            for g in range(num_groups_per_layer[s]):
+                true_num_channels = self._num_channels(num_channels)
+                
+                # Inverted residual cells
+                self.tower.append(EncoderResidualCell(true_num_channels))
+                self.tower.append(EncoderResidualCell(true_num_channels))
+                
+                if is_layer_shared[s]:
+                    # Add sampler
+                    self.samplers.append(
+                        nn.Conv2d(
+                            true_num_channels,
+                            2 * z_channels,
+                            kernel_size=3,
+                            padding=1,
+                        )
+                    )
+                    
+                    # Add enc combiner if not last group in last layer
+                    if not (s == self.num_latent_layers - 1 and g == num_groups_per_layer[s] - 1):
+                        self.tower.append(EncoderCombinerCell(true_num_channels, true_num_channels))
+        
+            if s < self.num_latent_layers - 1:
+                # Downsample
+                self.tower.append(
+                    nn.Conv2d(
+                        true_num_channels,
+                        self._num_channels(num_channels * 2),
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        bias=False,
+                    ),
+                )
+                
+                num_channels *= 2
+                
+                # Double z_channels for next shared layer
+                if is_layer_shared[s]:
+                    z_channels *= 2
+      
+        # Build compressor
+        true_num_channels = self._num_channels(num_channels)
+        
+        self.compressor = nn.Sequential(
+            nn.ELU(),
+            nn.Conv2d(true_num_channels, true_num_channels, kernel_size=1, bias=True),
+            nn.ELU(),
+        )
+    
+    def _num_channels(self, num_channels: int) -> int:
+        return max(num_channels, self.min_channels)
+    
+    def forward(
+        self,
+        x: torch.Tensor,
+        print_logs: bool=False,
+    ) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[EncoderCombinerCell]]:
+        x = self.preprocess(x)
+        if print_logs:
+            print(x.shape)
+
+        xs = []
+        combiner_cells = []
+        
+        if print_logs:
+            print(self.tower)
+        
+        # Go through the tower and checkpoint combiner cells as it requires
+        # sampled variables in the decoder pass
+        for cell in self.tower:
+            if isinstance(cell, EncoderCombinerCell):
+                xs.append(x)
+                combiner_cells.append(cell)
+            else:
+                x = cell(x)
+
+        x = self.compressor(x)
+        
+        # Final x is not added as last group in last layer does not have a
+        # combiner cell
+        
+        if print_logs:
+            print("Printing xs and final x...")
+
+            for x_buf in xs:
+                print(x_buf.shape)
+            print(x.shape)
+
+            print("End of encoder.")
+        
+        return x, xs, combiner_cells

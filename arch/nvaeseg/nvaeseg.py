@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
-from arch.nvae.encoder import Encoder
+from arch.nvaeseg.decoder import Decoder
+from arch.nvaeseg.encoder import Encoder
 from utils.const import CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
@@ -111,7 +111,7 @@ class NVAESeg(L.LightningModule):
             is_layer_shared=self.hparams.is_layer_shared,
             initial_channels=self.hparams.initial_channels,
             min_channels=self.hparams.min_channels,
-            z_channels=self.hparams.z_channels,
+            initial_z_channels=self.hparams.z_channels,
             initial_downsample_factor=self.hparams.initial_downsample_factor,
         )
         
@@ -123,7 +123,7 @@ class NVAESeg(L.LightningModule):
             initial_channels=self.hparams.initial_downsample_factor * self.hparams.initial_channels * (2 ** (self.num_layers - 1)),
             min_channels=self.hparams.min_channels,
             top_latent_shape=(top_latent_dim, top_latent_dim),
-            z_channels=self.hparams.z_channels,
+            initial_z_channels=self.hparams.z_channels * (2 ** (self.num_latent_layers - 1)),
             final_upsample_factor=self.hparams.initial_downsample_factor,
         )
         
@@ -314,9 +314,8 @@ class NVAESeg(L.LightningModule):
         for q, p, log_q_conv, log_p_conv in zip(qs, ps, log_qs, log_ps):
             assert q.mu.shape == p.mu.shape
             
-            _, z_channels, width, height = q.mu.shape
+            _, _, width, height = q.mu.shape
             assert width == height
-            assert z_channels == self.hparams.z_channels
             kl_layers.append(self._get_layer_index(width))
 
             kl_per_var = q.kl(p)
