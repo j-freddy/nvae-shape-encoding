@@ -20,7 +20,7 @@ warmup_steps_list=("6420")
 # Size=10
 betas=("1 1.125 1.25 1.5 2 3 4 5 7 10")
 
-logdir="logs-nvaeseg-tune"
+logdir="logs-nvaeseg-tune-z-channels"
 
 # Train
 
