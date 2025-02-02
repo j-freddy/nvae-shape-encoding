@@ -44,7 +44,7 @@ do
                     --warmup_steps $warmup_steps \
                     --cbetas $cbetas_str \
                     --betas $betas_str \
-                    --pretrained_nvaeseg_model_path "logs/nvae_seg_acdc/default/pc-4-ws-6420-b-4/checkpoints/epoch=60-step=13054.ckpt" \
+                    --pretrained_nvaeseg_model_path "logs/nvae_seg_acdc/default/checkpoints/epoch=60-step=13054.ckpt" \
                     --no_warmup \
                     --model_name $model_name \
                     --logs $logdir
