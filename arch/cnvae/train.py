@@ -156,13 +156,11 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    # TODO Revert
-    data_module = ACDC3DDataModule()
-    # data_module = ACDCDataModule(
-    #     batch_size=8,
-    #     filter_empty=flags.filter_empty,
-    #     augment=flags.augment,
-    # )
+    data_module = ACDCDataModule(
+        batch_size=8,
+        filter_empty=flags.filter_empty,
+        augment=flags.augment,
+    )
     
     # Reseed after preprocessing data
     # Accept a custom seed for training, but ensure data split is consistent
@@ -229,13 +227,6 @@ def main(flags: argparse.Namespace):
             LearningRateMonitor("epoch"),
         ]
     )
-    
-    # TODO Revert
-    
-    trainer.test(model, data_module)
-    
-    import sys
-    sys.exit()
     
     trainer.fit(model, data_module)
 
