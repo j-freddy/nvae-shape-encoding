@@ -109,6 +109,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--no_warmup",
+        action=argparse.BooleanOptionalAction,
+        help="If set, disable KL divergence warmup.",
+        default=False,
+    )
+    
+    parser.add_argument(
         "--freeze_decoder",
         action=argparse.BooleanOptionalAction,
         help="If set, freeze the decoder and conditional coder weights.",
@@ -183,6 +190,7 @@ def main(flags: argparse.Namespace):
         beta_per_layer=flags.betas,
         kl_warmup_steps=flags.warmup_steps,
         freeze_decoder=flags.freeze_decoder,
+        no_warmup=flags.no_warmup,
     )
     
     if flags.pretrained_nvaeseg_model_path:

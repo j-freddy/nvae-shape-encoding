@@ -33,6 +33,7 @@ class CNVAE(L.LightningModule):
         beta_per_layer: list[float]=[1.0, 1.0, 1.0],
         kl_warmup_steps: int=500,
         freeze_decoder: bool=False,
+        no_warmup: bool=False,
     ):
         """
         Create an instance of the Conditional NVAE model. All constructor
@@ -76,7 +77,8 @@ class CNVAE(L.LightningModule):
                 50.
             cbeta_per_layer (list[float]): Beta coefficient for each shared
                 layer, for the KL divergence between the variational posterior
-                and the conditional prior. Order corresponds to the shared layers of @is_layer_shared. Default: [1.0, 1.0, 1.0].
+                and the conditional prior. Order corresponds to the shared
+                layers of @is_layer_shared. Default: [1.0, 1.0, 1.0].
             beta_per_layer (list[float]): Beta coefficient for each shared
                 layer, for the KL divergence between the variational posterior
                 and the unconditional prior. Default: [1.0, 1.0, 1.0].
@@ -84,6 +86,8 @@ class CNVAE(L.LightningModule):
                 Each epoch has 214 steps. Default: 500.
             freeze_decoder (bool): If True, freeze the decoder and conditional 
                 coder weights. Default: False.
+            no_warmup (bool): If True, do not perform KL annealing. Default: 
+                False.
         """
         
         super().__init__()
@@ -358,7 +362,7 @@ class CNVAE(L.LightningModule):
         kl_latent_layers = [self.layer_idx_to_latent_idx[layer_idx] for layer_idx in kl_layers]
         kl_latent_layers = torch.tensor(kl_latent_layers)
         
-        gamma = self._compute_gamma()
+        gamma = 1 if self.hparams.no_warmup else self._compute_gamma()
         
         # Stack list to bxn tensor
         kl_divs = torch.stack(kl_divs, dim=1)
