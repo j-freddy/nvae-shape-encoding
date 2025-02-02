@@ -582,13 +582,13 @@ class CNVAE(L.LightningModule):
         print(f"Val loss: {loss}")
         
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
-        self.log("loss/val_recon", recon_loss)
+        self.log("loss/val_recon_mask_prior", recon_loss)
         
-        # Also compute loss without mask prior
+        # Also compute loss without mask prior and use this for checkpointing
         feats_hat_logits = self.inference(scans)
         
         recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
-        self.log("loss/val_recon_no_mask_prior", recon_loss)
+        self.log("loss/val_recon", recon_loss)
     
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         """
