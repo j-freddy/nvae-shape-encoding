@@ -13,29 +13,14 @@ cd nvae-shape-encoding
 export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
-# ==============================================================================
-# [NVAE Tune Slim]
-# NVAE ACDC: It seems that beta0=beta1=beta2 works well. This is a smaller grid
-# where this constraint is met. For the default architecture with minimum
-# channels=16.
-#
-# The best result in this search is beta=1. We stop here as beta<1 does not
-# guarantee ELBO lower bound, and beta>1 for any of the latent layers will
-# theoretically decrease reconstruction quality.
-#
-# Note: SR improves performance for beta=1.
-#
-# Time taken: 23 hr 43 min
-# ==============================================================================
-
-# Grid size is 20
+# Grid size is 22
 projected_channels_list=("4")
 # Size=1 (6420 is 214*30 so first 30 epochs)
 warmup_steps_list=("6420")
-# Size=20
-betas=("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20")
+# Size=22
+betas=("0 0.01 0.02 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 2 3 4 5 6 7 8 9 10")
 
-logdir="logs-nvae-clamp"
+logdir="logs-nvaeseg-pretrain-decoder-latent-skip-tune"
 
 # Train
 
@@ -48,15 +33,15 @@ do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
             betas_str="${beta},${beta},${beta}"
             # Train
-            python -m arch.nvae.train \
+            python -m arch.nvaeseg.train \
                 --epochs 100 \
-                --arch "default" \
+                --arch "latent-skip" \
                 --projected_channels $projected_channels \
-                --min_channels 16 \
                 --warmup_steps $warmup_steps \
                 --betas $betas_str \
                 --model_name $model_name \
-                --logs $logdir
+                --logs $logdir \
+                --pretrained_nvae_model_path "logs/nvae_acdc/best/latent-skip/checkpoints/epoch=98-step=21186.ckpt"
         done
     done
 done
@@ -71,9 +56,9 @@ do
         do
             model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}"
             # Get saved model path
-            model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
+            model_path=$(ls ${logdir}/nvae_seg_acdc/${model_name}/checkpoints/*.ckpt)
             # Test: Save figures and metrics
-            python -m arch.nvae.test --model_path $model_path --logs $logdir
+            python -m arch.nvaeseg.test --model_path $model_path --logs $logdir
         done
     done
 done

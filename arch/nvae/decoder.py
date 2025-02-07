@@ -232,7 +232,7 @@ class Decoder(nn.Module):
                 subsequent latent layer are shared. If a latent layer is not
                 shared, the decoder does not draw information from the encoder.
                 That is, the residual distribution only consists of the prior
-                and not the approximate posterior. If -1, all latent layers are
+                and not the variational posterior. If -1, all latent layers are
                 shared. Useful for ablation study and checking collapsed layers.
                 Default: -1.
         
@@ -241,11 +241,10 @@ class Decoder(nn.Module):
                 conditional coder.
             qs (list[Normal]): Approximate posterior distributions.
             ps (list[Normal]): Prior distributions.
-            log_qs (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the approximate
-                posterior.
+            log_qs (list[torch.Tensor]): Log probabilities of samples drawn 
+                from qs.
             log_ps (list[torch.Tensor]): Log probabilities of samples drawn from
-                the residual distribution with respect to the prior.
+                ps.
         """
         if num_shared_layers == 0:
             raise ValueError("Cannot have 0 shared layers")
@@ -290,7 +289,7 @@ class Decoder(nn.Module):
                     latent_repr_p = self.samplers[idx_dec - 1](x)
                     mu_p, logsig_p = torch.chunk(latent_repr_p, 2, dim=1)
                     
-                    # Approximate posterior
+                    # Variational posterior
                     if idx_dec < self.cumulative_groups_per_layer[num_shared_layers - 1]:
                         comb_feats = enc_combiner_cells[idx_dec - 1](xs[idx_dec - 1], x)
                         latent_repr_q = enc_samplers[idx_dec](comb_feats)
@@ -299,7 +298,7 @@ class Decoder(nn.Module):
                         mu_q = torch.zeros_like(mu_p)
                         logsig_q = torch.zeros_like(logsig_p)
 
-                    # Residual distribution
+                    # Residual distribution i.e. approximate posterior
                     distr = Normal(mu_p + mu_q, logsig_p + logsig_q)
                     z = distr.sample(deterministic=test)
                     qs.append(distr)

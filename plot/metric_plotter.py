@@ -42,13 +42,11 @@ if __name__ == '__main__':
 
     # Customisable: Choose which metrics to plot from logs/vae_acdc
     paths = [
-        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "beta-vae.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-vae.csv"),
-        os.path.join(LOGS_PATH, ACDC.DIR.VAE, "info-adversarial-vae.csv"),
+        os.path.join(LOGS_PATH, ACDC.DIR.CNVAE, "default.csv"),
     ]
 
     # Customisable: Ensure labels align with paths
-    labels = ["beta-VAE", "InfoVAE-M", "InfoVAE-D"]
+    labels = ["Default"]
     
     # Read data
     dfs = []
@@ -61,11 +59,11 @@ if __name__ == '__main__':
 
     for label, df in zip(labels, dfs):
         # Filter all rows with FRDS >= 300
-        df = df[df["gen/frds"] < 300]
-        plt.scatter(df["gen/frds"], df["gen/anatomically_valid"], alpha=0.5, label=label)
+        # df = df[df["gen/frds"] < 300]
+        plt.scatter(df["beta"], df["loss/dsc"], alpha=0.5, label=label)
     
-    plt.xlabel("FRDS")
-    plt.ylabel("% Anatomically Valid")
+    plt.xlabel("Beta")
+    plt.ylabel("DSC")
     
     plt.tight_layout()
     plt.legend()
