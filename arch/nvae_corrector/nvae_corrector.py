@@ -14,9 +14,21 @@ from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
-class NVAESeg(L.LightningModule):
+class NVAECorrector(L.LightningModule):
     """
-    Nouveau VAE adapted for segmentation. See NVAE docstring.
+    Adapted from NVAESeg. See NVAESeg docstring.
+    
+    This model trains the same way as NVAE, but takes as input a predicted mask
+    (for example, a U-Net output). The loss is computed on the original GT mask.
+    The idea is to train the model to output a reconstruction that corrects any
+    anatomical errors in the predicted mask.
+    
+    Therefore, the end-to-end inference pipeline is two-fold:
+    1. Pass image through U-Net to get predicted mask.
+    2. Pass predicted mask through NVAECorrector to get a refined prediction.
+    
+    Then, performance is evaluated by comparing the refined prediction to the GT
+    mask.
     """
     
     def __init__(
@@ -36,8 +48,8 @@ class NVAESeg(L.LightningModule):
         freeze_decoder: bool=False,
     ):
         """
-        Create an instance of the NVAESeg model. All constructor arguments are
-        saved in the checkpoint as hyperparameters.
+        Create an instance of the NVAECorrector model. All constructor arguments
+        are saved in the checkpoint as hyperparameters.
         
         Args:
             in_channels (int): Number of input channels. Corresponds to number
@@ -555,12 +567,13 @@ class NVAESeg(L.LightningModule):
         return feats_hat_logits, qs, ps, log_qs, log_ps
         
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        scans, feats, _, _ = batch
+        feats_gt, feats_pred, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        # Reconstruct predicted mask
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats_pred)
         
-        # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        # Compute loss using ground truth mask
+        loss = self.loss(feats_gt, feats_hat_logits, qs, ps, log_qs, log_ps)
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -571,12 +584,13 @@ class NVAESeg(L.LightningModule):
         return loss
     
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
-        scans, feats, _, _ = batch
+        feats_gt, feats_pred, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        # Reconstruct predicted mask
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats_pred)
         
-        # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        # Compute loss using ground truth mask
+        loss = self.loss(feats_gt, feats_hat_logits, qs, ps, log_qs, log_ps)
         self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")

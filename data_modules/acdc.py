@@ -10,7 +10,7 @@ import torchvision.transforms.functional as TF
 
 from data_modules.utils import preprocess
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
-from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset
+from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset, ACDCWithPredictedMaskDataset
 from utils.utils import one_hot, one_hot_to_image
 
 def get_info(patient_id: str, test: bool=False) -> dict:
@@ -426,6 +426,72 @@ class ACDCMaskDataModule(LightningDataModule):
         self.data_train = ACDCMaskDataset(data_train, augment_rotation, augment_simclr, return_original)
         self.data_val = ACDCMaskDataset(data_val, augment_rotation, augment_simclr, return_original)
         self.data_test = ACDCMaskDataset(data_test, augment_rotation_test, augment_simclr_test, return_original)
+    
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
+
+    def val_dataloader(self, shuffle=False):
+        return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+
+class ACDCWithPredictedMaskDataModule(LightningDataModule):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) data module.
+    
+    This is equivalent to ACDCDataModule, but additionally includes the predicted segmentation from a segmentation model.
+    
+    Each data point is a 5-tuple consisting
+    of a single slice with the following information:
+    (1) Scan tensor (1x128x128)
+    (2) One-hot encoded GT Mask tensor (4x128x128)
+    (3) One-hot encoded predicted mask tensor (4x128x128)
+    (4) Condition tensor (1)
+    (5) Whether the scan is ED/1 or ES/0 (1)
+
+    The condition tensor is an integer with the following indexing:
+    - 1: NOR
+    - 2: MINF
+    - 3: DCM
+    - 4: HCM
+    - 5: RV
+    """
+    
+    def __init__(
+        self,
+        batch_size: int=32,
+        augment: bool=False,
+        augment_test: bool=False,
+    ):
+        """
+        Args:
+            batch_size (int): Batch size. Default: 32.
+            augment: Whether to apply data augmentation on train set. Default:
+                False.
+            augment_test: Whether to apply data augmentation on test set.
+                Default: False.
+        """
+        super().__init__()
+        
+        self.batch_size = batch_size
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+        
+            # TODO Do not use val
+            data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            data_val = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            # TODO Do not use val
+            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+        
+        self.data_train_raw = data_train
+        self.data_val_raw = data_val
+        self.data_test_raw = data_test
+        
+        self.data_train = ACDCWithPredictedMaskDataset(*data_train, augment=augment)
+        self.data_val = ACDCWithPredictedMaskDataset(*data_val, augment=False)
+        self.data_test = ACDCWithPredictedMaskDataset(*data_test, augment=augment_test)
     
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)

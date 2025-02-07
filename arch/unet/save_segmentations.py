@@ -23,8 +23,8 @@ def parse_args() -> argparse.Namespace:
         "--split",
         type=str,
         help="",
-        choices=["train", "validation"],
-        default="train",
+        choices=["train", "val", "test"],
+        required=True,
     )
     
     return parser.parse_args()
@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     data_path = os.path.join(
         DATA_PATH,
-        f"acdc_processed_with_predicted_segmentation_{flags.split}",
+        f"acdc_processed_with_predicted_segmentation_{flags.split}.pt",
     )
     
     # Check if data path already exists
@@ -52,8 +52,12 @@ def main(flags: argparse.Namespace):
     match flags.split:
         case "train":
             data_loader = data_module.train_dataloader()
-        case "validation":
+        case "val":
             data_loader = data_module.val_dataloader()
+        case "test":
+            data_loader = data_module.test_dataloader()
+        case _:
+            raise ValueError(f"Invalid split: {flags.split}")
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
