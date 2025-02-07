@@ -591,9 +591,13 @@ class NVAECorrector(L.LightningModule):
         
         # Compute loss using ground truth mask
         loss = self.loss(feats_gt, feats_hat_logits, qs, ps, log_qs, log_ps)
-        self.log("loss/val", loss)
+        self.log("loss/val_with_kl", loss)
         
-        print(f"Val loss: {loss}")
+        # Also compute reconstruction loss and use this for checkpointing
+        recon_loss = self.reconstruction_loss(feats_gt, feats_hat_logits)
+
+        print(f"Val loss: {recon_loss}")
+        self.log("loss/val", recon_loss)
         
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         """
