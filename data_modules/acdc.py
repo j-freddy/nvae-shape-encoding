@@ -479,8 +479,7 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
         
-            # TODO Do not use val
-            data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_train.pt"))
             data_val = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
             # TODO Do not use val
             data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
