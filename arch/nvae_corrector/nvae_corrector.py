@@ -600,23 +600,24 @@ class NVAECorrector(L.LightningModule):
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        scans, feats, condition, ed = batch
+        feats_gt, feats_pred, condition, ed = batch
         
         condition_label = f"condition_{int(condition)}"
         phase_label = "ed" if ed else "es"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
-        scans = scans.squeeze(0)
-        feats = feats.squeeze(0)
+        feats_gt = feats_gt.squeeze(0)
+        feats_pred = feats_pred.squeeze(0)
         
-        self.log_reconstruction_metrics(scans, feats, condition_label, phase_label)
-        self.log_generation_metrics(feats)
+        self.log_reconstruction_metrics(feats_gt, feats_pred, condition_label, phase_label)
+        self.log_generation_metrics(feats_gt)
         
-        self.scans_buffer.append(scans)
-        self.feats_buffer.append(feats)
+        # TODO
+        # self.scans_buffer.append(scans)
+        # self.feats_buffer.append(feats)
 
-    def log_reconstruction_metrics(self, scans: torch.Tensor, feats: torch.Tensor, condition: str, phase: str):
+    def log_reconstruction_metrics(self, feats_gt: torch.Tensor, feats_pred: torch.Tensor, condition: str, phase: str):
         """
         Log reconstruction metrics to TensorBoard. This includes average
         reconstruction loss and Dice score across the batch.
@@ -624,12 +625,12 @@ class NVAECorrector(L.LightningModule):
         Args:
             feats (torch.Tensor): Batch of input samples.
         """
-        num_samples, _, _, _ = feats.shape
+        num_samples, _, _, _ = feats_gt.shape
         
-        feats_hat_logits, _, _, _, _ = self(scans, test=True)
+        feats_hat_logits, _, _, _, _ = self(feats_pred, test=True)
         
         # Compute reconstruction loss
-        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
+        recon_loss = self.reconstruction_loss(feats_gt, feats_hat_logits)
         self.log("loss/test_recon", recon_loss)
         
         # Compute Dice score
@@ -637,7 +638,7 @@ class NVAECorrector(L.LightningModule):
         feats_hat_onehot = discretise(feats_hat)
         
         dice_score, dice_score_per_class = compute_dice_score(
-            feats,
+            feats_gt,
             feats_hat_onehot,
             self.device,
             is_3d=True,
@@ -711,22 +712,23 @@ class NVAECorrector(L.LightningModule):
         self.logger.experiment.add_figure("img/generations", plt.gcf())
 
     def on_test_end(self):
-        scans = torch.cat(self.scans_buffer, dim=0)
-        feats = torch.cat(self.feats_buffer, dim=0)
-        feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
+        pass
+        # scans = torch.cat(self.scans_buffer, dim=0)
+        # feats = torch.cat(self.feats_buffer, dim=0)
+        # feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
         
-        frds_value = compute_frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH,
-            device=self.device,
-        )
+        # frds_value = compute_frds(
+        #     feats,
+        #     discretise(feats_fake),
+        #     resnet_path=FRDS_MODEL_PATH,
+        #     device=self.device,
+        # )
 
-        print(f"FRDS: {frds_value}")
-        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
+        # print(f"FRDS: {frds_value}")
+        # self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
-        # Visualise samples and reconstructions
-        self.log_reconstruction_visualisation(scans, feats)
+        # # Visualise samples and reconstructions
+        # self.log_reconstruction_visualisation(scans, feats)
         
-        # View generations
-        self.log_generation_visualisation(feats_fake)
+        # # View generations
+        # self.log_generation_visualisation(feats_fake)

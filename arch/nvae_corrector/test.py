@@ -57,11 +57,6 @@ def main(flags: argparse.Namespace):
             default_hp_metric=False,
         ),
     )
-    
-    print("I'm ready!")
-    
-    import sys
-    sys.exit()
 
     trainer.test(model, data_module)
     

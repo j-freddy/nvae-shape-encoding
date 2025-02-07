@@ -575,7 +575,7 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_test.pt"))
         
         self.data_test = ACDC3DWithPredictedMaskDataset(*data_test)
     
