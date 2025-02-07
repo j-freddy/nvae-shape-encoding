@@ -246,3 +246,47 @@ class ACDC3DDataset(Dataset):
         assert set(mask.unique().tolist()).issubset({0, 1})
         
         return scan, mask, condition, ed
+
+class ACDC3DWithPredictedMaskDataset(Dataset):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) 3D dataset with predicted
+    mask.
+    
+    See ACDC3DWithPredictedMaskDataModule docstring.
+    """
+
+    def __init__(
+        self,
+        scans: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        masks_pred: list[torch.Tensor],
+        conditions: list[int],
+        eds: list[int],
+    ):
+        assert len(scans) == len(masks) == len(masks_pred) == len(conditions) == len(eds)
+        
+        # self.scans is never used, but is included for analysis / visualisation
+        # purposes alongside masks and masks_pred
+        self.scans = scans
+        self.masks = masks
+        self.masks_pred = masks_pred
+        self.conditions = conditions
+        self.eds = eds
+        
+        self.num_channels = scans[0].shape[1]
+        self.num_classes = masks[0].shape[1]
+    
+    def __len__(self) -> int:
+        return len(self.masks)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        mask = self.masks[idx]
+        mask_pred = self.masks_pred[idx]
+        condition = self.conditions[idx]
+        ed = self.eds[idx]
+        
+        # Values should be preprocessed as 0, 1 before passing into pipeline
+        assert set(mask.unique().tolist()).issubset({0, 1})
+        assert set(mask_pred.unique().tolist()).issubset({0, 1})
+        
+        return mask, mask_pred, condition, ed

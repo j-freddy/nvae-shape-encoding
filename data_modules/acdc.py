@@ -10,7 +10,7 @@ import torchvision.transforms.functional as TF
 
 from data_modules.utils import preprocess
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
-from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset, ACDCWithPredictedMaskDataset
+from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset, ACDCWithPredictedMaskDataset, ACDC3DWithPredictedMaskDataset
 from utils.utils import one_hot, one_hot_to_image
 
 def get_info(patient_id: str, test: bool=False) -> dict:
@@ -442,6 +442,8 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
     
     This is equivalent to ACDCDataModule, but additionally includes the predicted segmentation from a segmentation model.
     
+    For test data, see ACDC3DWithPredictedMaskDataModule.
+    
     Each data point is a 5-tuple consisting
     of a single slice with the following information:
     (1) Scan tensor (1x128x128)
@@ -481,25 +483,21 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         
             data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_train.pt"))
             data_val = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
-            # TODO Do not use val
-            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
         
         self.data_train_raw = data_train
         self.data_val_raw = data_val
-        self.data_test_raw = data_test
         
         self.data_train = ACDCWithPredictedMaskDataset(*data_train, augment=augment)
         self.data_val = ACDCWithPredictedMaskDataset(*data_val, augment=False)
-        self.data_test = ACDCWithPredictedMaskDataset(*data_test, augment=augment_test)
     
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
 
     def val_dataloader(self, shuffle=False):
         return DataLoader(self.data_val, batch_size=self.batch_size, shuffle=shuffle)
-    
-    def test_dataloader(self, shuffle=False):
-        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+
+    def test_dataloader(self):
+        raise NotImplementedError("Use ACDC3DWithPredictedMaskDataModule for testing.")
 
 class ACDC3DDataModule(LightningDataModule):
     """
@@ -554,10 +552,38 @@ class ACDC3DDataModule(LightningDataModule):
         return scans, masks, conditions, eds
     
     def train_dataloader(self):
-        assert False, "ACDC3DDataModule is only used for testing"
+        raise NotImplementedError("ACDC3DDataModule is only used for testing")
 
     def val_dataloader(self):
-        assert False, "ACDC3DDataModule is only used for testing"
+        raise NotImplementedError("ACDC3DDataModule is only used for testing")
+    
+    def test_dataloader(self, shuffle=False):
+        return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
+class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
+    """
+    Automated Cardiac Diagnosis Challenge (ACDC) 3D data module with predicted
+    mask.
+    
+    This is only used during testing to evaluate the 3D DSC metric, and thus the
+    training and validation set is not implemented.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.batch_size = 1
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+        
+        self.data_test = ACDC3DWithPredictedMaskDataset(*data_test)
+    
+    def train_dataloader(self):
+        raise NotImplementedError("ACDC3DWithPredictedMaskDataModule is only used for testing")
+
+    def val_dataloader(self):
+        raise NotImplementedError("ACDC3DWithPredictedMaskDataModule is only used for testing")
     
     def test_dataloader(self, shuffle=False):
         return DataLoader(self.data_test, batch_size=self.batch_size, shuffle=shuffle)
