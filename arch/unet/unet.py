@@ -264,6 +264,7 @@ class UNet(L.LightningModule):
         self,
         data_loader: DataLoader,
         save_dir: str,
+        test_data: bool=False,
     ):
         buffer_x = []
         buffer_y = []
@@ -276,6 +277,13 @@ class UNet(L.LightningModule):
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 x, y, condition, ed = batch
+
+                if test_data:
+                    # 3D data module ensures 1 batch only, but each data point
+                    # is 4D of shape (S, C, W, H) where S is the number of
+                    # slices.
+                    x = x.squeeze(0)
+                    y = y.squeeze(0)
                 
                 y_hat_logits = self(x)
                 y_hat = torch.softmax(y_hat_logits, dim=1)
@@ -289,19 +297,20 @@ class UNet(L.LightningModule):
                 
                 print(f"Batch {batch_idx}")
         
-        buffer_x = torch.cat(buffer_x, dim=0)
-        buffer_y = torch.cat(buffer_y, dim=0)
-        buffer_y_hat = torch.cat(buffer_y_hat, dim=0)
-        buffer_condition = torch.cat(buffer_condition, dim=0)
-        buffer_ed = torch.cat(buffer_ed, dim=0)
+        if not test_data:
+            buffer_x = torch.cat(buffer_x, dim=0)
+            buffer_y = torch.cat(buffer_y, dim=0)
+            buffer_y_hat = torch.cat(buffer_y_hat, dim=0)
+            buffer_condition = torch.cat(buffer_condition, dim=0)
+            buffer_ed = torch.cat(buffer_ed, dim=0)
         
-        assert buffer_x.shape[0] == buffer_y.shape[0] == buffer_y_hat.shape[0] == buffer_condition.shape[0] == buffer_ed.shape[0]
+            assert buffer_x.shape[0] == buffer_y.shape[0] == buffer_y_hat.shape[0] == buffer_condition.shape[0] == buffer_ed.shape[0]
         
-        print(f"Shape of buffer_x: {buffer_x.shape}")
-        print(f"Shape of buffer_y: {buffer_y.shape}")
-        print(f"Shape of buffer_y_hat: {buffer_y_hat.shape}")
-        print(f"Shape of buffer_condition: {buffer_condition.shape}")
-        print(f"Shape of buffer_ed: {buffer_ed.shape}")
+            print(f"Shape of buffer_x: {buffer_x.shape}")
+            print(f"Shape of buffer_y: {buffer_y.shape}")
+            print(f"Shape of buffer_y_hat: {buffer_y_hat.shape}")
+            print(f"Shape of buffer_condition: {buffer_condition.shape}")
+            print(f"Shape of buffer_ed: {buffer_ed.shape}")
         
         buffer = (buffer_x, buffer_y, buffer_y_hat, buffer_condition, buffer_ed)
         
