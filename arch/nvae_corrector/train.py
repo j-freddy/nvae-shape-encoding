@@ -116,7 +116,7 @@ def main(flags: argparse.Namespace):
     # Reseed after preprocessing data
     L.seed_everything(SEED)
     
-    num_classes = data_module.data_test.num_classes
+    num_classes = data_module.data_train.num_classes
     arch_config = ID_TO_ARCH[flags.arch]
 
     # Train
