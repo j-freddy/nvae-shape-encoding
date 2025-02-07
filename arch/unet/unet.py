@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.const import MASK_CLASSES
@@ -258,3 +259,30 @@ class UNet(L.LightningModule):
         
         # Visualise samples and reconstructions
         self.log_reconstruction_visualisation(y, y_hat_logits)
+
+    def save_segmentations(
+        self,
+        data_loader: DataLoader,
+        save_dir: str,
+    ):
+        buffer = []
+        
+        self.eval()
+        
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                x, y, condition, ed = batch
+                
+                y_hat_logits = self(x)
+                y_hat = torch.softmax(y_hat_logits, dim=1)
+                y_hat_onehot = discretise(y_hat)
+                
+                buffer.append(
+                    (x, y, y_hat_onehot, condition, ed)
+                )
+                
+                print(f"Batch {batch_idx}")
+        
+        torch.save(buffer, save_dir)
+
+        print(f"Saved segmentations to {save_dir}")

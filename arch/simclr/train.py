@@ -47,7 +47,7 @@ def main(flags: argparse.Namespace):
         model_dir = os.path.join(flags.logs, ACDC.DIR.SIMCLR, flags.model_name)
         
         if os.path.exists(model_dir):
-            raise ValueError(f"Model {flags.model_name} already exists.")
+            raise FileExistsError(f"Model {flags.model_name} already exists.")
     
     # Setup device
     device = setup_device()
