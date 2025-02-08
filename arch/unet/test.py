@@ -73,7 +73,7 @@ def main(flags: argparse.Namespace):
     
     # Load model
     checkpoint = torch.load(flags.model_path, map_location=device)
-    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["model_type"]]
     del checkpoint
     model: UNet = Model.load_from_checkpoint(flags.model_path)
 
