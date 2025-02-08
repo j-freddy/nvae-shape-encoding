@@ -25,10 +25,13 @@ class ACUNet(UNet):
         loss_reg: str="shape_prior",
         nvae_path: str=NVAE_MODEL_PATH,
         alpha: float=1.0,
+        model_type: str="acunet",
     ):
         super().__init__(in_channels, out_channels, loss_reg)
         
         self.save_hyperparameters()
+        
+        self.hparams.update({"model_type": "unet"})
         
         self.nvae = NVAE.load_from_checkpoint(nvae_path)
         self.nvae.freeze()

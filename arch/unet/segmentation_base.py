@@ -1,7 +1,6 @@
 import lightning as L
 from matplotlib import pyplot as plt
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
@@ -10,97 +9,43 @@ from utils.const import MASK_CLASSES
 from utils.eval import compute_dice_score, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
-class DoubleConv(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
-        super().__init__()
-        
-        self.net = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-class Down(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
-        super().__init__()
-        
-        self.net = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels),
-        )
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-class Up(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
-        super().__init__()
-        
-        self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-        self.conv = DoubleConv(in_channels, out_channels)
-    
-    def forward(self, x: torch.Tensor, x_res: torch.Tensor) -> torch.Tensor:
-        x = self.up(x)
-        x = torch.cat([x, x_res], dim=1)
-        return self.conv(x)
-
-class UNet(L.LightningModule):
+class SegmentationBase(L.LightningModule):
     """
-    U-Net architecture for segmentation. 4-layer U-Net following the original
-    design as described by [1], with batch normalisation. Trained with
-    cross-entropy loss.
+    Adapted from UNet (unet.py) to act as a base class for segmentation models 
+    imported from MONAI.
     
-    In this class, x denotes the scans and y denotes the segmentation masks.
-    
-    [1]: Ronneberger O, Fischer P, Brox T. U-net: Convolutional networks for
-    biomedical image segmentation. InMedical image computing and
-    computer-assisted intervention–MICCAI 2015: 18th international conference,
-    Munich, Germany, October 5-9, 2015, proceedings, part III 18 2015 (pp.
-    234-241). Springer International Publishing.
+    TODO Also adapted from other student's code. Add reference here.
     """
-
+    
     def __init__(
         self,
         in_channels: int=1,
         out_channels: int=4,
-        loss_reg: str="cross_entropy",
-        alpha: float=1.0,
+        optim_name: str="adam",
+        lr: int=1e-3,
+        weight_decay: int=0,
+        model_type: str="segmentation-base",
     ):
         super().__init__()
         
         self.save_hyperparameters()
         
-        self.hparams.update({"model_type": "unet"})
-        
-        self.contracting = nn.ModuleList([
-            DoubleConv(self.hparams.in_channels, 64),
-            Down(64, 128),
-            Down(128, 256),
-            Down(256, 512),
-            Down(512, 1024),
-        ])
-        
-        self.expansive = nn.ModuleList([
-            Up(1024, 512),
-            Up(512, 256),
-            Up(256, 128),
-            Up(128, 64),
-        ])
-        
-        self.conditional_coder = nn.Conv2d(64, self.hparams.out_channels, kernel_size=1)
+        self.model = NotImplemented
         
         # To keep track of test set during test time, to later generate figures
         self.y_buffer: list[torch.Tensor] = []
         self.y_hat_logits_buffer: list[torch.Tensor] = []
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=0)
+        Optimiser = torch.optim.Adam \
+            if self.hparams.optim_name == "adam" \
+            else torch.optim.AdamW
+            
+        return Optimiser(
+            self.parameters(),
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
     
     def reconstruction_loss(self, y: torch.Tensor, y_hat_logits: torch.Tensor) -> torch.Tensor:
         """
@@ -120,26 +65,11 @@ class UNet(L.LightningModule):
         self,
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
-        log_components: bool=True,
     ) -> torch.Tensor:
         return self.reconstruction_loss(y, y_hat_logits)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        skips = []
-        
-        for layer in self.contracting:
-            x = layer(x)
-            skips.append(x)
-        
-        # Last layer is not used for residual connection
-        skips = skips[:-1]
-        # Reverse residual buffer
-        skips = skips[::-1]
-        
-        for layer, skip in zip(self.expansive, skips):
-            x = layer(x, skip)
-        
-        return self.conditional_coder(x)
+        return self.model(x)
     
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
         x, y, _, _ = batch
@@ -171,9 +101,12 @@ class UNet(L.LightningModule):
         y_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(y, y_hat_logits, log_components=False)
+        loss = self.loss(y, y_hat_logits)
         self.log("loss/val", loss)
         print(f"Val loss: {loss}")
+        
+        if torch.isnan(loss):
+            raise ValueError("NaN loss")
         
         # Compute Dice score
         y_hat = torch.softmax(y_hat_logits, dim=1)
