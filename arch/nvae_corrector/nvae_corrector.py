@@ -14,9 +14,21 @@ from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
 
-class NVAESeg(L.LightningModule):
+class NVAECorrector(L.LightningModule):
     """
-    Nouveau VAE adapted for segmentation. See NVAE docstring.
+    Adapted from NVAESeg. See NVAESeg docstring.
+    
+    This model trains the same way as NVAE, but takes as input a predicted mask
+    (for example, a U-Net output). The loss is computed on the original GT mask.
+    The idea is to train the model to output a reconstruction that corrects any
+    anatomical errors in the predicted mask.
+    
+    Therefore, the end-to-end inference pipeline is two-fold:
+    1. Pass image through U-Net to get predicted mask.
+    2. Pass predicted mask through NVAECorrector to get a refined prediction.
+    
+    Then, performance is evaluated by comparing the refined prediction to the GT
+    mask.
     """
     
     def __init__(
@@ -36,8 +48,8 @@ class NVAESeg(L.LightningModule):
         freeze_decoder: bool=False,
     ):
         """
-        Create an instance of the NVAESeg model. All constructor arguments are
-        saved in the checkpoint as hyperparameters.
+        Create an instance of the NVAECorrector model. All constructor arguments
+        are saved in the checkpoint as hyperparameters.
         
         Args:
             in_channels (int): Number of input channels. Corresponds to number
@@ -555,12 +567,13 @@ class NVAESeg(L.LightningModule):
         return feats_hat_logits, qs, ps, log_qs, log_ps
         
     def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        scans, feats, _, _ = batch
+        feats_gt, feats_pred, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        # Reconstruct predicted mask
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats_pred)
         
-        # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
+        # Compute loss using ground truth mask
+        loss = self.loss(feats_gt, feats_hat_logits, qs, ps, log_qs, log_ps)
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -571,38 +584,44 @@ class NVAESeg(L.LightningModule):
         return loss
     
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
-        scans, feats, _, _ = batch
+        feats_gt, feats_pred, _, _ = batch
         
-        feats_hat_logits, qs, ps, log_qs, log_ps = self(scans)
+        # Reconstruct predicted mask
+        feats_hat_logits, qs, ps, log_qs, log_ps = self(feats_pred)
         
-        # Compute loss
-        loss = self.loss(feats, feats_hat_logits, qs, ps, log_qs, log_ps)
-        self.log("loss/val", loss)
+        # Compute loss using ground truth mask
+        loss = self.loss(feats_gt, feats_hat_logits, qs, ps, log_qs, log_ps)
+        self.log("loss/val_with_kl", loss)
         
-        print(f"Val loss: {loss}")
+        # Also compute reconstruction loss and use this for checkpointing
+        recon_loss = self.reconstruction_loss(feats_gt, feats_hat_logits)
+
+        print(f"Val loss: {recon_loss}")
+        self.log("loss/val", recon_loss)
         
     def test_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
         """
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        scans, feats, condition, ed = batch
+        feats_gt, feats_pred, condition, ed = batch
         
         condition_label = f"condition_{int(condition)}"
         phase_label = "ed" if ed else "es"
         
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
-        scans = scans.squeeze(0)
-        feats = feats.squeeze(0)
+        feats_gt = feats_gt.squeeze(0)
+        feats_pred = feats_pred.squeeze(0)
         
-        self.log_reconstruction_metrics(scans, feats, condition_label, phase_label)
-        self.log_generation_metrics(feats)
+        self.log_reconstruction_metrics(feats_gt, feats_pred, condition_label, phase_label)
+        self.log_generation_metrics(feats_gt)
         
-        self.scans_buffer.append(scans)
-        self.feats_buffer.append(feats)
+        # TODO
+        # self.scans_buffer.append(scans)
+        # self.feats_buffer.append(feats)
 
-    def log_reconstruction_metrics(self, scans: torch.Tensor, feats: torch.Tensor, condition: str, phase: str):
+    def log_reconstruction_metrics(self, feats_gt: torch.Tensor, feats_pred: torch.Tensor, condition: str, phase: str):
         """
         Log reconstruction metrics to TensorBoard. This includes average
         reconstruction loss and Dice score across the batch.
@@ -610,12 +629,12 @@ class NVAESeg(L.LightningModule):
         Args:
             feats (torch.Tensor): Batch of input samples.
         """
-        num_samples, _, _, _ = feats.shape
+        num_samples, _, _, _ = feats_gt.shape
         
-        feats_hat_logits, _, _, _, _ = self(scans, test=True)
+        feats_hat_logits, _, _, _, _ = self(feats_pred, test=True)
         
         # Compute reconstruction loss
-        recon_loss = self.reconstruction_loss(feats, feats_hat_logits)
+        recon_loss = self.reconstruction_loss(feats_gt, feats_hat_logits)
         self.log("loss/test_recon", recon_loss)
         
         # Compute Dice score
@@ -623,7 +642,7 @@ class NVAESeg(L.LightningModule):
         feats_hat_onehot = discretise(feats_hat)
         
         dice_score, dice_score_per_class = compute_dice_score(
-            feats,
+            feats_gt,
             feats_hat_onehot,
             self.device,
             is_3d=True,
@@ -697,22 +716,23 @@ class NVAESeg(L.LightningModule):
         self.logger.experiment.add_figure("img/generations", plt.gcf())
 
     def on_test_end(self):
-        scans = torch.cat(self.scans_buffer, dim=0)
-        feats = torch.cat(self.feats_buffer, dim=0)
-        feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
+        pass
+        # scans = torch.cat(self.scans_buffer, dim=0)
+        # feats = torch.cat(self.feats_buffer, dim=0)
+        # feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
         
-        frds_value = compute_frds(
-            feats,
-            discretise(feats_fake),
-            resnet_path=FRDS_MODEL_PATH,
-            device=self.device,
-        )
+        # frds_value = compute_frds(
+        #     feats,
+        #     discretise(feats_fake),
+        #     resnet_path=FRDS_MODEL_PATH,
+        #     device=self.device,
+        # )
 
-        print(f"FRDS: {frds_value}")
-        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
+        # print(f"FRDS: {frds_value}")
+        # self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
-        # Visualise samples and reconstructions
-        self.log_reconstruction_visualisation(scans, feats)
+        # # Visualise samples and reconstructions
+        # self.log_reconstruction_visualisation(scans, feats)
         
-        # View generations
-        self.log_generation_visualisation(feats_fake)
+        # # View generations
+        # self.log_generation_visualisation(feats_fake)

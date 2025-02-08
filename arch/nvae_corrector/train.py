@@ -5,9 +5,9 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.nvae.utils import ID_TO_ARCH
+from arch.nvae_corrector.nvae_corrector import NVAECorrector
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCMaskDataModule
-from arch.nvae.nvae import NVAE
+from data_modules.acdc import ACDCWithPredictedMaskDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -98,7 +98,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(flags.logs, ACDC.DIR.NVAE, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.NVAE_CORRECTOR, flags.model_name)
         
         if os.path.exists(model_dir):
             raise FileExistsError(f"Model {flags.model_name} already exists.")
@@ -111,16 +111,16 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(batch_size=8, filter_empty=flags.filter_empty)
+    data_module = ACDCWithPredictedMaskDataModule(batch_size=8)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
     
-    num_classes = data_module.data_test.num_classes
+    num_classes = data_module.data_train.num_classes
     arch_config = ID_TO_ARCH[flags.arch]
 
     # Train
-    model = NVAE(
+    model = NVAECorrector(
         in_channels=num_classes,
         initial_channels=flags.projected_channels,
         min_channels=flags.min_channels,
@@ -140,7 +140,7 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.NVAE,
+            name=ACDC.DIR.NVAE_CORRECTOR,
             version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,
         ),
