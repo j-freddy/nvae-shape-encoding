@@ -66,12 +66,6 @@ class SegmentationBase(L.LightningModule):
         y: torch.Tensor,
         y_hat_logits: torch.Tensor,
     ) -> torch.Tensor:
-        print(f"y shape: {y.shape}")
-        print(f"y_hat_logits shape: {y_hat_logits.shape}")
-        
-        import sys
-        sys.exit()
-        
         return self.reconstruction_loss(y, y_hat_logits)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
