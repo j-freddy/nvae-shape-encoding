@@ -5,11 +5,13 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.unet.acunet import ACUNet
+from arch.unet.attentionunet import AttentionUNet
+from arch.unet.densenet import DenseNet
 from arch.unet.swinunet import SwinUNet
 from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
 from data_modules.mnms import MnMsDataModule
-from utils.const import ACDC, LOGS_PATH, SEED, MnMs
+from utils.const import ACDC, CARDIAC_WIDTH, LOGS_PATH, SEED, MnMs
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
@@ -179,7 +181,19 @@ def main(flags: argparse.Namespace):
             
             case "swinunet":
                 model = SwinUNet(
-                    img_size=(128, 128),
+                    img_size=(CARDIAC_WIDTH, CARDIAC_WIDTH),
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "attentionunet":
+                model = AttentionUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "densenet":
+                model = DenseNet(
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                 )

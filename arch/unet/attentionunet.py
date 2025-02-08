@@ -2,10 +2,9 @@ import monai
 
 from arch.unet.segmentation_base import SegmentationBase
 
-class SwinUNet(SegmentationBase):
+class AttentionUNet(SegmentationBase) :
     def __init__(
         self, 
-        img_size: tuple=(128,128),
         in_channels: int=1,
         out_channels: int=4,
         optim_name: str="adam",
@@ -18,14 +17,13 @@ class SwinUNet(SegmentationBase):
             optim_name,
             lr,
             weight_decay,
-            model_type="swinunet",
+            model_type="attentionunet",
         )
-
-        self.hparams.update({"img_size": img_size})
-
-        self.model = monai.networks.nets.swin_unetr.SwinUNETR(
-            img_size=self.hparams.img_size,
-            in_channels=self.hparams.in_channels,
-            out_channels=self.hparams.out_channels,
+        
+        self.model = monai.networks.nets.attentionunet.AttentionUnet(
+            in_channels = self.hparams.in_channels, 
+            out_channels = self.hparams.out_channels,
             spatial_dims=2,
+            channels = [64, 128, 256, 512, 1024],
+            strides = [2, 2, 2, 2],
         )
