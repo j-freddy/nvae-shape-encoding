@@ -1,4 +1,4 @@
-import monai
+from monai.networks.nets.densenet import DenseNet as DenseNetModel
 
 from arch.unet.segmentation_base import SegmentationBase
 
@@ -23,7 +23,7 @@ class DenseNet(SegmentationBase):
 
         self.hparams.update({"img_size": img_size})
 
-        self.model = monai.networks.nets.densenet.DenseNet(
+        self.model = DenseNetModel(
             spatial_dims=2,
             in_channels=self.hparams.in_channels,
             out_channels=self.hparams.out_channels,

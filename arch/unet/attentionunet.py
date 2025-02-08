@@ -1,4 +1,4 @@
-import monai
+from monai.networks.nets.attentionunet import AttentionUnet as AttentionUNetModel
 
 from arch.unet.segmentation_base import SegmentationBase
 
@@ -20,7 +20,7 @@ class AttentionUNet(SegmentationBase) :
             model_type="attentionunet",
         )
         
-        self.model = monai.networks.nets.attentionunet.AttentionUnet(
+        self.model = AttentionUNetModel(
             in_channels = self.hparams.in_channels, 
             out_channels = self.hparams.out_channels,
             spatial_dims=2,

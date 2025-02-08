@@ -1,4 +1,4 @@
-import monai
+from monai.networks.nets.swin_unetr import SwinUNETR as SwinUNetModel
 
 from arch.unet.segmentation_base import SegmentationBase
 
@@ -23,7 +23,7 @@ class SwinUNet(SegmentationBase):
 
         self.hparams.update({"img_size": img_size})
 
-        self.model = monai.networks.nets.swin_unetr.SwinUNETR(
+        self.model = SwinUNetModel(
             img_size=self.hparams.img_size,
             in_channels=self.hparams.in_channels,
             out_channels=self.hparams.out_channels,
