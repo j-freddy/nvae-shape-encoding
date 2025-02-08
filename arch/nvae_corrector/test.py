@@ -52,7 +52,7 @@ def main(flags: argparse.Namespace):
         devices="auto",
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.NVAE,
+            name=ACDC.DIR.NVAE_CORRECTOR,
             version=model_name,
             default_hp_metric=False,
         ),
