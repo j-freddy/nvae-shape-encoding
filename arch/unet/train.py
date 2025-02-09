@@ -7,6 +7,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from arch.unet.acunet import ACUNet
 from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
+from arch.unet.resunet import ResUNet
 from arch.unet.swinunet import SwinUNet
 from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
@@ -197,6 +198,15 @@ def main(flags: argparse.Namespace):
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                 )
+            
+            case "resunet":
+                model = ResUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case _:
+                raise ValueError(f"Unknown model type: {flags.model_type}")
     
     # By default, Lightning logs every 50 steps.
     log_every_n_steps = 50

@@ -19,9 +19,11 @@ source activate
 # to form a new dataset.
 # ==============================================================================
 
-logdir="logs-segmentation-models"
+# logdir="logs-segmentation-models"
+logdir="logs-resunet"
 
-model_types=("unet swinunet attentionunet")
+# model_types=("unet swinunet attentionunet resunet")
+model_types=("resunet")
 
 # Train
 
