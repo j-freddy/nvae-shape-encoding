@@ -212,6 +212,10 @@ class SegmentationBase(L.LightningModule):
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 x, y, condition, ed = batch
+                
+                # Move to device
+                x = x.to(self.device)
+                y = y.to(self.device)
 
                 if test_data:
                     # 3D data module ensures 1 batch only, but each data point

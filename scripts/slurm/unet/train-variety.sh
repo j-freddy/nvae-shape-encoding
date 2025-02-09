@@ -21,7 +21,7 @@ source activate
 
 logdir="logs-segmentation-models"
 
-model_types=("unet" "swinunet" "attentionunet")
+model_types=("unet swinunet attentionunet")
 
 # Train
 
