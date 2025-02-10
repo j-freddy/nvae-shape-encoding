@@ -489,9 +489,6 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         
         self.data_train = ACDCWithPredictedMaskDataset(*data_train, augment=augment)
         self.data_val = ACDCWithPredictedMaskDataset(*data_val, augment=False)
-        
-        import sys
-        sys.exit()
     
     def _get_data(self, split: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -623,15 +620,51 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(
-                os.path.join(
-                    DATA_PATH,
-                    "acdc_processed_with_predicted_segmentation_test.pt",
-                ),
-                map_location="cpu",
-            )
+            data_test = self._get_test_data()
         
         self.data_test = ACDC3DWithPredictedMaskDataset(*data_test)
+    
+    def _get_test_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        We must load the data from the pickled files (corresponding to the 
+        various segmentation models), then concatenate them.
+        """
+        scans_buffer = []
+        masks_buffer = []
+        masks_pred_buffer = []
+        conditions_buffer = []
+        eds_buffer = []
+        
+        for model_type in MODEL_TYPES:
+            path = ACDC.get_data_path_with_prediction(model_type, "test")
+            
+            if not os.path.exists(path):
+                print(f"Preprocessed test data with predicted segmentation for {model_type} not found. Skipping...")
+                continue
+            
+            data_train: tuple[
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[int],
+                list[int],
+            ] = torch.load(path, map_location="cpu")
+            
+            scans, masks, masks_pred, conditions, eds = data_train
+            
+            scans_buffer.extend(scans)
+            masks_buffer.extend(masks)
+            masks_pred_buffer.extend(masks_pred)
+            conditions_buffer.extend(conditions)
+            eds_buffer.extend(eds)
+        
+        print(f"Scans has size {len(scans_buffer)} with shape of 1st element {scans_buffer[0].shape}")
+        print(f"Masks has size {len(masks_buffer)} with shape of 1st element {masks_buffer[0].shape}")
+        print(f"Masks_pred has size {len(masks_pred_buffer)} with shape of 1st element {masks_pred_buffer[0].shape}")
+        print(f"Conditions has size {len(conditions_buffer)}")
+        print(f"eds has size {len(eds_buffer)}")
+        
+        return scans, masks, masks_pred, conditions, eds
     
     def train_dataloader(self):
         raise NotImplementedError("ACDC3DWithPredictedMaskDataModule is only used for testing")
