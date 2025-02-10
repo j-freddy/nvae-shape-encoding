@@ -8,6 +8,7 @@ import torchio as tio
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
+from arch.unet.utils import MODEL_TYPES
 from data_modules.utils import preprocess
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset, ACDCWithPredictedMaskDataset, ACDC3DWithPredictedMaskDataset
@@ -121,7 +122,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_train = torch.load(ACDC.TRAIN_PATH)
+            data_train = torch.load(ACDC.TRAIN_PATH, map_location="cpu")
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
@@ -133,7 +134,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(ACDC.TEST_PATH)
+            data_test = torch.load(ACDC.TEST_PATH, map_location="cpu")
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
@@ -193,8 +194,8 @@ class ACDCDataModule(LightningDataModule):
             
             with warnings.catch_warnings():
                 warnings.simplefilter(action="ignore", category=FutureWarning)
-                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-                data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH, map_location="cpu")
+                data_test = torch.load(ACDC.ALIGNED.TEST_PATH, map_location="cpu")
         else:
             data_train, data_test = download_and_preprocess_acdc()
             
@@ -464,7 +465,6 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         self,
         batch_size: int=32,
         augment: bool=False,
-        augment_test: bool=False,
     ):
         """
         Args:
@@ -481,14 +481,62 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
         
-            data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_train.pt"))
-            data_val = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            data_train = self._get_data("train")
+            data_val = self._get_data("val")
         
         self.data_train_raw = data_train
         self.data_val_raw = data_val
         
         self.data_train = ACDCWithPredictedMaskDataset(*data_train, augment=augment)
         self.data_val = ACDCWithPredictedMaskDataset(*data_val, augment=False)
+        
+        import sys
+        sys.exit()
+    
+    def _get_data(self, split: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        We must load the data from the pickled files (corresponding to the 
+        various segmentation models), then concatenate them.
+        
+        Args:
+            split (str): Data split. One of "train" or "val".
+        """
+        scans_buffer = []
+        masks_buffer = []
+        masks_pred_buffer = []
+        conditions_buffer = []
+        eds_buffer = []
+        
+        for model_type in MODEL_TYPES:
+            path = ACDC.get_data_path_with_prediction(model_type, split)
+            
+            if not os.path.exists(path):
+                print(f"Preprocessed {split} data with predicted segmentation for {model_type} not found. Skipping...")
+                continue
+            
+            data_train: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = torch.load(path, map_location="cpu")
+            
+            scans, masks, masks_pred, conditions, eds = data_train
+            
+            scans_buffer.append(scans)
+            masks_buffer.append(masks)
+            masks_pred_buffer.append(masks_pred)
+            conditions_buffer.append(conditions)
+            eds_buffer.append(eds)
+            
+        scans = torch.cat(scans_buffer)
+        masks = torch.cat(masks_buffer)
+        masks_pred = torch.cat(masks_pred_buffer)
+        conditions = torch.cat(conditions_buffer)
+        eds = torch.cat(eds_buffer)
+        
+        print(f"Split {split} has scans of shape: {scans.shape}")
+        print(f"Split {split} has masks of shape: {masks.shape}")
+        print(f"Split {split} has predicted masks of shape: {masks_pred.shape}")
+        print(f"Split {split} has conditions of shape: {conditions.shape}")
+        print(f"Split {split} has eds of shape: {eds.shape}")
+        
+        return scans, masks, masks_pred, conditions, eds
     
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
@@ -575,7 +623,13 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_test.pt"))
+            data_test = torch.load(
+                os.path.join(
+                    DATA_PATH,
+                    "acdc_processed_with_predicted_segmentation_test.pt",
+                ),
+                map_location="cpu",
+            )
         
         self.data_test = ACDC3DWithPredictedMaskDataset(*data_test)
     

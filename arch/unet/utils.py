@@ -13,3 +13,5 @@ ID_TO_MODEL = {
     "densenet": DenseNet,
     "resunet": ResUNet,
 }
+
+MODEL_TYPES = set(ID_TO_MODEL.keys())
