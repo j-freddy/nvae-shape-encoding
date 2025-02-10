@@ -37,6 +37,6 @@ python -m arch.nvae_corrector.train \
 # Evaluate
 
 # Get saved model path
-model_path=$(ls ${logdir}/nvae_acdc/${model_name}/checkpoints/*.ckpt)
+model_path=$(ls ${logdir}/nvae_corrector_acdc/${model_name}/checkpoints/*.ckpt)
 # Test: Save figures and metrics
 python -m arch.nvae_corrector.test --model_path $model_path --logs $logdir
