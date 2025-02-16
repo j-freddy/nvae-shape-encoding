@@ -5,8 +5,9 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.vae.utils import ID_TO_MODEL
+from arch.vae_corrector.vae_corrector import VAECorrector
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCMaskDataModule
+from data_modules.acdc import ACDCMaskDataModule, ACDCWithPredictedMaskDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -27,24 +28,9 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--loss_reg",
-        type=str,
-        help="Regulariser technique.",
-        choices=ID_TO_MODEL.keys(),
-        default="beta_vae",
-    )
-    
-    parser.add_argument(
         "--beta",
         type=float,
         help="Beta value for KL divergence.",
-        default=1.0,
-    )
-    
-    parser.add_argument(
-        "--gamma",
-        type=float,
-        help="Gamma value for divergence between q(z) and p(z).",
         default=1.0,
     )
     
@@ -82,36 +68,21 @@ def main(flags: argparse.Namespace):
     device = setup_device()
     print(f"Device: {device}")
     
-    # It is important to seed before preprocessing data as shuffling the data
-    # before partitioning the train and val set happens when the data module is
-    # created.
-    
-    # Then, seed again after creating the data module. This is because the
-    # preprocessing stage is skipped if the preprocessed data files are found.
-    
     # Seed
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCMaskDataModule(
-        batch_size=16,
-        filter_empty=flags.filter_empty,
-        register_alignment=flags.register_alignment,
-        augment_rotation=flags.augment,
-    )
+    data_module = ACDCWithPredictedMaskDataModule(batch_size=16)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
 
     # Train
-    Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
-    
-    model = Model(
+
+    model = VAECorrector(
         in_channels=data_module.data_test.num_classes,
         latent_dim=flags.latent_dim,
-        loss_reg=flags.loss_reg,
         beta=flags.beta,
-        gamma=flags.gamma,
     )
     
     trainer = L.Trainer(
@@ -120,7 +91,7 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.VAE,
+            name=ACDC.DIR.VAE_CORRECTOR,
             version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,
         ),

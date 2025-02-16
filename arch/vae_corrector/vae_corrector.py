@@ -18,14 +18,7 @@ class VAECorrector(L.LightningModule):
     This is the VAE version of NVAECorrector. Also see NVAECorrector docstring.
     """
 
-    def __init__(
-        self,
-        in_channels: int=1,
-        latent_dim: int=2,
-        loss_reg: str="beta_vae",
-        beta: float=1.0,
-        gamma: float=1.0,
-    ):
+    def __init__(self, in_channels: int=1, latent_dim: int=2, beta: float=1.0):
         super().__init__()
         
         self.save_hyperparameters()
