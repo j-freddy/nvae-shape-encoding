@@ -8,6 +8,7 @@ import torchio as tio
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TF
 
+from arch.unet.utils import MODEL_TYPES
 from data_modules.utils import preprocess
 from utils.const import ACDC, DATA_PATH, SCRIPTS_PATH
 from datasets.acdc import ACDC3DDataset, ACDCDataset, ACDCMaskDataset, ACDCWithPredictedMaskDataset, ACDC3DWithPredictedMaskDataset
@@ -121,7 +122,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_train = torch.load(ACDC.TRAIN_PATH)
+            data_train = torch.load(ACDC.TRAIN_PATH, map_location="cpu")
     else:
         print("Preprocessed training data not found. Preprocessing...")
         
@@ -133,7 +134,7 @@ def download_and_preprocess_acdc() -> tuple[tio.SubjectsDataset, tio.SubjectsDat
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(ACDC.TEST_PATH)
+            data_test = torch.load(ACDC.TEST_PATH, map_location="cpu")
     else:
         print("Preprocessed test data not found. Preprocessing...")
         
@@ -193,8 +194,8 @@ class ACDCDataModule(LightningDataModule):
             
             with warnings.catch_warnings():
                 warnings.simplefilter(action="ignore", category=FutureWarning)
-                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH)
-                data_test = torch.load(ACDC.ALIGNED.TEST_PATH)
+                data_train = torch.load(ACDC.ALIGNED.TRAIN_PATH, map_location="cpu")
+                data_test = torch.load(ACDC.ALIGNED.TEST_PATH, map_location="cpu")
         else:
             data_train, data_test = download_and_preprocess_acdc()
             
@@ -464,7 +465,6 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         self,
         batch_size: int=32,
         augment: bool=False,
-        augment_test: bool=False,
     ):
         """
         Args:
@@ -481,14 +481,59 @@ class ACDCWithPredictedMaskDataModule(LightningDataModule):
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
         
-            data_train = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_train.pt"))
-            data_val = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_val.pt"))
+            data_train = self._get_data("train")
+            data_val = self._get_data("val")
         
         self.data_train_raw = data_train
         self.data_val_raw = data_val
         
         self.data_train = ACDCWithPredictedMaskDataset(*data_train, augment=augment)
         self.data_val = ACDCWithPredictedMaskDataset(*data_val, augment=False)
+    
+    def _get_data(self, split: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        We must load the data from the pickled files (corresponding to the 
+        various segmentation models), then concatenate them.
+        
+        Args:
+            split (str): Data split. One of "train" or "val".
+        """
+        scans_buffer = []
+        masks_buffer = []
+        masks_pred_buffer = []
+        conditions_buffer = []
+        eds_buffer = []
+        
+        for model_type in MODEL_TYPES:
+            path = ACDC.get_data_path_with_prediction(model_type, split)
+            
+            if not os.path.exists(path):
+                print(f"Preprocessed {split} data with predicted segmentation for {model_type} not found. Skipping...")
+                continue
+            
+            data_train: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = torch.load(path, map_location="cpu")
+            
+            scans, masks, masks_pred, conditions, eds = data_train
+            
+            scans_buffer.append(scans)
+            masks_buffer.append(masks)
+            masks_pred_buffer.append(masks_pred)
+            conditions_buffer.append(conditions)
+            eds_buffer.append(eds)
+            
+        scans = torch.cat(scans_buffer)
+        masks = torch.cat(masks_buffer)
+        masks_pred = torch.cat(masks_pred_buffer)
+        conditions = torch.cat(conditions_buffer)
+        eds = torch.cat(eds_buffer)
+        
+        print(f"Split {split} has scans of shape: {scans.shape}")
+        print(f"Split {split} has masks of shape: {masks.shape}")
+        print(f"Split {split} has predicted masks of shape: {masks_pred.shape}")
+        print(f"Split {split} has conditions of shape: {conditions.shape}")
+        print(f"Split {split} has eds of shape: {eds.shape}")
+        
+        return scans, masks, masks_pred, conditions, eds
     
     def train_dataloader(self, shuffle=True):
         return DataLoader(self.data_train, batch_size=self.batch_size, shuffle=shuffle)
@@ -564,20 +609,79 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
     Automated Cardiac Diagnosis Challenge (ACDC) 3D data module with predicted
     mask.
     
+    This class assumes the predicted masks are already saved in the data folder
+    as pickled files. At least, the U-Net predictions should be present.
+    
     This is only used during testing to evaluate the 3D DSC metric, and thus the
     training and validation set is not implemented.
+    
+    Args:
+        unet_only: If set, use predicted masks from U-Net only. This is the 
+            recommended approach. If not set, use predicted masks from all
+            available models, by searching for the presaved predicted masks. If
+            not set, the suggestion is to use predictions from U-Net, Swin-UNet,
+            Attention UNet and ResUNet. Default: True.
     """
     
-    def __init__(self):
+    def __init__(
+        self,
+        unet_only: bool=True,
+    ):
         super().__init__()
         
         self.batch_size = 1
+        self.unet_only = unet_only
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            data_test = torch.load(os.path.join(DATA_PATH, "acdc_processed_with_predicted_segmentation_test.pt"))
+            data_test = self._get_test_data()
         
         self.data_test = ACDC3DWithPredictedMaskDataset(*data_test)
+    
+    def _get_test_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        We must load the data from the pickled files (corresponding to the 
+        various segmentation models), then concatenate them.
+        """
+        scans_buffer = []
+        masks_buffer = []
+        masks_pred_buffer = []
+        conditions_buffer = []
+        eds_buffer = []
+        
+        for model_type in MODEL_TYPES:
+            if self.unet_only and model_type != "unet":
+                continue
+            
+            path = ACDC.get_data_path_with_prediction(model_type, "test")
+            
+            if not os.path.exists(path):
+                print(f"Preprocessed test data with predicted segmentation for {model_type} not found. Skipping...")
+                continue
+            
+            data_train: tuple[
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[int],
+                list[int],
+            ] = torch.load(path, map_location="cpu")
+            
+            scans, masks, masks_pred, conditions, eds = data_train
+            
+            scans_buffer.extend(scans)
+            masks_buffer.extend(masks)
+            masks_pred_buffer.extend(masks_pred)
+            conditions_buffer.extend(conditions)
+            eds_buffer.extend(eds)
+        
+        print(f"Scans has size {len(scans_buffer)} with shape of 1st element {scans_buffer[0].shape}")
+        print(f"Masks has size {len(masks_buffer)} with shape of 1st element {masks_buffer[0].shape}")
+        print(f"Masks_pred has size {len(masks_pred_buffer)} with shape of 1st element {masks_pred_buffer[0].shape}")
+        print(f"Conditions has size {len(conditions_buffer)}")
+        print(f"eds has size {len(eds_buffer)}")
+        
+        return scans, masks, masks_pred, conditions, eds
     
     def train_dataloader(self):
         raise NotImplementedError("ACDC3DWithPredictedMaskDataModule is only used for testing")

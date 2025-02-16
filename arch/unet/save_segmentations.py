@@ -3,7 +3,7 @@ import os
 import lightning as L
 import torch
 
-from arch.unet.unet import UNet
+from arch.unet.segmentation_base import SegmentationBase
 from arch.unet.utils import ID_TO_MODEL
 from utils.const import DATA_PATH, SEED
 from data_modules.acdc import ACDC3DDataModule, ACDCDataModule
@@ -22,8 +22,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--split",
         type=str,
-        help="",
+        help="Data split to use.",
         choices=["train", "val", "test"],
+        required=True,
+    )
+    
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        help="Model type.",
+        choices=ID_TO_MODEL.keys(),
         required=True,
     )
     
@@ -32,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     data_path = os.path.join(
         DATA_PATH,
-        f"acdc_processed_with_predicted_segmentation_{flags.split}.pt",
+        f"acdc_processed_with_predicted_segmentation_{flags.model_type}_{flags.split}.pt",
     )
     
     # Check if data path already exists
@@ -66,9 +74,11 @@ def main(flags: argparse.Namespace):
     
     # Load model
     checkpoint = torch.load(flags.model_path, map_location=device)
-    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["model_type"]]
     del checkpoint
-    model: UNet = Model.load_from_checkpoint(flags.model_path)
+    model: SegmentationBase = Model.load_from_checkpoint(flags.model_path)
+    
+    assert model.hparams.model_type == flags.model_type, f"Model type mismatch. Flag: {flags.model_type}, Model: {model.hparams.model_type}."
 
     # Save segmentations
     model.save_segmentations(

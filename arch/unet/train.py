@@ -4,9 +4,15 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from arch.unet.acunet import ACUNet
+from arch.unet.attentionunet import AttentionUNet
+from arch.unet.densenet import DenseNet
+from arch.unet.resunet import ResUNet
+from arch.unet.swinunet import SwinUNet
+from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
 from data_modules.mnms import MnMsDataModule
-from utils.const import ACDC, LOGS_PATH, SEED, MnMs
+from utils.const import ACDC, CARDIAC_WIDTH, LOGS_PATH, SEED, MnMs
 from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
@@ -21,11 +27,11 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--loss_reg",
+        "--model_type",
         type=str,
-        help="Regulariser technique.",
+        help="Model architecture.",
         choices=ID_TO_MODEL.keys(),
-        default="shape_prior",
+        default="unet",
     )
     
     parser.add_argument(
@@ -156,17 +162,51 @@ def main(flags: argparse.Namespace):
     L.seed_everything(flags.seed)
     
     # Train
-    Model: L.LightningModule = ID_TO_MODEL[flags.loss_reg]
-    
     if flags.pretrained_model_path:
+        Model: L.LightningModule = ID_TO_MODEL[flags.model_type]
         model = Model.load_from_checkpoint(flags.pretrained_model_path)
     else:
-        model = Model(
-            in_channels=data_module.data_test.num_channels,
-            out_channels=data_module.data_test.num_classes,
-            loss_reg=flags.loss_reg,
-            alpha=flags.alpha,
-        )
+        match flags.model_type:
+            case "unet":
+                model = UNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "acunet":
+                model = ACUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                    alpha=flags.alpha,
+                )
+            
+            case "swinunet":
+                model = SwinUNet(
+                    img_size=(CARDIAC_WIDTH, CARDIAC_WIDTH),
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "attentionunet":
+                model = AttentionUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "densenet":
+                model = DenseNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case "resunet":
+                model = ResUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+            
+            case _:
+                raise ValueError(f"Unknown model type: {flags.model_type}")
     
     # By default, Lightning logs every 50 steps.
     log_every_n_steps = 50

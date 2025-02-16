@@ -3,7 +3,7 @@ import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 
-from arch.unet.unet import UNet
+from arch.unet.segmentation_base import SegmentationBase
 from arch.unet.utils import ID_TO_MODEL
 from data_modules.mnms import MnMs3DDataModule
 from utils.const import ACDC, LOGS_PATH, SEED, MnMs
@@ -73,9 +73,9 @@ def main(flags: argparse.Namespace):
     
     # Load model
     checkpoint = torch.load(flags.model_path, map_location=device)
-    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["loss_reg"]]
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["model_type"]]
     del checkpoint
-    model: UNet = Model.load_from_checkpoint(flags.model_path)
+    model: SegmentationBase = Model.load_from_checkpoint(flags.model_path)
 
     # noqa
     model_name = flags.model_path.split("/")[2]

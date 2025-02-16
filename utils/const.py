@@ -25,7 +25,6 @@ class MaskClassLabel(Enum):
     MYO = 2
     LV = 3
 
-@dataclass
 class ACDC:
     """
     ACDC constants.
@@ -56,6 +55,13 @@ class ACDC:
     class ALIGNED:
         TRAIN_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_train.pt")
         TEST_PATH = os.path.join(DATA_PATH, "acdc_aligned_mask_test.pt")
+    
+    @staticmethod
+    def get_data_path_with_prediction(model_type: str, split: str):
+        return os.path.join(
+            DATA_PATH,
+            f"acdc_processed_with_predicted_segmentation_{model_type}_{split}.pt"
+        )
 
 @dataclass
 class MnMs:
