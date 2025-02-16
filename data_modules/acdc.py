@@ -609,14 +609,28 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
     Automated Cardiac Diagnosis Challenge (ACDC) 3D data module with predicted
     mask.
     
+    This class assumes the predicted masks are already saved in the data folder
+    as pickled files. At least, the U-Net predictions should be present.
+    
     This is only used during testing to evaluate the 3D DSC metric, and thus the
     training and validation set is not implemented.
+    
+    Args:
+        unet_only: If set, use predicted masks from U-Net only. This is the 
+            recommended approach. If not set, use predicted masks from all
+            available models, by searching for the presaved predicted masks. If
+            not set, the suggestion is to use predictions from U-Net, Swin-UNet,
+            Attention UNet and ResUNet. Default: True.
     """
     
-    def __init__(self):
+    def __init__(
+        self,
+        unet_only: bool=True,
+    ):
         super().__init__()
         
         self.batch_size = 1
+        self.unet_only = unet_only
         
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -636,6 +650,9 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
         eds_buffer = []
         
         for model_type in MODEL_TYPES:
+            if self.unet_only and model_type != "unet":
+                continue
+            
             path = ACDC.get_data_path_with_prediction(model_type, "test")
             
             if not os.path.exists(path):
