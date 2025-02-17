@@ -4,10 +4,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.vae.utils import ID_TO_MODEL
 from arch.vae_corrector.vae_corrector import VAECorrector
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCMaskDataModule, ACDCWithPredictedMaskDataModule
+from data_modules.acdc import ACDCWithPredictedMaskDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -80,7 +79,7 @@ def main(flags: argparse.Namespace):
     # Train
 
     model = VAECorrector(
-        in_channels=data_module.data_test.num_classes,
+        in_channels=data_module.data_train.num_classes,
         latent_dim=flags.latent_dim,
         beta=flags.beta,
     )

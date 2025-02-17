@@ -140,8 +140,8 @@ class VAECorrector(L.LightningModule):
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits
     
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x_gt, x_pred = batch
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        x_gt, x_pred, _, _ = batch
         
         # Reconstruct predicted mask
         mu, logvar, z, x_hat_logits = self(x_pred)
@@ -157,8 +157,8 @@ class VAECorrector(L.LightningModule):
 
         return loss
     
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor]):
-        x_gt, x_pred = batch
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        x_gt, x_pred, _, _ = batch
         
         # Reconstruct predicted mask
         mu, logvar, z, x_hat_logits = self(x_pred)
