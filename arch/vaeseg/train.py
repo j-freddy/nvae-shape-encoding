@@ -4,11 +4,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.nvaeseg.nvaeseg import NVAESeg
-from arch.vae_corrector.vae_corrector import VAECorrector
 from arch.vaeseg.vaeseg import VAESeg
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCDataModule, ACDCWithPredictedMaskDataModule
+from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:

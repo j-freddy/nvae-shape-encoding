@@ -36,6 +36,7 @@ class VAESeg(L.LightningModule):
         # compute FRDS
         self.x_buffer: list[torch.Tensor] = []
         self.y_buffer: list[torch.Tensor] = []
+        self.y_fake_logits_buffer: list[torch.Tensor] = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -272,7 +273,7 @@ class VAESeg(L.LightningModule):
         self.log("gen/anatomically_valid", num_valid / num_samples)
         
         # Keep track of all generations to compute FRDS
-        self.x_fake_logits_buffer.append(x_fake_logits)
+        self.y_fake_logits_buffer.append(x_fake_logits)
     
     def log_reconstruction_visualisation(self, x: torch.Tensor):
         num_data = x.shape[0]
