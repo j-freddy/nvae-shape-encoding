@@ -34,7 +34,7 @@ done
 # Evaluate
 for beta in $betas
 do
-    model_name="pc-${projected_channels}-ws-${warmup_steps}-b-${beta}-cb-${cbeta}"
+    model_name="b-${beta}"
     # Get saved model path
     model_path=$(ls ${logdir}/vae_seg_acdc/${model_name}/checkpoints/*.ckpt)
     # Test: Save figures and metrics
