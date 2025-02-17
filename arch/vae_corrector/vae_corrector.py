@@ -28,7 +28,6 @@ class VAECorrector(L.LightningModule):
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
-        self.scans_buffer: list[torch.Tensor] = []
         self.x_buffer: list[torch.Tensor] = []
         self.x_fake_logits_buffer: list[torch.Tensor] = []
 

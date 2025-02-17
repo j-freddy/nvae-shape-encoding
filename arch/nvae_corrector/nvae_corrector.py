@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from arch.nvae.decoder import Decoder
 from arch.nvae.distribution import Normal
 from arch.nvae.encoder import Encoder
-from utils.const import CARDIAC_WIDTH, MASK_CLASSES
+from utils.const import CARDIAC_WIDTH, FRDS_MODEL_PATH, MASK_CLASSES
 from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import clamp, discretise, show_samples
@@ -165,7 +165,6 @@ class NVAECorrector(L.LightningModule):
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
-        self.scans_buffer: list[torch.Tensor] = []
         self.feats_buffer: list[torch.Tensor] = []
         self.feats_fake_buffer: list[torch.Tensor] = []
     
@@ -616,10 +615,8 @@ class NVAECorrector(L.LightningModule):
         
         self.log_reconstruction_metrics(feats_gt, feats_pred, condition_label, phase_label)
         self.log_generation_metrics(feats_gt)
-        
-        # TODO
-        # self.scans_buffer.append(scans)
-        # self.feats_buffer.append(feats)
+
+        self.feats_buffer.append(feats_gt)
 
     def log_reconstruction_metrics(self, feats_gt: torch.Tensor, feats_pred: torch.Tensor, condition: str, phase: str):
         """
@@ -699,40 +696,24 @@ class NVAECorrector(L.LightningModule):
         # Keep track of all generations to compute FRDS
         self.feats_fake_buffer.append(feats_fake)
     
-    def log_reconstruction_visualisation(self, scans: torch.Tensor, feats: torch.Tensor):
-        num_data = feats.shape[0]
-        samples_idx = torch.randperm(num_data)[:40]
-        scans = scans[samples_idx]
-        feats = feats[samples_idx]
-        feats_hat_logits, _, _, _, _ = self(scans, test=True)
-        
-        samples, reconstruction_pixel_error = get_samples_and_reconstructions_pixel_diff(feats, feats_hat_logits)
-        show_samples(samples, reconstruction_pixel_error, rgb=False, ncol=10, figsize=(10, 4), display=False)
-        self.logger.experiment.add_figure("img/reconstructions", plt.gcf())
-    
     def log_generation_visualisation(self, feats_fake: torch.Tensor):
         generations = torch.argmax(feats_fake[:40], dim=1).unsqueeze(1)
         show_samples(generations, rgb=False, ncol=10, figsize=(10, 4), display=False)
         self.logger.experiment.add_figure("img/generations", plt.gcf())
 
     def on_test_end(self):
-        pass
-        # scans = torch.cat(self.scans_buffer, dim=0)
-        # feats = torch.cat(self.feats_buffer, dim=0)
-        # feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
+        feats = torch.cat(self.feats_buffer, dim=0)
+        feats_fake = torch.cat(self.feats_fake_buffer, dim=0)
         
-        # frds_value = compute_frds(
-        #     feats,
-        #     discretise(feats_fake),
-        #     resnet_path=FRDS_MODEL_PATH,
-        #     device=self.device,
-        # )
+        frds_value = compute_frds(
+            feats,
+            discretise(feats_fake),
+            resnet_path=FRDS_MODEL_PATH,
+            device=self.device,
+        )
 
-        # print(f"FRDS: {frds_value}")
-        # self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
+        print(f"FRDS: {frds_value}")
+        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
-        # # Visualise samples and reconstructions
-        # self.log_reconstruction_visualisation(scans, feats)
-        
-        # # View generations
-        # self.log_generation_visualisation(feats_fake)
+        # View generations
+        self.log_generation_visualisation(feats_fake)
