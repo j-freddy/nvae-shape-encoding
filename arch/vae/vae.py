@@ -205,6 +205,8 @@ class VAE(L.LightningModule):
         Args:
             x (torch.Tensor): One-hot encoded input segmentations.
         """
+        num_samples, _, _, _ = x.shape
+        
         _, _, _, x_hat_logits = self(x, test=True)
         
         # Compute reconstruction loss
@@ -233,6 +235,18 @@ class VAE(L.LightningModule):
             self.log(f"loss/dsc_{class_label}", dice_score)
             self.log(f"loss/dsc_{phase}_{class_label}", dice_score)
             self.log(f"loss/dsc_{condition}_{class_label}", dice_score)
+        
+        # Compute anatomical validity
+        num_valid = 0
+        
+        for discretised_feat_fake in discretise(x_hat_logits):
+            AV = AnatomicalValidityChecker(discretised_feat_fake)
+            if AV.count_violations() == 0:
+                num_valid += 1
+
+        self.log("gen/anatomically_valid_recon", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
+        self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
     
     def log_generation_metrics(self, x: torch.Tensor):
         """
