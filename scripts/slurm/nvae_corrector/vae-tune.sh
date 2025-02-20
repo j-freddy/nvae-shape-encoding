@@ -13,30 +13,36 @@ cd nvae-shape-encoding
 export PATH=/vol/bitbucket/${USER}/nvae-shape-encoding/venv/bin/:$PATH
 source activate
 
-# Grid size is 33
-betas=("0.01 0.02 0.05 0.1 0.2 0.5 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 50 100 200 500 1000 2000 5000")
+betas=("0.1 0.2 0.5 1 2 5 10")
+latent_dims=("8 16 32 64")
 
-logdir="logs-vae-corrector-tune"
+logdir="logs-vae-corrector-tune-2"
 
 # Train
-for beta in $betas
+for latent_dim in $latent_dims
 do
-    model_name="b-${beta}"
-    # Train
-    python -m arch.vae_corrector.train \
-        --epochs 50 \
-        --latent_dim 8 \
-        --beta $beta \
-        --model_name $model_name \
-        --logs $logdir
+    for beta in $betas
+    do
+        model_name="b-${beta}-latent-${latent_dim}"
+        # Train
+        python -m arch.vae_corrector.train \
+            --epochs 50 \
+            --latent_dim $latent_dim \
+            --beta $beta \
+            --model_name $model_name \
+            --logs $logdir
+    done
 done
 
 # Evaluate
-for beta in $betas
+for latent_dim in $latent_dims
 do
-    model_name="b-${beta}"
-    # Get saved model path
-    model_path=$(ls ${logdir}/vae_corrector_acdc/${model_name}/checkpoints/*.ckpt)
-    # Test: Save figures and metrics
-    python -m arch.vae_corrector.test --model_path $model_path --logs $logdir
+    for beta in $betas
+    do
+        model_name="b-${beta}-latent-${latent_dim}"
+        # Get saved model path
+        model_path=$(ls ${logdir}/vae_corrector_acdc/${model_name}/checkpoints/*.ckpt)
+        # Test: Save figures and metrics
+        python -m arch.vae_corrector.test --model_path $model_path --logs $logdir
+    done
 done

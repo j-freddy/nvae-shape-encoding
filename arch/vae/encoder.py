@@ -37,6 +37,7 @@ class Encoder(nn.Module):
             nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=1),
             nn.ELU(),
             nn.Flatten(),
+            # 384x8x8 = 24576
             nn.Linear(384*8*8, latent_dim * 2),
         )
     
