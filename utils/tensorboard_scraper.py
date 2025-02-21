@@ -49,7 +49,7 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "default"
+    log_subdir = "unet-only"
     metrics = [
         "loss/dsc",
         "loss/dsc_LV",
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # Configure log_dir
     df = get_tensorboard_data(
-        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.CNVAE, log_subdir),
+        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.NVAE_CORRECTOR, log_subdir),
         metrics=metrics,
     )
 
@@ -69,4 +69,4 @@ if __name__ == '__main__':
     print(df.head())
 
     # Save dataframe to a csv file (configure path)
-    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.CNVAE, f"{log_subdir}.csv"))
+    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.NVAE_CORRECTOR, f"{log_subdir}.csv"))
