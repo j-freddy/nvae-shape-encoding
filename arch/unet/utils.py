@@ -1,4 +1,5 @@
 from arch.unet.acunet import ACUNet
+from arch.unet.acunet_vae import ACVAEUNet
 from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
 from arch.unet.resunet import ResUNet
@@ -8,6 +9,7 @@ from arch.unet.unet import UNet
 ID_TO_MODEL = {
     "unet": UNet,
     "acunet": ACUNet,
+    "acunet_vae": ACVAEUNet,
     "swinunet": SwinUNet,
     "attentionunet": AttentionUNet,
     "densenet": DenseNet,

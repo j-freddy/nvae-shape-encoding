@@ -5,6 +5,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from arch.unet.acunet import ACUNet
+from arch.unet.acunet_vae import ACVAEUNet
 from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
 from arch.unet.resunet import ResUNet
@@ -175,6 +176,13 @@ def main(flags: argparse.Namespace):
             
             case "acunet":
                 model = ACUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                    alpha=flags.alpha,
+                )
+            
+            case "acunet_vae":
+                model = ACVAEUNet(
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                     alpha=flags.alpha,
