@@ -30,8 +30,7 @@ class ACVAEUNet(UNet):
         self.vae = VAE.load_from_checkpoint(vae_path)
         self.vae.freeze()
         
-        # TODO
-        self.shape_prior_factor = 1
+        self.shape_prior_factor = 5145
     
     def loss(
         self,
