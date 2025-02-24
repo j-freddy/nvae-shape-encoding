@@ -14,6 +14,7 @@ SEED = 1969
 # in ACU-Net.
 FRDS_MODEL_PATH = "logs/simclr_acdc/frds-resnet-18/checkpoints/epoch=143-step=1008.ckpt"
 NVAE_MODEL_PATH = "logs/nvae_acdc/default/checkpoints/epoch=97-step=20972.ckpt"
+VAE_MODEL_PATH = "logs/vae_acdc/beta-vae/checkpoints/epoch=47-step=5136.ckpt"
 
 CARDIAC_WIDTH = 128
 MASK_NUM_CLASSES = 4
@@ -37,7 +38,9 @@ class ACDC:
     class DIR:
         VAE = "vae_acdc"
         NVAE = "nvae_acdc"
+        VAESEG = "vae_seg_acdc"
         NVAESEG = "nvae_seg_acdc"
+        VAE_CORRECTOR = "vae_corrector_acdc"
         NVAE_CORRECTOR = "nvae_corrector_acdc"
         CNVAE = "cnvae_acdc"
         SIMCLR = "simclr_acdc"

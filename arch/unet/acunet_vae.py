@@ -1,21 +1,15 @@
 import torch
-from arch.nvae.nvae import NVAE
 from arch.unet.unet import UNet
-from utils.const import NVAE_MODEL_PATH
+from arch.vae.vae import VAE
+from utils.const import VAE_MODEL_PATH
 
 import torch.nn.functional as F
 
-class ACUNet(UNet):
+class ACVAEUNet(UNet):
     """
-    Anatomically constrained U-Net (ACU-Net) for segmentation.
+    ACU-Net baseline: Use VAE instead of NVAE
     
-    This class extends the U-Net architecture (see UNet docstring) with a shape
-    regularisation term that is computed with the learned latent space of a
-    pretrained NVAE model. The shape loss term enforces correctness of global
-    structure and complements the pixel-wise cross-entropy loss, improving
-    anatomical validity of output segmentations.
-    
-    In this class, x denotes the scans and y denotes the segmentation masks.
+    See ACUNet docstring for more information.
     """
     
     def __init__(
@@ -23,26 +17,20 @@ class ACUNet(UNet):
         in_channels: int=1,
         out_channels: int=4,
         loss_reg: str="shape_prior",
-        nvae_path: str=NVAE_MODEL_PATH,
+        vae_path: str=VAE_MODEL_PATH,
         alpha: float=1.0,
-        model_type: str="acunet",
+        model_type: str="acunet_vae",
     ):
         super().__init__(in_channels, out_channels, loss_reg)
         
         self.save_hyperparameters()
         
-        self.hparams.update({"model_type": "acunet"})
+        self.hparams.update({"model_type": "acunet_vae"})
         
-        self.nvae = NVAE.load_from_checkpoint(nvae_path)
-        self.nvae.freeze()
+        self.vae = VAE.load_from_checkpoint(vae_path)
+        self.vae.freeze()
         
-        # We train 2 models
-        # 1. Baseline U-Net with cross-entropy loss
-        # 2. ACUNet with shape prior loss term only (alpha=0)
-        # The shape prior factor constant is how much larger the cross-entropy
-        # loss is compared to the L2 shape prior loss, averaged over the
-        # entirety of training time
-        self.shape_prior_factor = 126717
+        self.shape_prior_factor = 5145
     
     def loss(
         self,
@@ -54,8 +42,8 @@ class ACUNet(UNet):
         
         l2_losses = []
         
-        zs = self.nvae.get_latent(y)
-        zs_hat = self.nvae.get_latent(F.softmax(y_hat_logits, dim=1))
+        zs = self.vae.get_latent(y)
+        zs_hat = self.vae.get_latent(F.softmax(y_hat_logits, dim=1))
 
         for z, z_hat in zip(zs, zs_hat):
             assert z.shape == z_hat.shape

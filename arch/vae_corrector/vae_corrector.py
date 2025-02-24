@@ -18,14 +18,7 @@ class VAECorrector(L.LightningModule):
     This is the VAE version of NVAECorrector. Also see NVAECorrector docstring.
     """
 
-    def __init__(
-        self,
-        in_channels: int=1,
-        latent_dim: int=2,
-        loss_reg: str="beta_vae",
-        beta: float=1.0,
-        gamma: float=1.0,
-    ):
+    def __init__(self, in_channels: int=1, latent_dim: int=2, beta: float=1.0):
         super().__init__()
         
         self.save_hyperparameters()
@@ -35,7 +28,6 @@ class VAECorrector(L.LightningModule):
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
-        self.scans_buffer: list[torch.Tensor] = []
         self.x_buffer: list[torch.Tensor] = []
         self.x_fake_logits_buffer: list[torch.Tensor] = []
 
@@ -147,8 +139,8 @@ class VAECorrector(L.LightningModule):
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits
     
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        x_gt, x_pred = batch
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        x_gt, x_pred, _, _ = batch
         
         # Reconstruct predicted mask
         mu, logvar, z, x_hat_logits = self(x_pred)
@@ -164,8 +156,8 @@ class VAECorrector(L.LightningModule):
 
         return loss
     
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor]):
-        x_gt, x_pred = batch
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        x_gt, x_pred, _, _ = batch
         
         # Reconstruct predicted mask
         mu, logvar, z, x_hat_logits = self(x_pred)

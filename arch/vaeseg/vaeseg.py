@@ -11,41 +11,32 @@ from utils.anatomical_validity_checker import AnatomicalValidityChecker
 from utils.eval import compute_dice_score, compute_frds, get_samples_and_reconstructions_pixel_diff
 from utils.utils import discretise, show_samples
 
-class VAE(L.LightningModule):
+class VAESeg(L.LightningModule):
     """
-    Single-layer variational autoencoder (VAE) for the ACDC dataset. Encoder and
-    decoder architecture is adapted from the architecture proposed by [1]. This
-    class implements the beta-VAE regulariser term proposed by [2]. Standard
-    Gaussian prior is assumed.
+    Adapted from VAE. See VAE docstring.
     
-    [1]: Painchaud N, Skandarani Y, Judge T, Bernard O, Lalande A, Jodoin PM.
-    Cardiac segmentation with strong anatomical guarantees. IEEE transactions on
-    medical imaging. 2020 Jun 17;39(11):3703-13.
-    
-    [2]: Higgins I, Matthey L, Pal A, Burgess CP, Glorot X, Botvinick MM,
-    Mohamed S, Lerchner A. beta-vae: Learning basic visual concepts with a
-    constrained variational framework. ICLR (Poster). 2017 Apr 24;3.
+    This is the VAE version of NVAESeg. Also see NVAESeg docstring.
     """
 
     def __init__(
         self,
-        in_channels: int=4,
+        in_channels: int=1,
+        out_channels: int=4,
         latent_dim: int=2,
-        loss_reg: str="beta_vae",
         beta: float=1.0,
-        gamma: float=1.0,
     ):
         super().__init__()
         
         self.save_hyperparameters()
         
         self.encoder = Encoder(self.hparams.in_channels, self.hparams.latent_dim)
-        self.decoder = Decoder(self.hparams.in_channels, self.hparams.latent_dim)
+        self.decoder = Decoder(self.hparams.out_channels, self.hparams.latent_dim)
         
         # To keep track of test set and generated samples during test time, to
         # compute FRDS
         self.x_buffer: list[torch.Tensor] = []
-        self.x_fake_logits_buffer: list[torch.Tensor] = []
+        self.y_buffer: list[torch.Tensor] = []
+        self.y_fake_logits_buffer: list[torch.Tensor] = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -155,11 +146,13 @@ class VAE(L.LightningModule):
         x_hat_logits = self.decoder(z)
         return mu, logvar, z, x_hat_logits
     
-    def training_step(self, x: torch.Tensor) -> torch.Tensor:
-        mu, logvar, z, x_hat_logits = self(x)
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        x, y, _, _ = batch
+
+        mu, logvar, z, y_hat_logits = self(x)
         
         # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat_logits)
+        loss = self.loss(y, mu, logvar, z, y_hat_logits)
         self.log("loss/train", loss)
         
         print(f"Train loss: {loss}")
@@ -169,11 +162,13 @@ class VAE(L.LightningModule):
 
         return loss
     
-    def validation_step(self, x: torch.Tensor):
-        mu, logvar, z, x_hat_logits = self(x)
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]):
+        x, y, _, _ = batch
+
+        mu, logvar, z, y_hat_logits = self(x)
         
-        # Compute loss
-        loss = self.loss(x, mu, logvar, z, x_hat_logits, log_components=False)
+        # Compute loss using ground truth mask
+        loss = self.loss(y, mu, logvar, z, y_hat_logits, log_components=False)
         self.log("loss/val", loss)
         
         print(f"Val loss: {loss}")
@@ -183,7 +178,7 @@ class VAE(L.LightningModule):
         Testing uses ACDC3DDataModule instead of ACDCDataModule to compute 3D
         Dice scores.
         """
-        _, x, condition, ed = batch
+        x, y, condition, ed = batch
         
         condition_label = f"condition_{int(condition)}"
         phase_label = "ed" if ed else "es"
@@ -191,13 +186,15 @@ class VAE(L.LightningModule):
         # 3D data module ensures 1 batch only, but each data point is 4D of
         # shape (S, C, W, H) where S is the number of slices.
         x = x.squeeze(0)
+        y = y.squeeze(0)
         
-        self.log_reconstruction_metrics(x, condition_label, phase_label)
-        self.log_generation_metrics(x)
-        
+        self.log_reconstruction_metrics(x, y, condition_label, phase_label)
+        self.log_generation_metrics(y)
+
         self.x_buffer.append(x)
+        self.y_buffer.append(y)
     
-    def log_reconstruction_metrics(self, x: torch.Tensor, condition: str, phase: str):
+    def log_reconstruction_metrics(self, x: torch.Tensor, y: torch.Tensor, condition: str, phase: str):
         """
         Log reconstruction metrics to TensorBoard. This includes average
         reconstruction loss and Dice score across the batch.
@@ -205,21 +202,21 @@ class VAE(L.LightningModule):
         Args:
             x (torch.Tensor): One-hot encoded input segmentations.
         """
-        num_samples, _, _, _ = x.shape
+        num_samples, _, _, _ = y.shape
         
-        _, _, _, x_hat_logits = self(x, test=True)
+        _, _, _, y_hat_logits = self(x, test=True)
         
         # Compute reconstruction loss
-        recon_loss = self.reconstruction_loss(x, x_hat_logits)
+        recon_loss = self.reconstruction_loss(y, y_hat_logits)
         self.log("loss/test_recon", recon_loss)
         
         # Compute Dice score
-        x_hat = torch.softmax(x_hat_logits, dim=1)
-        x_hat_onehot = discretise(x_hat)
+        y_hat = torch.softmax(y_hat_logits, dim=1)
+        y_hat_onehot = discretise(y_hat)
         
         dice_score, dice_score_per_class = compute_dice_score(
-            x,
-            x_hat_onehot,
+            y,
+            y_hat_onehot,
             self.device,
             is_3d=True,
             dice_per_class=True,
@@ -239,7 +236,7 @@ class VAE(L.LightningModule):
         # Compute anatomical validity
         num_valid = 0
         
-        for discretised_feat_fake in discretise(x_hat_logits):
+        for discretised_feat_fake in discretise(y_hat_logits):
             AV = AnatomicalValidityChecker(discretised_feat_fake)
             if AV.count_violations() == 0:
                 num_valid += 1
@@ -247,6 +244,7 @@ class VAE(L.LightningModule):
         self.log("gen/anatomically_valid_recon", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
+        
     
     def log_generation_metrics(self, x: torch.Tensor):
         """
@@ -275,7 +273,7 @@ class VAE(L.LightningModule):
         self.log("gen/anatomically_valid", num_valid / num_samples)
         
         # Keep track of all generations to compute FRDS
-        self.x_fake_logits_buffer.append(x_fake_logits)
+        self.y_fake_logits_buffer.append(x_fake_logits)
     
     def log_reconstruction_visualisation(self, x: torch.Tensor):
         num_data = x.shape[0]
@@ -293,21 +291,22 @@ class VAE(L.LightningModule):
         self.logger.experiment.add_figure("img/generations", plt.gcf())
     
     def on_test_end(self):
-        x = torch.cat(self.x_buffer, dim=0)
-        x_fake_logits = torch.cat(self.x_fake_logits_buffer, dim=0)
+        pass
+        # x = torch.cat(self.x_buffer, dim=0)
+        # x_fake_logits = torch.cat(self.x_fake_logits_buffer, dim=0)
         
-        frds_value = compute_frds(
-            x,
-            discretise(x_fake_logits),
-            resnet_path=FRDS_MODEL_PATH,
-            device=self.device,
-        )
+        # frds_value = compute_frds(
+        #     x,
+        #     discretise(x_fake_logits),
+        #     resnet_path=FRDS_MODEL_PATH,
+        #     device=self.device,
+        # )
 
-        print(f"FRDS: {frds_value}")
-        self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
+        # print(f"FRDS: {frds_value}")
+        # self.logger.experiment.add_scalar("gen/frds", frds_value, 0)
         
-        # Visualise samples and reconstructions
-        self.log_reconstruction_visualisation(x)
+        # # Visualise samples and reconstructions
+        # self.log_reconstruction_visualisation(x)
         
-        # View generations
-        self.log_generation_visualisation(x_fake_logits)
+        # # View generations
+        # self.log_generation_visualisation(x_fake_logits)

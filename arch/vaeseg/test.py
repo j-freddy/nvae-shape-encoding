@@ -2,9 +2,9 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.vae_corrector.vae_corrector import VAECorrector
+from arch.vaeseg.vaeseg import VAESeg
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDC3DWithPredictedMaskDataModule
+from data_modules.acdc import ACDC3DDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -35,13 +35,13 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDC3DWithPredictedMaskDataModule()
+    data_module = ACDC3DDataModule()
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
     
     # Load model
-    model = VAECorrector.load_from_checkpoint(flags.model_path)
+    model = VAESeg.load_from_checkpoint(flags.model_path)
 
     # noqa
     model_name = flags.model_path.split("/")[2]
@@ -51,7 +51,7 @@ def main(flags: argparse.Namespace):
         devices="auto",
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.VAE_CORRECTOR,
+            name=ACDC.DIR.VAESEG,
             version=model_name,
             default_hp_metric=False,
         ),

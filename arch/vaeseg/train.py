@@ -4,9 +4,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.vae_corrector.vae_corrector import VAECorrector
+from arch.vaeseg.vaeseg import VAESeg
 from utils.const import ACDC, LOGS_PATH, SEED
-from data_modules.acdc import ACDCWithPredictedMaskDataModule
+from data_modules.acdc import ACDCDataModule
 from utils.utils import setup_device
 
 def parse_args() -> argparse.Namespace:
@@ -41,6 +41,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--augment",
+        action=argparse.BooleanOptionalAction,
+        help="If set, augment training data with random flips.",
+        default=False,
+    )
+    
+    parser.add_argument(
         "--model_name",
         type=str,
         help="Directory name of saved model checkpoints and metadata.",
@@ -58,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 def main(flags: argparse.Namespace):
     if flags.model_name:
         # Check if model name already exists
-        model_dir = os.path.join(flags.logs, ACDC.DIR.VAE_CORRECTOR, flags.model_name)
+        model_dir = os.path.join(flags.logs, ACDC.DIR.VAESEG, flags.model_name)
         
         if os.path.exists(model_dir):
             raise FileExistsError(f"Model {flags.model_name} already exists.")
@@ -71,15 +78,20 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCWithPredictedMaskDataModule(batch_size=16)
+    data_module = ACDCDataModule(
+        batch_size=16,
+        filter_empty=flags.filter_empty,
+        augment=flags.augment,
+    )
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
 
     # Train
 
-    model = VAECorrector(
-        in_channels=data_module.data_train.num_classes,
+    model = VAESeg(
+        in_channels=data_module.data_test.num_channels,
+        out_channels=data_module.data_test.num_classes,
         latent_dim=flags.latent_dim,
         beta=flags.beta,
     )
@@ -90,7 +102,7 @@ def main(flags: argparse.Namespace):
         max_epochs=flags.epochs,
         logger=TensorBoardLogger(
             save_dir=flags.logs,
-            name=ACDC.DIR.VAE_CORRECTOR,
+            name=ACDC.DIR.VAESEG,
             version=flags.model_name if flags.model_name else None,
             default_hp_metric=False,
         ),

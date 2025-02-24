@@ -2,7 +2,6 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from arch.nvae.nvae import NVAE
 from arch.nvae_corrector.nvae_corrector import NVAECorrector
 from utils.const import ACDC, LOGS_PATH, SEED
 from data_modules.acdc import ACDC3DWithPredictedMaskDataModule
