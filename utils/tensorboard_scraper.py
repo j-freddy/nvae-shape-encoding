@@ -49,24 +49,24 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "unet-only"
+    log_subdir = "shape-prior-vae-tune"
     metrics = [
-        "loss/dsc",
-        "loss/dsc_LV",
-        "loss/dsc_RV",
-        "loss/dsc_MYO",
-        "gen/anatomically_valid_recon",
+        "dsc/test",
+        "dsc/test_LV",
+        "dsc/test_RV",
+        "dsc/test_MYO",
+        "gen/anatomically_valid",
     ]
 
     # Configure log_dir
     df = get_tensorboard_data(
-        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.NVAE_CORRECTOR, log_subdir),
+        log_dir=os.path.join(LOGS_PATH, ACDC.DIR.UNET, log_subdir),
         metrics=metrics,
     )
 
-    df.sort_values(by="loss/dsc", inplace=True, ascending=False)
+    df.sort_values(by="dsc/test", inplace=True, ascending=False)
 
     print(df.head())
 
     # Save dataframe to a csv file (configure path)
-    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.NVAE_CORRECTOR, f"{log_subdir}.csv"))
+    df.to_csv(os.path.join(LOGS_PATH, ACDC.DIR.UNET, f"{log_subdir}.csv"))
