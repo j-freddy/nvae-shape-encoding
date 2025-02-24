@@ -31,7 +31,7 @@ class ACUNet(UNet):
         
         self.save_hyperparameters()
         
-        self.hparams.update({"model_type": "unet"})
+        self.hparams.update({"model_type": "acunet"})
         
         self.nvae = NVAE.load_from_checkpoint(nvae_path)
         self.nvae.freeze()
