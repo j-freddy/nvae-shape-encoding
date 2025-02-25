@@ -49,7 +49,7 @@ if __name__ == '__main__':
     # Customisable: Configure the folder and metrics to scrape
     
     # Configure subdirectory
-    log_subdir = "shape-prior-vae-tune"
+    log_subdir = "shape-prior-vae-baselines"
     metrics = [
         "dsc/test",
         "dsc/test_LV",
