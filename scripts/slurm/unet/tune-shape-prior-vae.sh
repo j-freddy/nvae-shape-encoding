@@ -15,7 +15,7 @@ source activate
 
 alphas=("0 0.001 0.01 0.1 0.5 1 2 3 4 5 10 50 100 500 1000")
 
-logdir="logs-unet-shape-prior-vae"
+logdir="logs-unet-shape-prior-vae-2"
 
 # Train
 
