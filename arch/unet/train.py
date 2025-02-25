@@ -9,7 +9,7 @@ from arch.unet.acunet_vae import ACVAEUNet
 from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
 from arch.unet.resunet import ResUNet
-from arch.unet.swinunet import SwinUNet
+from arch.unet.swinunet import SwinUNetR
 from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
 from data_modules.mnms import MnMsDataModule
@@ -189,7 +189,7 @@ def main(flags: argparse.Namespace):
                 )
             
             case "swinunet":
-                model = SwinUNet(
+                model = SwinUNetR(
                     img_size=(CARDIAC_WIDTH, CARDIAC_WIDTH),
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
