@@ -661,7 +661,7 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
         eds_buffer = []
         
         for model_type in MODEL_TYPES:
-            if self.unet_only and model_type != "unet":
+            if self.unet_only and model_type != "highresnet":
                 continue
             
             path = ACDC.get_data_path_with_prediction(model_type, "test")
