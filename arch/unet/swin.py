@@ -20,7 +20,7 @@ class SwinUNet(SegmentationBase):
             optim_name,
             lr,
             weight_decay,
-            model_type="swinunet",
+            model_type="swin",
         )
 
         self.hparams.update({"img_size": img_size})
@@ -33,10 +33,7 @@ class SwinUNet(SegmentationBase):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # We must rescale from img_size to 224, then rescale back to img_size
-        
-        # Rescale to 224
-        x = torch.nn.functional.interpolate(x, size=224)
+        x = torch.nn.functional.interpolate(x, size=224, mode="bilinear")
         y_hat = self.model(x)
-        y_hat = torch.nn.functional.interpolate(y_hat, size=self.hparams.img_size)
-        
+        y_hat = torch.nn.functional.interpolate(y_hat, size=self.hparams.img_size, mode="bilinear")
         return y_hat

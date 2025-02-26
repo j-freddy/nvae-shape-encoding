@@ -29,7 +29,7 @@ model_types=("swin")
 for model_type in $model_types
 do
     python -m arch.unet.train \
-        --epochs 100 \
+        --epochs 500 \
         --model_type $model_type \
         --augment \
         --model_name $model_type \
