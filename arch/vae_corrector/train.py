@@ -47,6 +47,13 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
+        "--extended",
+        action=argparse.BooleanOptionalAction,
+        help="If set, use extended predictions from 4 segmentation models.",
+        default=False,
+    )
+    
+    parser.add_argument(
         "--logs",
         type=str,
         help="Root save directory for logs.",
@@ -71,7 +78,7 @@ def main(flags: argparse.Namespace):
     L.seed_everything(SEED)
     
     # Load data
-    data_module = ACDCWithPredictedMaskDataModule(batch_size=16)
+    data_module = ACDCWithPredictedMaskDataModule(batch_size=16, unet_only=not flags.extended)
     
     # Reseed after preprocessing data
     L.seed_everything(SEED)
