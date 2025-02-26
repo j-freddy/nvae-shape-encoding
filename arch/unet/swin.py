@@ -1,10 +1,9 @@
-# This file is SwinUNetR. For SwinUNet, see swin.py
-
 from monai.networks.nets.swin_unetr import SwinUNETR as SwinUNetRModel
 
 from arch.unet.segmentation_base import SegmentationBase
+from arch.unet.swin_network.swin_transformer_unet_skip_expand_decoder_sys import SwinTransformerSys
 
-class SwinUNetR(SegmentationBase):
+class SwinUNet(SegmentationBase):
     def __init__(
         self, 
         img_size: tuple=(128,128),
@@ -25,9 +24,8 @@ class SwinUNetR(SegmentationBase):
 
         self.hparams.update({"img_size": img_size})
 
-        self.model = SwinUNetRModel(
+        self.model = SwinTransformerSys(
             img_size=self.hparams.img_size,
-            in_channels=self.hparams.in_channels,
-            out_channels=self.hparams.out_channels,
-            spatial_dims=2,
+            in_chans=self.hparams.in_channels,
+            num_classes=self.hparams.out_channels,
         )
