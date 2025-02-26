@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import make_grid
 
-from utils.colourmap import GIRIDIS
+from utils.colourmap import GRGB
 from utils.const import MASK_NUM_CLASSES, SEED, MaskClassLabel
 
 def setup_device() -> torch.device:
@@ -88,7 +88,7 @@ def show_samples(
     
     plt.figure(figsize=figsize)
     plt.axis("off")
-    plt.imshow(images, cmap=GIRIDIS)
+    plt.imshow(images, cmap=GRGB)
     if overlay_mask is not None:
         plt.imshow(overlay_rgba)
     plt.tight_layout()
@@ -131,7 +131,7 @@ def show_scans(
         alpha_channel = np.ones(masks.shape, dtype=float)
         alpha_channel[masks == 0] = 0
         alpha_channel[masks != 0] = 0.64
-        plt.imshow(masks, alpha=alpha_channel, cmap=GIRIDIS)
+        plt.imshow(masks, alpha=alpha_channel, cmap=GRGB)
 
     plt.tight_layout()
     

@@ -18,5 +18,13 @@ def get_gred():
     colours = ["#212529", "#ff6b6b"]
     return colors.ListedColormap(colours)
 
+def get_grgb():
+    """
+    Red, green, blue with grey background
+    """
+    colours = ["#212529", "#ff0000", "#00ff00", "#0000ff"]
+    return colors.ListedColormap(colours)
+
 GIRIDIS = get_giridis()
 GREDS = get_gred()
+GRGB = get_grgb()
