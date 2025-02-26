@@ -8,6 +8,7 @@ from arch.unet.acunet import ACUNet
 from arch.unet.acunet_vae import ACVAEUNet
 from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
+from arch.unet.high_resnet import HighResnet
 from arch.unet.resunet import ResUNet
 from arch.unet.swinunet import SwinUNetR
 from arch.unet.unet import UNet
@@ -209,6 +210,12 @@ def main(flags: argparse.Namespace):
             
             case "resunet":
                 model = ResUNet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+                
+            case "highresnet":
+                model = HighResnet(
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                 )
