@@ -4,6 +4,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 
 from arch.unet.acunet_vae import ACVAEUNet
+from arch.unet.high_resnet import HighResnet
 from arch.unet.segmentation_base import SegmentationBase
 from arch.unet.utils import ID_TO_MODEL
 from data_modules.mnms import MnMs3DDataModule
@@ -74,7 +75,7 @@ def main(flags: argparse.Namespace):
     
     # Load model
     checkpoint = torch.load(flags.model_path, map_location=device)
-    Model: L.LightningModule = ACVAEUNet
+    Model: L.LightningModule = ID_TO_MODEL[checkpoint["hyper_parameters"]["model_type"]]
     del checkpoint
     
     model: SegmentationBase = Model.load_from_checkpoint(flags.model_path)
