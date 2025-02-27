@@ -220,7 +220,7 @@ def main(flags: argparse.Namespace):
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                 )
-                
+
             case "swin":
                 model = SwinUNet(
                     img_size=CARDIAC_WIDTH,
