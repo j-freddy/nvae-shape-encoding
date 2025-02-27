@@ -10,6 +10,7 @@ from arch.unet.attentionunet import AttentionUNet
 from arch.unet.densenet import DenseNet
 from arch.unet.high_resnet import HighResnet
 from arch.unet.resunet import ResUNet
+from arch.unet.swin import SwinUNet
 from arch.unet.swinunet import SwinUNetR
 from arch.unet.unet import UNet
 from arch.unet.utils import ID_TO_MODEL
@@ -216,6 +217,13 @@ def main(flags: argparse.Namespace):
                 
             case "highresnet":
                 model = HighResnet(
+                    in_channels=data_module.data_test.num_channels,
+                    out_channels=data_module.data_test.num_classes,
+                )
+
+            case "swin":
+                model = SwinUNet(
+                    img_size=CARDIAC_WIDTH,
                     in_channels=data_module.data_test.num_channels,
                     out_channels=data_module.data_test.num_classes,
                 )

@@ -1,3 +1,5 @@
+# This file is SwinUNetR. For SwinUNet, see swin.py
+
 from monai.networks.nets.swin_unetr import SwinUNETR as SwinUNetRModel
 
 from arch.unet.segmentation_base import SegmentationBase
