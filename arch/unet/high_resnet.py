@@ -4,13 +4,13 @@ from arch.unet.segmentation_base import SegmentationBase
 
 DEFAULT_LAYER_PARAMS_2D = (
     # initial conv layer
-    {"name": "conv_0", "n_features": 64, "kernel_size": 3},
+    {"name": "conv_0", "n_features": 32, "kernel_size": 3},
     # residual blocks
-    {"name": "res_1", "n_features": 64, "kernels": (3, 3), "repeat": 3},
-    {"name": "res_2", "n_features": 128, "kernels": (3, 3), "repeat": 3},
-    {"name": "res_3", "n_features": 256, "kernels": (3, 3), "repeat": 3},
+    {"name": "res_1", "n_features": 32, "kernels": (3, 3), "repeat": 3},
+    {"name": "res_2", "n_features": 64, "kernels": (3, 3), "repeat": 3},
+    {"name": "res_3", "n_features": 128, "kernels": (3, 3), "repeat": 3},
     # final conv layers
-    {"name": "conv_1", "n_features": 512, "kernel_size": 1},
+    {"name": "conv_1", "n_features": 256, "kernel_size": 1},
     {"name": "conv_2", "kernel_size": 1},
 )
 
