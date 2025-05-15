@@ -1,0 +1,2 @@
+model_name,loss/dsc,loss/dsc_LV,loss/dsc_RV,loss/dsc_MYO,gen/anatomically_valid_recon
+best,0.906074583530426,0.9355168342590332,0.9028300642967224,0.8798763751983643,0.9915518760681152

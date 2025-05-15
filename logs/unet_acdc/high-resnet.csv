@@ -1,0 +1,2 @@
+model_name,dsc/test,dsc/test_LV,dsc/test_RV,dsc/test_MYO,gen/anatomically_valid
+high-resnet,0.9026579260826111,0.9285389184951782,0.8915130496025085,0.8879221081733704,0.2759755253791809
