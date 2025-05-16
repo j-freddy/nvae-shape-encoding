@@ -1,5 +1,6 @@
 import lightning as L
 from matplotlib import pyplot as plt
+import pandas as pd
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -30,6 +31,10 @@ class VAECorrector(L.LightningModule):
         # compute FRDS
         self.x_buffer: list[torch.Tensor] = []
         self.x_fake_logits_buffer: list[torch.Tensor] = []
+
+    def setup(self, stage: str):
+        self.test_dsc = []
+        self.test_av = []
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=6e-5, weight_decay=1e-2)
@@ -240,6 +245,9 @@ class VAECorrector(L.LightningModule):
         self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
         
+        self.test_dsc.append(dice_score.item())
+        self.test_av.append(num_valid / num_samples)
+        
     
     def log_generation_metrics(self, x: torch.Tensor):
         """
@@ -286,7 +294,15 @@ class VAECorrector(L.LightningModule):
         self.logger.experiment.add_figure("img/generations", plt.gcf())
     
     def on_test_end(self):
-        pass
+        # Save individual dice and anatomical validity scores
+        df = pd.DataFrame({
+            "dice_score": self.test_dsc,
+            "anatomical_validity": self.test_av,
+        })
+        
+        df.to_csv("logs-zenodo/test.csv", index=False)
+        print(f"Saved test.csv to {self.logger.log_dir}")
+        
         # x = torch.cat(self.x_buffer, dim=0)
         # x_fake_logits = torch.cat(self.x_fake_logits_buffer, dim=0)
         
