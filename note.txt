@@ -1,5 +1,21 @@
-Scripts for computing independent DSC values:
+Scripts for computing independent DSC values.
+
+The .csv files are saved in the correct location, and all the unnecessary files get routed to logs-to-delete.
 
 > ATTENTION UNET
 
 python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/attentionunet/checkpoints/epoch=30-step=1674.ckpt' --logs 'logs-to-delete'
+
+> RESUNET
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/resunet/checkpoints/epoch=24-step=1350.ckpt' --logs 'logs-to-delete'
+
+> SWINUNET
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/swinunet/checkpoints/epoch=40-step=2214.ckpt' --logs 'logs-to-delete'
+
+> UNET
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/unet/checkpoints/epoch=33-step=1836.ckpt' --logs 'logs-to-delete'
+
+python -m arch.cnvae.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cnvae-seg/checkpoints/epoch=83-step=17976.ckpt' --logs 'logs-to-delete'

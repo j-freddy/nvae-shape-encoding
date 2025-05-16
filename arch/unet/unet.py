@@ -1,5 +1,6 @@
 import lightning as L
 from matplotlib import pyplot as plt
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -98,6 +99,10 @@ class UNet(L.LightningModule):
         # To keep track of test set during test time, to later generate figures
         self.y_buffer: list[torch.Tensor] = []
         self.y_hat_logits_buffer: list[torch.Tensor] = []
+    
+    def setup(self, stage: str):
+        self.test_dsc = []
+        self.test_av = []
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=0)
@@ -240,6 +245,9 @@ class UNet(L.LightningModule):
         
         self.y_buffer.append(y)
         self.y_hat_logits_buffer.append(y_hat_logits)
+        
+        self.test_dsc.append(dice_score.item())
+        self.test_av.append(num_valid / num_samples)
     
     def log_reconstruction_visualisation(
         self,
@@ -261,6 +269,15 @@ class UNet(L.LightningModule):
         
         # Visualise samples and reconstructions
         self.log_reconstruction_visualisation(y, y_hat_logits)
+        
+        # Save individual dice and anatomical validity scores
+        df = pd.DataFrame({
+            "dice_score": self.test_dsc,
+            "anatomical_validity": self.test_av,
+        })
+        
+        df.to_csv("logs-zenodo/test.csv", index=False)
+        print(f"Saved test.csv to {self.logger.log_dir}")
 
     def save_segmentations(
         self,
