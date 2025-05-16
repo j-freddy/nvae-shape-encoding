@@ -1,0 +1,5 @@
+Scripts for computing independent DSC values:
+
+> ATTENTION UNET
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/attentionunet/checkpoints/epoch=30-step=1674.ckpt' --logs 'logs-to-delete'

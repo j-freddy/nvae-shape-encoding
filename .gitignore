@@ -1,6 +1,6 @@
 __pycache__/
 /data/
-logs/*/*
+logs*/*/*
 logs-deprecated/
 out/
 venv/
@@ -11,4 +11,4 @@ sandbox.sh
 todo.md
 
 # Keep track of csv logs
-!logs/*/*.csv
+!logs*/*/*.csv
