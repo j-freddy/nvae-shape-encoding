@@ -24,12 +24,20 @@ python -m arch.cnvae.test --model_path '/Users/freddy/Unshared/nvae-shape-encodi
 
 > CNVAE Edit
 
-python -m arch.nvae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cnvae-edit/checkpoints/epoch=20-step=17976.ckpt' --logs 'logs-to-delete'
+python -m arch.nvae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cnvae-edit/checkpoints/epoch=20-step=17976.ckpt' --logs 'logs-to-delete' --extended
 
 > CVAE Edit
 
-python -m arch.vae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cvae-edit/checkpoints/epoch=11-step=5136.ckpt' --logs 'logs-to-delete'
+python -m arch.vae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cvae-edit/checkpoints/epoch=11-step=5136.ckpt' --logs 'logs-to-delete' --extended
 
 > HIGH RESNET
 
 python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/high-resnet/checkpoints/epoch=97-step=5292.ckpt' --logs 'logs-to-delete'
+
+> CNVAE Edit OOD
+
+Same but uncomment # High Resnet only and comment # Extended
+
+> CVAE Edit OOD
+
+Same but uncomment # High Resnet only and comment # Extended

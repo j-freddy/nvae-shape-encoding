@@ -664,11 +664,25 @@ class ACDC3DWithPredictedMaskDataModule(LightningDataModule):
             if self.unet_only and model_type != "unet":
                 continue
             
+            # # Extended
+            # if not self.unet_only and model_type not in ["unet", "swinunet", "attentionunet", "resunet"]:
+            #     continue
+            
+            # Extended: Choose your model type
+            if not self.unet_only and model_type != "resunet":
+                continue
+            
+            # High Resnet only
+            # if not self.unet_only and model_type != "highresnet":
+            #     continue
+            
             path = ACDC.get_data_path_with_prediction(model_type, "test")
             
             if not os.path.exists(path):
                 print(f"Preprocessed test data with predicted segmentation for {model_type} not found. Skipping...")
                 continue
+            
+            print(f"Loading {path}...")
             
             data_train: tuple[
                 list[torch.Tensor],
