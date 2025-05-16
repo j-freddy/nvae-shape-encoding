@@ -2,6 +2,7 @@ from collections import defaultdict
 import lightning as L
 import math
 from matplotlib import pyplot as plt
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -167,6 +168,10 @@ class NVAECorrector(L.LightningModule):
         # compute FRDS
         self.feats_buffer: list[torch.Tensor] = []
         self.feats_fake_buffer: list[torch.Tensor] = []
+    
+    def setup(self, stage: str):
+        self.test_dsc = []
+        self.test_av = []
     
     def _get_conv_layers(self) -> list[nn.Conv2d]:
         conv_layers = []
@@ -668,6 +673,9 @@ class NVAECorrector(L.LightningModule):
         self.log("gen/anatomically_valid_recon", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
+        
+        self.test_dsc.append(dice_score.item())
+        self.test_av.append(num_valid / num_samples)
 
     def log_generation_metrics(self, feats: torch.Tensor):
         """
@@ -717,3 +725,13 @@ class NVAECorrector(L.LightningModule):
         
         # View generations
         self.log_generation_visualisation(feats_fake)
+        
+        # Save individual dice and anatomical validity scores
+        df = pd.DataFrame({
+            "dice_score": self.test_dsc,
+            "anatomical_validity": self.test_av,
+        })
+        
+        df.to_csv("logs-zenodo/test.csv", index=False)
+        print(f"Saved test.csv to {self.logger.log_dir}")
+

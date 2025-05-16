@@ -1,6 +1,7 @@
 import lightning as L
 import math
 from matplotlib import pyplot as plt
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -177,6 +178,10 @@ class CNVAE(L.LightningModule):
         # compute FRDS
         self.scans_buffer: list[torch.Tensor] = []
         self.feats_buffer: list[torch.Tensor] = []
+    
+    def setup(self, stage: str):
+        self.test_dsc = []
+        self.test_av = []
     
     def get_image_stem(self):
         return self.bottom_up["image"]["stem"]
@@ -663,6 +668,9 @@ class CNVAE(L.LightningModule):
         self.log("gen/anatomically_valid_recon", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{phase}", num_valid / num_samples)
         self.log(f"gen/anatomically_valid_recon_{condition}", num_valid / num_samples)
+        
+        self.test_dsc.append(dice_score.item())
+        self.test_av.append(num_valid / num_samples)
 
     def log_reconstruction_visualisation(self, scans: torch.Tensor, feats: torch.Tensor):
         num_data = feats.shape[0]
@@ -685,3 +693,12 @@ class CNVAE(L.LightningModule):
         
         # Visualise samples and reconstructions
         self.log_reconstruction_visualisation(scans, feats)
+        
+        # Save individual dice and anatomical validity scores
+        df = pd.DataFrame({
+            "dice_score": self.test_dsc,
+            "anatomical_validity": self.test_av,
+        })
+        
+        df.to_csv("logs-zenodo/test.csv", index=False)
+        print(f"Saved test.csv to {self.logger.log_dir}")

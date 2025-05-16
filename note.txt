@@ -18,4 +18,18 @@ python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encodin
 
 python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/segmentation-baselines/unet/checkpoints/epoch=33-step=1836.ckpt' --logs 'logs-to-delete'
 
+> CNVAE Seg
+
 python -m arch.cnvae.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cnvae-seg/checkpoints/epoch=83-step=17976.ckpt' --logs 'logs-to-delete'
+
+> CNVAE Edit
+
+python -m arch.nvae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cnvae-edit/checkpoints/epoch=20-step=17976.ckpt' --logs 'logs-to-delete'
+
+> CVAE Edit
+
+python -m arch.vae_corrector.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/cvae-edit/checkpoints/epoch=11-step=5136.ckpt' --logs 'logs-to-delete'
+
+> HIGH RESNET
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/high-resnet/checkpoints/epoch=97-step=5292.ckpt' --logs 'logs-to-delete'
