@@ -41,3 +41,27 @@ Same but uncomment # High Resnet only and comment # Extended
 > CVAE Edit OOD
 
 Same but uncomment # High Resnet only and comment # Extended
+
+> ACUNET NVAE
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-nvae/shape-prior-seed-1970/checkpoints/epoch=74-step=4050.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-nvae/shape-prior-seed-1971/checkpoints/epoch=60-step=3294.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-nvae/shape-prior-seed-1972/checkpoints/epoch=67-step=3672.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-nvae/shape-prior-seed-1973/checkpoints/epoch=82-step=4482.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-nvae/shape-prior-seed-1974/checkpoints/epoch=47-step=2592.ckpt' --logs 'logs-to-delete'
+
+> ACUNET VAE
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-vae/shape-prior-vae-seed-1970/checkpoints/epoch=92-step=5022.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-vae/shape-prior-vae-seed-1971/checkpoints/epoch=39-step=2160.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-vae/shape-prior-vae-seed-1972/checkpoints/epoch=79-step=4320.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-vae/shape-prior-vae-seed-1973/checkpoints/epoch=88-step=4806.ckpt' --logs 'logs-to-delete'
+
+python -m arch.unet.test --model_path '/Users/freddy/Unshared/nvae-shape-encoding/logs-zenodo/acunet-vae/shape-prior-vae-seed-1974/checkpoints/epoch=64-step=3510.ckpt' --logs 'logs-to-delete'
